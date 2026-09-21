@@ -7,6 +7,7 @@ import java.io.EOFException
 import java.io.FileInputStream
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
@@ -37,7 +38,9 @@ class PkgHttpServer(
                             try {
                                 handle(socket)
                             } catch (t: Throwable) {
-                                onLog("HTTP falhou: ${t.javaClass.simpleName}: ${t.message ?: "sem detalhes"}")
+                                if (!isExpectedDisconnect(t)) {
+                                    onLog("HTTP falhou: ${t.javaClass.simpleName}: ${t.message ?: "sem detalhes"}")
+                                }
                                 runCatching { socket.close() }
                             }
                         }
@@ -162,6 +165,15 @@ class PkgHttpServer(
                 onLog("HTTP concluiu ${item.fileName}: $sent byte(s)")
             }
         }
+    }
+
+    private fun isExpectedDisconnect(t: Throwable): Boolean {
+        if (t !is SocketException) return false
+        val message = t.message.orEmpty().lowercase()
+        return message.contains("broken pipe") ||
+            message.contains("connection reset") ||
+            message.contains("socket closed") ||
+            message.contains("software caused connection abort")
     }
 
     private fun seek(fis: FileInputStream, offset: Long) {

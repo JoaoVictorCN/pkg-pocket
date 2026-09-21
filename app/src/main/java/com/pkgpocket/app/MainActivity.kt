@@ -57,7 +57,6 @@ class MainActivity : AppCompatActivity() {
 
             PkgRepository.items = parsed
             render(parsed)
-            ensureService(InstallerService.ACTION_REFRESH)
 
             parsed.forEach { item ->
                 addLog("PKG: ${item.kind.label} • ${item.title} • ${item.titleId.ifBlank { "sem Title ID" }} • v${item.version.ifBlank { "?" }} • ${humanSize(item.size)}")
@@ -72,8 +71,12 @@ class MainActivity : AppCompatActivity() {
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val text = intent?.getStringExtra(InstallerService.EXTRA_STATUS).orEmpty()
-            b.status.text = text
-            b.progress.progress = intent?.getIntExtra(InstallerService.EXTRA_PERCENT, 0) ?: 0
+            val logOnly = intent?.getBooleanExtra(InstallerService.EXTRA_LOG_ONLY, false) ?: false
+
+            if (!logOnly) {
+                b.status.text = text
+                b.progress.progress = intent?.getIntExtra(InstallerService.EXTRA_PERCENT, 0) ?: 0
+            }
             if (text.isNotBlank()) addLog(text)
         }
     }
@@ -167,13 +170,19 @@ class MainActivity : AppCompatActivity() {
         sorted.forEach { item ->
             val row = LayoutInflater.from(this).inflate(R.layout.item_pkg, b.pkgList, false)
             row.findViewById<TextView>(R.id.title).text = item.title
-            val meta = buildString {
-                append(item.kind.label)
-                if (item.titleId.isNotBlank()) append(" • ${item.titleId}")
-                if (item.version.isNotBlank()) append(" • v${item.version}")
-                append(" • ${humanSize(item.size)}")
+            row.findViewById<TextView>(R.id.kindBadge).text = item.kind.label
+
+            val details = buildString {
+                append(if (item.version.isNotBlank()) "Versão ${item.version}" else "Versão não informada")
+                append("  •  ${humanSize(item.size)}")
             }
-            row.findViewById<TextView>(R.id.meta).text = meta
+            row.findViewById<TextView>(R.id.details).text = details
+            row.findViewById<TextView>(R.id.titleId).text =
+                "Title ID: ${item.titleId.ifBlank { "—" }}"
+            row.findViewById<TextView>(R.id.contentId).text =
+                "Content ID: ${item.contentId.ifBlank { "—" }}"
+            row.findViewById<TextView>(R.id.fileName).text = item.fileName
+
             val iv = row.findViewById<ImageView>(R.id.icon)
             item.icon?.let { bytes -> runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()?.let(iv::setImageBitmap) }
             b.pkgList.addView(row)
