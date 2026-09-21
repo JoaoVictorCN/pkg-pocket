@@ -114,15 +114,16 @@ class LibraryActivity : AppCompatActivity() {
             columnCount = 3
             alignmentMode = GridLayout.ALIGN_BOUNDS
             useDefaultMargins = false
-            gravity = Gravity.CENTER_HORIZONTAL
         }
 
         scroll.addView(
             grid,
             FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            }
         )
 
         root.addView(

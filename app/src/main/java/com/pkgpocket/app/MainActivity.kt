@@ -1703,8 +1703,7 @@ class MainActivity : AppCompatActivity() {
             margin
         } else {
             (parent.width - bubble.width - margin)
-                .coerceAtLeast(margin.toInt())
-                .toFloat()
+                .coerceAtLeast(margin)
         }
 
         val maxY = (parent.height - bubble.height - dp(8))
