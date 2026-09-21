@@ -228,19 +228,26 @@ class MainActivity : AppCompatActivity() {
         b.detectPs4.setOnClickListener {
             lifecycleScope.launch {
                 val searching = getString(R.string.searching_rpi)
-                b.status.text = searching
                 addLog(searching)
 
                 val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
                 if (ip != null) {
                     b.ps4Ip.setText(ip)
                     val found = getString(R.string.rpi_found, ip)
-                    b.status.text = found
                     addLog(found)
+                    Toast.makeText(
+                        this@MainActivity,
+                        found,
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
                     val notFound = getString(R.string.rpi_not_found)
-                    b.status.text = notFound
                     addLog(notFound)
+                    Toast.makeText(
+                        this@MainActivity,
+                        notFound,
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
