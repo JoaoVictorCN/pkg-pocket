@@ -54,12 +54,6 @@ object RpiClient {
     fun unregister(ps4Ip: String, taskId: Int) =
         post(ps4Ip, "/api/unregister_task", JSONObject().put("task_id", taskId))
 
-    /*
-     * Mantemos a implementação simples que já funcionou com o RPI.
-     * Não forçamos Connection: close e não repetimos /api/install
-     * automaticamente, pois a requisição pode ter sido aceita mesmo quando
-     * a resposta se perde.
-     */
     private fun post(ip: String, path: String, json: JSONObject): String {
         val conn = (URL("http://$ip:12800$path").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -90,11 +84,6 @@ object RpiClient {
         return text
     }
 
-    /*
-     * O RPI usa literais hexadecimais sem aspas em alguns campos
-     * (ex.: 0x1A2B), o que não é JSON padrão. Convertemos para decimal
-     * antes de entregar ao org.json.
-     */
     private fun normalizeJson(raw: String): String {
         return raw.replace(Regex("""0[xX][0-9a-fA-F]+""")) { match ->
             val hex = match.value.substring(2)
@@ -107,6 +96,12 @@ object RpiClient {
 
     fun bytesDone(j: JSONObject): Long =
         j.optLong("transferred_total", j.optLong("transferred", 0L))
+
+    fun restSeconds(j: JSONObject): Long {
+        val total = j.optLong("rest_sec_total", -1L)
+        if (total > 0L) return total
+        return j.optLong("rest_sec", -1L)
+    }
 
     fun percent(j: JSONObject): Int {
         val total = bytesTotal(j)

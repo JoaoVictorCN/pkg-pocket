@@ -1,0 +1,110 @@
+<resources>
+    <string name="app_name">PKG Pocket</string>
+    <string name="app_subtitle">Instalador de PKG do PS4 pelo celular — sem Termux</string>
+    <string name="select_pkgs">Selecionar PKGs</string>
+    <string name="ps4_ip_hint">IP do PS4</string>
+    <string name="detect">Detectar</string>
+    <string name="install_all">Instalar tudo</string>
+    <string name="cancel_transfer">Cancelar envio</string>
+    <string name="select_pkg_prompt">Selecione um ou mais arquivos .pkg</string>
+    <string name="view_log">Ver log</string>
+    <string name="hide_log">Ocultar log</string>
+    <string name="current_transfer">Transferência atual</string>
+    <string name="events">Eventos</string>
+    <string name="no_active_transfer">Sem transferência ativa.</string>
+    <string name="waiting_events">Aguardando eventos…</string>
+    <string name="pkg_cover">Capa do PKG</string>
+
+    <string name="reading_metadata">Lendo metadados de %1$d PKG(s)…</string>
+    <string name="error_prefix">ERRO: %1$s</string>
+    <string name="missing_title_id">sem Title ID</string>
+    <string name="log_pkg">PKG: %1$s • %2$s • %3$s • v%4$s • %5$s</string>
+    <string name="pkgs_ready">%1$d PKG(s) prontos. Abra o Remote Package Installer no PS4.</string>
+    <string name="opening_picker">Abrindo seletor de PKGs…</string>
+    <string name="searching_rpi">Procurando PS4 com RPI na rede local…</string>
+    <string name="rpi_found">RPI encontrado em %1$s:12800</string>
+    <string name="rpi_not_found">Não encontrei o RPI. Abra-o no PS4 e tente novamente.</string>
+    <string name="select_pkgs_first">Selecione os PKGs primeiro</string>
+    <string name="enter_ps4_ip">Digite ou detecte o IP do PS4</string>
+    <string name="install_cancelled_no_pkgs">Instalação cancelada: nenhum PKG selecionado.</string>
+    <string name="install_cancelled_no_ip">Instalação cancelada: IP do PS4 não informado.</string>
+    <string name="preparing_transfer">Preparando envio…</string>
+    <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s…</string>
+    <string name="cancelling_transfer">Cancelando envio…</string>
+    <string name="app_started">PKG Pocket iniciado.</string>
+
+    <string name="pkg_details_version">Versão %1$s  •  %2$s</string>
+    <string name="pkg_details_no_version">Versão não informada  •  %1$s</string>
+    <string name="title_id_format">Title ID: %1$s</string>
+    <string name="content_id_format">Content ID: %1$s</string>
+
+    <string name="kind_game">JOGO</string>
+    <string name="kind_update">UPDATE</string>
+    <string name="kind_dlc">DLC</string>
+    <string name="kind_pkg">PKG</string>
+
+    <string name="state_waiting">Aguardando</string>
+    <string name="state_preparing">Preparando…</string>
+    <string name="state_registering">Registrando no PS4…</string>
+    <string name="state_sending_percent">Enviando / instalando • %1$d%%</string>
+    <string name="state_waiting_ps4">Envio continua • aguardando status do PS4…</string>
+    <string name="state_completed">Concluído</string>
+    <string name="state_failed">Falha</string>
+    <string name="state_cancelled">Cancelado</string>
+
+    <string name="overall_idle">0% • Aguardando</string>
+    <string name="overall_preparing">%1$d/%2$d PKGs • %3$d%% • Preparando…</string>
+    <string name="overall_position_percent">%1$d/%2$d PKGs • %3$d%%</string>
+    <string name="overall_transfer_full">%1$d/%2$d PKGs • %3$d%% • %4$s • %5$s</string>
+    <string name="overall_transfer_speed">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+    <string name="overall_transfer_wait">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+
+    <string name="transfer_amount">%1$s / %2$s</string>
+    <string name="transfer_detail_full">%1$s • %2$s • %3$s</string>
+    <string name="transfer_detail_speed">%1$s • %2$s</string>
+    <string name="transfer_detail_wait">%1$s • %2$s</string>
+    <string name="speed_format">%1$s/s</string>
+    <string name="calculating_time">Calculando tempo…</string>
+    <string name="remaining_time">~%1$s restantes</string>
+    <string name="time_seconds">%1$d s</string>
+    <string name="time_minutes">%1$d min</string>
+    <string name="time_hours_minutes">%1$dh %2$dmin</string>
+    <string name="duration_seconds">%1$s s</string>
+    <string name="duration_minutes_seconds">%1$dm %2$ds</string>
+    <string name="card_completed_detail">%1$s • %2$s</string>
+
+    <string name="top_preparing">%1$d/%2$d • Preparando %3$s…</string>
+    <string name="top_registering">%1$d/%2$d • Registrando tarefa no PS4…</string>
+    <string name="top_sending_initial">%1$d/%2$d • %3$s • Iniciando envio…</string>
+    <string name="top_waiting_ps4">%1$d/%2$d • Envio continua • aguardando PS4…</string>
+    <string name="top_progress">%1$d/%2$d • %3$s • %4$d%% • %5$s</string>
+    <string name="top_completed">%1$d/%2$d • Concluído • %3$s</string>
+
+    <string name="notification_channel">Transferência de PKG</string>
+    <string name="notification_preparing">Preparando envio para o PS4…</string>
+    <string name="notification_install_complete">Instalação concluída</string>
+    <string name="notification_install_failed">Falha na instalação</string>
+    <string name="notification_transfer_cancelled">Envio cancelado</string>
+
+    <string name="error_no_ipv4">Celular sem IPv4 local</string>
+    <string name="error_rpi_not_found">RPI não encontrado em %1$s:12800</string>
+    <string name="error_no_pkgs">Nenhum PKG selecionado</string>
+    <string name="error_server_not_started">Servidor HTTP não iniciado</string>
+    <string name="error_no_task">RPI não retornou task_id e nenhuma tarefa foi encontrada</string>
+    <string name="error_in_pkg">Falha em %1$s: %2$s</string>
+    <string name="unknown_error">erro desconhecido</string>
+    <string name="task_label">task %1$d</string>
+
+    <string name="log_server_error">Erro no servidor: %1$s</string>
+    <string name="log_install_request">Solicitação enviada ao RPI: %1$s • %2$s</string>
+    <string name="log_install_response_lost">A resposta de /api/install se perdeu; verificando se o PS4 criou a tarefa…</string>
+    <string name="log_no_task_id">RPI não retornou task_id; verificando a tarefa pelo Content ID…</string>
+    <string name="log_task_recovered">Task %1$d recuperada pelo Content ID</string>
+    <string name="log_task_started">Task %1$d iniciada para %2$s</string>
+    <string name="log_status_flaky">Status do RPI oscilou (%1$dx); o servidor continua enviando o PKG.</string>
+    <string name="log_completed">Concluído: %1$s • %2$s</string>
+
+    <string name="cancelled_by_user">Envio cancelado pelo usuário</string>
+    <string name="installation_completed_summary">Instalação concluída • %1$s • %2$s</string>
+    <string name="queue_completed_summary">Fila concluída • %1$d PKGs • %2$s • %3$s</string>
+</resources>

@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,10 +37,19 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
+    private data class PkgCardViews(
+        val progress: ProgressBar,
+        val status: TextView,
+        val meta: TextView
+    )
+
+    private val pkgCards = mutableMapOf<String, PkgCardViews>()
+
     private val pickPkgs = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
+
         lifecycleScope.launch {
-            val reading = "Lendo metadados de ${uris.size} PKG(s)…"
+            val reading = getString(R.string.reading_metadata, uris.size)
             b.status.text = reading
             addLog(reading)
 
@@ -56,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                     }.onFailure { e ->
                         runOnUiThread {
                             val msg = "${uri.lastPathSegment}: ${e.message}"
-                            addLog("ERRO: $msg")
+                            addLog(getString(R.string.error_prefix, msg))
                             Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
                         }
                     }.getOrNull()
@@ -68,43 +78,67 @@ class MainActivity : AppCompatActivity() {
 
             parsed.forEach { item ->
                 addLog(
-                    "PKG: ${item.kind.label} • ${item.title} • " +
-                        "${item.titleId.ifBlank { "sem Title ID" }} • " +
-                        "v${item.version.ifBlank { "?" }} • ${humanSize(item.size)}"
+                    getString(
+                        R.string.log_pkg,
+                        kindLabel(item.kind),
+                        item.title,
+                        item.titleId.ifBlank { getString(R.string.missing_title_id) },
+                        item.version.ifBlank { "?" },
+                        humanSize(item.size)
+                    )
                 )
             }
 
-            val ready = "${parsed.size} PKG(s) prontos. Abra o Remote Package Installer no PS4."
+            val ready = getString(R.string.pkgs_ready, parsed.size)
             b.status.text = ready
-            b.liveLog.text = "Sem transferência ativa."
+            b.liveLog.text = getString(R.string.no_active_transfer)
+            b.progress.progress = 0
+            b.overallProgressInfo.text = getString(R.string.overall_idle)
             addLog(ready)
         }
     }
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val text = intent?.getStringExtra(InstallerService.EXTRA_STATUS).orEmpty()
-            val logOnly = intent?.getBooleanExtra(InstallerService.EXTRA_LOG_ONLY, false) ?: false
-            val liveUpdate = intent?.getBooleanExtra(InstallerService.EXTRA_LIVE_UPDATE, false) ?: false
-            val active = intent?.getBooleanExtra(InstallerService.EXTRA_ACTIVE, false) ?: false
+            if (intent == null) return
+
+            val text = intent.getStringExtra(InstallerService.EXTRA_STATUS).orEmpty()
+            val logOnly = intent.getBooleanExtra(InstallerService.EXTRA_LOG_ONLY, false)
+            val liveUpdate = intent.getBooleanExtra(InstallerService.EXTRA_LIVE_UPDATE, false)
+            val active = intent.getBooleanExtra(InstallerService.EXTRA_ACTIVE, false)
+            val overallPercent = intent.getIntExtra(InstallerService.EXTRA_PERCENT, 0)
+            val overallText = intent.getStringExtra(InstallerService.EXTRA_OVERALL_STATUS).orEmpty()
 
             b.cancelInstall.visibility = if (active) View.VISIBLE else View.GONE
             b.installAll.isEnabled = !active
+            if (!active) b.cancelInstall.isEnabled = true
 
-            if (liveUpdate) {
-                b.status.text = text
-                b.liveLog.text = text
-                b.progress.progress = intent?.getIntExtra(InstallerService.EXTRA_PERCENT, 0) ?: 0
-                return
+            if (liveUpdate || !logOnly) {
+                if (text.isNotBlank()) {
+                    b.status.text = text
+                    b.liveLog.text = text
+                }
+                b.progress.isIndeterminate = false
+                b.progress.progress = overallPercent.coerceIn(0, 100)
+                if (overallText.isNotBlank()) {
+                    b.overallProgressInfo.text = overallText
+                }
             }
 
-            if (!logOnly) {
-                b.status.text = text
-                b.liveLog.text = text
-                b.progress.progress = intent?.getIntExtra(InstallerService.EXTRA_PERCENT, 0) ?: 0
+            val token = intent.getStringExtra(InstallerService.EXTRA_ITEM_TOKEN).orEmpty()
+            if (token.isNotBlank()) {
+                val itemStatus = intent.getStringExtra(InstallerService.EXTRA_ITEM_STATUS).orEmpty()
+                val itemDetail = intent.getStringExtra(InstallerService.EXTRA_ITEM_DETAIL).orEmpty()
+                val itemPercent = if (intent.hasExtra(InstallerService.EXTRA_ITEM_PERCENT)) {
+                    intent.getIntExtra(InstallerService.EXTRA_ITEM_PERCENT, 0)
+                } else {
+                    null
+                }
+
+                updatePkgCard(token, itemPercent, itemStatus, itemDetail)
             }
 
-            if (text.isNotBlank()) addLog(text)
+            if (!liveUpdate && text.isNotBlank()) addLog(text)
         }
     }
 
@@ -133,23 +167,24 @@ class MainActivity : AppCompatActivity() {
         )
 
         b.selectPkgs.setOnClickListener {
-            addLog("Abrindo seletor de PKGs…")
+            addLog(getString(R.string.opening_picker))
             pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*"))
         }
 
         b.detectPs4.setOnClickListener {
             lifecycleScope.launch {
-                val searching = "Procurando PS4 com RPI na rede local…"
+                val searching = getString(R.string.searching_rpi)
                 b.status.text = searching
                 addLog(searching)
+
                 val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
                 if (ip != null) {
                     b.ps4Ip.setText(ip)
-                    val found = "RPI encontrado em $ip:12800"
+                    val found = getString(R.string.rpi_found, ip)
                     b.status.text = found
                     addLog(found)
                 } else {
-                    val notFound = "Não encontrei o RPI. Abra-o no PS4 e tente novamente."
+                    val notFound = getString(R.string.rpi_not_found)
                     b.status.text = notFound
                     addLog(notFound)
                 }
@@ -158,38 +193,45 @@ class MainActivity : AppCompatActivity() {
 
         b.installAll.setOnClickListener {
             val ip = b.ps4Ip.text?.toString()?.trim().orEmpty()
+
             if (PkgRepository.items.isEmpty()) {
-                Toast.makeText(this, "Selecione os PKGs primeiro", Toast.LENGTH_SHORT).show()
-                addLog("Instalação cancelada: nenhum PKG selecionado.")
-                return@setOnClickListener
-            }
-            if (ip.isBlank()) {
-                Toast.makeText(this, "Digite ou detecte o IP do PS4", Toast.LENGTH_SHORT).show()
-                addLog("Instalação cancelada: IP do PS4 não informado.")
+                Toast.makeText(this, R.string.select_pkgs_first, Toast.LENGTH_SHORT).show()
+                addLog(getString(R.string.install_cancelled_no_pkgs))
                 return@setOnClickListener
             }
 
+            if (ip.isBlank()) {
+                Toast.makeText(this, R.string.enter_ps4_ip, Toast.LENGTH_SHORT).show()
+                addLog(getString(R.string.install_cancelled_no_ip))
+                return@setOnClickListener
+            }
+
+            resetPkgCardsForQueue()
             b.cancelInstall.visibility = View.VISIBLE
+            b.cancelInstall.isEnabled = true
             b.installAll.isEnabled = false
-            b.liveLog.text = "Preparando envio…"
-            addLog("Iniciando fila de ${PkgRepository.items.size} PKG(s) para $ip…")
+            b.progress.progress = 0
+            b.overallProgressInfo.text = getString(R.string.overall_idle)
+            b.liveLog.text = getString(R.string.preparing_transfer)
+            addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
             ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
         }
 
         b.cancelInstall.setOnClickListener {
             b.cancelInstall.isEnabled = false
-            b.liveLog.text = "Cancelando envio…"
+            b.liveLog.text = getString(R.string.cancelling_transfer)
             ensureService(InstallerService.ACTION_CANCEL)
         }
 
         b.toggleLog.setOnClickListener {
             val show = b.logContainer.visibility != View.VISIBLE
             b.logContainer.visibility = if (show) View.VISIBLE else View.GONE
-            b.toggleLog.text = if (show) "Ocultar log" else "Ver log"
+            b.toggleLog.text = getString(if (show) R.string.hide_log else R.string.view_log)
         }
 
-        b.liveLog.text = "Sem transferência ativa."
-        addLog("PKG Pocket iniciado.")
+        b.liveLog.text = getString(R.string.no_active_transfer)
+        b.overallProgressInfo.text = getString(R.string.overall_idle)
+        addLog(getString(R.string.app_started))
     }
 
     private fun requestRuntimePermissions() {
@@ -202,8 +244,6 @@ class MainActivity : AppCompatActivity() {
             permissions += Manifest.permission.POST_NOTIFICATIONS
         }
 
-        // Em Android 13+ o seletor de documentos concede acesso ao PKG diretamente.
-        // Esta permissão só é necessária em aparelhos antigos.
         if (
             Build.VERSION.SDK_INT <= 28 &&
             checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
@@ -242,6 +282,7 @@ class MainActivity : AppCompatActivity() {
     private fun addLog(message: String) {
         val clean = message.trim()
         if (clean.isBlank()) return
+
         logLines += "[${clock.format(Date())}] $clean"
         while (logLines.size > 80) logLines.removeAt(0)
         b.logText.text = logLines.joinToString("\n")
@@ -255,24 +296,29 @@ class MainActivity : AppCompatActivity() {
 
     private fun render(items: List<PkgItem>) {
         b.pkgList.removeAllViews()
+        pkgCards.clear()
+
         val sorted = items.sortedWith(
             compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
         )
 
         sorted.forEach { item ->
             val row = LayoutInflater.from(this).inflate(R.layout.item_pkg, b.pkgList, false)
-            row.findViewById<TextView>(R.id.title).text = item.title
-            row.findViewById<TextView>(R.id.kindBadge).text = item.kind.label
 
-            val details = buildString {
-                append(if (item.version.isNotBlank()) "Versão ${item.version}" else "Versão não informada")
-                append("  •  ${humanSize(item.size)}")
+            row.findViewById<TextView>(R.id.title).text = item.title
+            row.findViewById<TextView>(R.id.kindBadge).text = kindLabel(item.kind)
+
+            val details = if (item.version.isNotBlank()) {
+                getString(R.string.pkg_details_version, item.version, humanSize(item.size))
+            } else {
+                getString(R.string.pkg_details_no_version, humanSize(item.size))
             }
+
             row.findViewById<TextView>(R.id.details).text = details
             row.findViewById<TextView>(R.id.titleId).text =
-                "Title ID: ${item.titleId.ifBlank { "—" }}"
+                getString(R.string.title_id_format, item.titleId.ifBlank { "—" })
             row.findViewById<TextView>(R.id.contentId).text =
-                "Content ID: ${item.contentId.ifBlank { "—" }}"
+                getString(R.string.content_id_format, item.contentId.ifBlank { "—" })
             row.findViewById<TextView>(R.id.fileName).text = item.fileName
 
             val iv = row.findViewById<ImageView>(R.id.icon)
@@ -282,20 +328,82 @@ class MainActivity : AppCompatActivity() {
                     ?.let(iv::setImageBitmap)
             }
 
+            val progress = row.findViewById<ProgressBar>(R.id.itemProgress)
+            val status = row.findViewById<TextView>(R.id.progressStatus)
+            val meta = row.findViewById<TextView>(R.id.progressMeta)
+
+            progress.isIndeterminate = false
+            progress.progress = 0
+            status.text = getString(R.string.state_waiting)
+            meta.visibility = View.GONE
+
+            pkgCards[item.token] = PkgCardViews(progress, status, meta)
             b.pkgList.addView(row)
         }
     }
 
+    private fun resetPkgCardsForQueue() {
+        pkgCards.values.forEach { refs ->
+            refs.progress.isIndeterminate = false
+            refs.progress.progress = 0
+            refs.status.text = getString(R.string.state_waiting)
+            refs.meta.text = ""
+            refs.meta.visibility = View.GONE
+        }
+    }
+
+    private fun updatePkgCard(
+        token: String,
+        percent: Int?,
+        statusText: String,
+        detailText: String
+    ) {
+        val refs = pkgCards[token] ?: return
+
+        if (percent != null) {
+            if (percent < 0) {
+                refs.progress.isIndeterminate = true
+            } else {
+                refs.progress.isIndeterminate = false
+                refs.progress.progress = percent.coerceIn(0, 100)
+            }
+        }
+
+        if (statusText.isNotBlank()) refs.status.text = statusText
+
+        if (detailText.isBlank()) {
+            refs.meta.text = ""
+            refs.meta.visibility = View.GONE
+        } else {
+            refs.meta.text = detailText
+            refs.meta.visibility = View.VISIBLE
+        }
+    }
+
+    private fun kindLabel(kind: PkgKind): String {
+        return getString(
+            when (kind) {
+                PkgKind.GAME -> R.string.kind_game
+                PkgKind.UPDATE -> R.string.kind_update
+                PkgKind.DLC -> R.string.kind_dlc
+                PkgKind.OTHER -> R.string.kind_pkg
+            }
+        )
+    }
+
     private fun humanSize(n: Long): String {
         if (n < 1024) return "$n B"
+
         val units = arrayOf("KB", "MB", "GB", "TB")
         var v = n.toDouble()
         var i = -1
+
         do {
             v /= 1024.0
             i++
         } while (v >= 1024 && i < units.lastIndex)
-        return String.format(Locale.US, "%.1f %s", v, units[i])
+
+        return String.format(Locale.getDefault(), "%.1f %s", v, units[i])
     }
 
     override fun onDestroy() {

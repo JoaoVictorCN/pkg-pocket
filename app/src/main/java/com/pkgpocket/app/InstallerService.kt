@@ -9,6 +9,7 @@ import android.content.Intent
 import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.roundToLong
 
 class InstallerService : Service() {
     companion object {
@@ -32,9 +34,21 @@ class InstallerService : Service() {
         const val EXTRA_LIVE_UPDATE = "live_update"
         const val EXTRA_ACTIVE = "active"
 
+        const val EXTRA_OVERALL_STATUS = "overall_status"
+        const val EXTRA_ITEM_TOKEN = "item_token"
+        const val EXTRA_ITEM_STATUS = "item_status"
+        const val EXTRA_ITEM_DETAIL = "item_detail"
+        const val EXTRA_ITEM_PERCENT = "item_percent"
+
         private const val CHANNEL = "pkg_transfer"
         private const val NOTIF_ID = 41
+        private const val SPEED_WINDOW_MS = 30_000L
     }
+
+    private data class TransferSample(
+        val timeMs: Long,
+        val bytes: Long
+    )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var installJob: Job? = null
@@ -44,6 +58,10 @@ class InstallerService : Service() {
 
     @Volatile private var currentTaskId: Int? = null
     @Volatile private var currentPs4Ip: String? = null
+    @Volatile private var currentItemToken: String? = null
+    @Volatile private var currentItemPercent = 0
+    @Volatile private var currentItemDetail = ""
+    @Volatile private var lastOverallPercent = 0
     @Volatile private var cancelRequested = false
 
     override fun onCreate() {
@@ -51,14 +69,18 @@ class InstallerService : Service() {
 
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Transferência de PKG", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(
+                CHANNEL,
+                getString(R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW
+            )
         )
 
         startForeground(
             NOTIF_ID,
             transferNotification(
-                title = "PKG Pocket",
-                text = "Preparando envio para o PS4…",
+                title = getString(R.string.app_name),
+                text = getString(R.string.notification_preparing),
                 percent = null
             )
         )
@@ -115,7 +137,7 @@ class InstallerService : Service() {
             onLog = ::logOnly
         ).also {
             runCatching { it.start() }
-                .onFailure { e -> logOnly("Erro no servidor: ${e.message}") }
+                .onFailure { e -> logOnly(getString(R.string.log_server_error, e.message ?: "?")) }
         }
     }
 
@@ -124,6 +146,10 @@ class InstallerService : Service() {
 
         cancelRequested = false
         currentPs4Ip = ps4Ip
+        currentItemToken = null
+        currentItemPercent = 0
+        currentItemDetail = ""
+        lastOverallPercent = 0
         restartServer()
 
         installJob = scope.launch {
@@ -131,12 +157,12 @@ class InstallerService : Service() {
 
             val localIp = NetworkUtils.localIpv4()
             if (localIp == null) {
-                finishError("Celular sem IPv4 local")
+                finishError(getString(R.string.error_no_ipv4))
                 return@launch
             }
 
             if (!NetworkUtils.canConnect(ps4Ip)) {
-                finishError("RPI não encontrado em $ps4Ip:12800")
+                finishError(getString(R.string.error_rpi_not_found, ps4Ip))
                 return@launch
             }
 
@@ -145,43 +171,75 @@ class InstallerService : Service() {
             )
 
             if (ordered.isEmpty()) {
-                finishError("Nenhum PKG selecionado")
+                finishError(getString(R.string.error_no_pkgs))
                 return@launch
             }
 
-            val queueStartedAt = android.os.SystemClock.elapsedRealtime()
+            val queueStartedAt = SystemClock.elapsedRealtime()
             val totalSize = ordered.sumOf { it.size.coerceAtLeast(0L) }
+            var completedBytes = 0L
+            var activeItem: PkgItem? = null
 
             try {
                 ordered.forEachIndexed { index, item ->
                     if (cancelRequested) return@launch
 
-                    val prefix = "${index + 1}/${ordered.size}"
+                    activeItem = item
+                    currentItemToken = item.token
+                    currentItemPercent = 0
+                    currentItemDetail = getString(R.string.calculating_time)
 
-                    publishProgress(
+                    val position = index + 1
+                    val kind = kindLabel(item.kind)
+                    val baseOverall = overallPercent(completedBytes, totalSize)
+
+                    publishTransfer(
+                        item = item,
                         title = item.title,
-                        text = "$prefix • Preparando ${item.kind.label.lowercase()}…",
-                        percent = null
+                        topText = getString(R.string.top_preparing, position, ordered.size, kind),
+                        itemStatus = getString(R.string.state_preparing),
+                        itemDetail = getString(R.string.calculating_time),
+                        itemPercent = -1,
+                        overallPercent = baseOverall,
+                        overallText = getString(
+                            R.string.overall_preparing,
+                            position,
+                            ordered.size,
+                            baseOverall
+                        )
                     )
 
-                    val activeServer = server ?: error("Servidor HTTP não iniciado")
+                    val activeServer = server ?: error(getString(R.string.error_server_not_started))
                     val url = activeServer.urlFor(localIp, item)
 
-                    logOnly("Solicitação enviada ao RPI: ${item.kind.label} • ${item.title}")
+                    logOnly(getString(R.string.log_install_request, kind, item.title))
 
                     val installAttempt = runCatching { RpiClient.install(ps4Ip, url) }
                     var task = installAttempt.getOrNull()?.taskId
 
                     if (task == null) {
                         val originalError = installAttempt.exceptionOrNull()
+
+                        publishTransfer(
+                            item = item,
+                            title = item.title,
+                            topText = getString(R.string.top_registering, position, ordered.size),
+                            itemStatus = getString(R.string.state_registering),
+                            itemDetail = getString(R.string.calculating_time),
+                            itemPercent = -1,
+                            overallPercent = baseOverall,
+                            overallText = getString(
+                                R.string.overall_preparing,
+                                position,
+                                ordered.size,
+                                baseOverall
+                            )
+                        )
+
                         if (originalError != null) {
-                            logOnly(
-                                "A resposta de /api/install se perdeu; verificando se o PS4 criou a task…"
-                            )
+                            logOnly(getString(R.string.log_install_response_lost))
                         } else {
-                            logOnly(
-                                "RPI não retornou task_id; verificando a task pelo Content ID…"
-                            )
+                            logOnly(getString(R.string.log_no_task_id))
                         }
 
                         val subType = rpiSubType(item)
@@ -198,37 +256,69 @@ class InstallerService : Service() {
 
                         if (task == null) {
                             if (originalError != null) throw originalError
-                            error("RPI não retornou task_id e nenhuma task foi encontrada")
+                            error(getString(R.string.error_no_task))
                         }
 
-                        logOnly("Task $task recuperada pelo Content ID")
+                        logOnly(getString(R.string.log_task_recovered, task!!))
                     } else {
-                        logOnly("Task $task iniciada para ${item.title}")
+                        logOnly(getString(R.string.log_task_started, task!!, item.title))
                     }
 
-                    currentTaskId = task
+                    val activeTask = task ?: error(getString(R.string.error_no_task))
+                    currentTaskId = activeTask
 
                     var done = false
                     var statusFailures = 0
                     var pollDelayMs = 5000L
+                    var lastPc = 0
+                    var lastMeta = getString(R.string.calculating_time)
+                    var lastOverall = baseOverall
+                    var lastOverallText = getString(
+                        R.string.overall_preparing,
+                        position,
+                        ordered.size,
+                        baseOverall
+                    )
+                    var smoothedEtaSeconds: Double? = null
+                    val samples = mutableListOf<TransferSample>()
+                    val itemStartedAt = SystemClock.elapsedRealtime()
+
+                    publishTransfer(
+                        item = item,
+                        title = item.title,
+                        topText = getString(R.string.top_sending_initial, position, ordered.size, kind),
+                        itemStatus = getString(R.string.state_sending_percent, 0),
+                        itemDetail = lastMeta,
+                        itemPercent = 0,
+                        overallPercent = baseOverall,
+                        overallText = lastOverallText
+                    )
 
                     while (!done && !cancelRequested) {
                         delay(pollDelayMs)
 
-                        val progress = runCatching { RpiClient.progress(ps4Ip, task!!) }
+                        val progress = runCatching { RpiClient.progress(ps4Ip, activeTask) }
                             .onFailure {
                                 statusFailures++
-                                publishLive(
-                                    title = item.title,
-                                    text = "$prefix • Envio continua • aguardando status do PS4…",
-                                    percent = null
-                                )
                                 pollDelayMs = (pollDelayMs + 5000L).coerceAtMost(20_000L)
+
+                                publishTransfer(
+                                    item = item,
+                                    title = item.title,
+                                    topText = getString(
+                                        R.string.top_waiting_ps4,
+                                        position,
+                                        ordered.size
+                                    ),
+                                    itemStatus = getString(R.string.state_waiting_ps4),
+                                    itemDetail = lastMeta,
+                                    itemPercent = lastPc,
+                                    overallPercent = lastOverall,
+                                    overallText = lastOverallText
+                                )
+
                                 if (statusFailures == 1 || statusFailures % 6 == 0) {
-                                    logOnly(
-                                        "Status do RPI oscilou (${statusFailures}x); " +
-                                            "o servidor continua enviando o PKG."
-                                    )
+                                    logOnly(getString(R.string.log_status_flaky, statusFailures))
                                 }
                             }
                             .getOrNull()
@@ -238,19 +328,92 @@ class InstallerService : Service() {
                         pollDelayMs = 5000L
 
                         val pc = RpiClient.percent(progress)
-                        val transferred = RpiClient.bytesDone(progress)
-                        val total = RpiClient.bytesTotal(progress).takeIf { it > 0L } ?: item.size
+                        val transferred = RpiClient.bytesDone(progress).coerceAtLeast(0L)
+                        val transferTotal = RpiClient.bytesTotal(progress)
+                            .takeIf { it > 0L }
+                            ?: item.size.coerceAtLeast(0L)
 
-                        val amountText = if (transferred > 0L && total > 0L) {
-                            "${humanSize(transferred)} / ${humanSize(total)}"
+                        val now = SystemClock.elapsedRealtime()
+                        val speed = updateSpeed(samples, now, transferred)
+                        val remainingBytes = (transferTotal - transferred).coerceAtLeast(0L)
+
+                        val computedEta = if (speed > 1.0 && remainingBytes > 0L) {
+                            remainingBytes / speed
                         } else {
-                            humanSize(item.size)
+                            -1.0
                         }
 
-                        publishProgress(
+                        val rpiEta = RpiClient.restSeconds(progress)
+                            .takeIf { it in 1..604_800 }
+                            ?.toDouble()
+                            ?: -1.0
+
+                        val etaCandidate = when {
+                            computedEta > 0 -> computedEta
+                            rpiEta > 0 -> rpiEta
+                            else -> -1.0
+                        }
+
+                        if (etaCandidate > 0) {
+                            smoothedEtaSeconds = if (smoothedEtaSeconds == null) {
+                                etaCandidate
+                            } else {
+                                (smoothedEtaSeconds!! * 0.70) + (etaCandidate * 0.30)
+                            }
+                        }
+
+                        val itemEta = smoothedEtaSeconds?.roundToLong() ?: -1L
+                        val itemMeta = transferDetail(
+                            transferred = transferred,
+                            total = transferTotal,
+                            speed = speed,
+                            etaSeconds = itemEta
+                        )
+
+                        val contribution = if (item.size > 0L) {
+                            transferred.coerceAtMost(item.size)
+                        } else {
+                            transferred
+                        }
+
+                        val overallDone = completedBytes + contribution
+                        val overallPc = overallPercent(overallDone, totalSize)
+                        val queueRemaining = (totalSize - overallDone).coerceAtLeast(0L)
+                        val queueEta = if (speed > 1.0 && queueRemaining > 0L) {
+                            (queueRemaining / speed).roundToLong()
+                        } else {
+                            -1L
+                        }
+
+                        val overallInfo = overallDetail(
+                            position = position,
+                            count = ordered.size,
+                            percent = overallPc,
+                            speed = speed,
+                            etaSeconds = queueEta
+                        )
+
+                        lastPc = pc
+                        lastMeta = itemMeta
+                        lastOverall = overallPc
+                        lastOverallText = overallInfo
+
+                        publishTransfer(
+                            item = item,
                             title = item.title,
-                            text = "$prefix • ${item.kind.label} • $pc% • $amountText",
-                            percent = pc
+                            topText = getString(
+                                R.string.top_progress,
+                                position,
+                                ordered.size,
+                                kind,
+                                pc,
+                                itemMeta
+                            ),
+                            itemStatus = getString(R.string.state_sending_percent, pc),
+                            itemDetail = itemMeta,
+                            itemPercent = pc,
+                            overallPercent = overallPc,
+                            overallText = overallInfo
                         )
 
                         done = RpiClient.isFinished(progress)
@@ -258,37 +421,229 @@ class InstallerService : Service() {
 
                     if (cancelRequested) return@launch
 
-                    logOnly("Concluído: ${item.kind.label} • ${item.title}")
+                    completedBytes += item.size.coerceAtLeast(0L)
+                    val completedOverall = overallPercent(completedBytes, totalSize)
+                    val itemDuration = SystemClock.elapsedRealtime() - itemStartedAt
+                    val completedDetail = getString(
+                        R.string.card_completed_detail,
+                        humanSize(item.size),
+                        humanDuration(itemDuration)
+                    )
+
+                    publishTransfer(
+                        item = item,
+                        title = item.title,
+                        topText = getString(
+                            R.string.top_completed,
+                            position,
+                            ordered.size,
+                            item.title
+                        ),
+                        itemStatus = getString(R.string.state_completed),
+                        itemDetail = completedDetail,
+                        itemPercent = 100,
+                        overallPercent = completedOverall,
+                        overallText = getString(
+                            R.string.overall_position_percent,
+                            position,
+                            ordered.size,
+                            completedOverall
+                        )
+                    )
+
+                    logOnly(getString(R.string.log_completed, kind, item.title))
                     currentTaskId = null
+                    currentItemToken = null
+                    currentItemPercent = 100
+                    currentItemDetail = completedDetail
+                    activeItem = null
                 }
             } catch (_: CancellationException) {
                 return@launch
             } catch (e: Exception) {
                 if (!cancelRequested) {
-                    finishError("Falha em ${currentTitle()}: ${e.message ?: "erro desconhecido"}")
+                    activeItem?.let {
+                        publishItemOnly(
+                            token = it.token,
+                            status = getString(R.string.state_failed),
+                            detail = e.message ?: getString(R.string.unknown_error),
+                            percent = currentItemPercent.coerceAtLeast(0)
+                        )
+                    }
+
+                    finishError(
+                        getString(
+                            R.string.error_in_pkg,
+                            currentTitle(),
+                            e.message ?: getString(R.string.unknown_error)
+                        )
+                    )
                 }
                 return@launch
             }
 
             if (cancelRequested) return@launch
 
-            val elapsed = android.os.SystemClock.elapsedRealtime() - queueStartedAt
+            val elapsed = SystemClock.elapsedRealtime() - queueStartedAt
             val summary = if (ordered.size == 1) {
-                "Instalação concluída • ${humanSize(totalSize)} • ${humanDuration(elapsed)}"
+                getString(
+                    R.string.installation_completed_summary,
+                    humanSize(totalSize),
+                    humanDuration(elapsed)
+                )
             } else {
-                "Fila concluída • ${ordered.size} PKGs • ${humanSize(totalSize)} • ${humanDuration(elapsed)}"
+                getString(
+                    R.string.queue_completed_summary,
+                    ordered.size,
+                    humanSize(totalSize),
+                    humanDuration(elapsed)
+                )
             }
 
+            lastOverallPercent = 100
             finishSuccess(summary)
         }
     }
 
+    private fun updateSpeed(
+        samples: MutableList<TransferSample>,
+        now: Long,
+        bytes: Long
+    ): Double {
+        if (samples.isNotEmpty() && bytes < samples.last().bytes) {
+            samples.clear()
+        }
+
+        samples += TransferSample(now, bytes)
+
+        while (
+            samples.size > 2 &&
+            samples.first().timeMs < now - SPEED_WINDOW_MS
+        ) {
+            samples.removeAt(0)
+        }
+
+        if (samples.size < 2) return 0.0
+
+        val first = samples.first()
+        val last = samples.last()
+        val elapsedSeconds = (last.timeMs - first.timeMs) / 1000.0
+        val deltaBytes = last.bytes - first.bytes
+
+        return if (elapsedSeconds > 0.0 && deltaBytes > 0L) {
+            deltaBytes / elapsedSeconds
+        } else {
+            0.0
+        }
+    }
+
+    private fun transferDetail(
+        transferred: Long,
+        total: Long,
+        speed: Double,
+        etaSeconds: Long
+    ): String {
+        val amount = getString(
+            R.string.transfer_amount,
+            humanSize(transferred),
+            humanSize(total)
+        )
+
+        return when {
+            speed > 1.0 && etaSeconds > 0L -> getString(
+                R.string.transfer_detail_full,
+                amount,
+                humanSpeed(speed),
+                remainingText(etaSeconds)
+            )
+
+            speed > 1.0 -> getString(
+                R.string.transfer_detail_speed,
+                amount,
+                humanSpeed(speed)
+            )
+
+            else -> getString(
+                R.string.transfer_detail_wait,
+                amount,
+                getString(R.string.calculating_time)
+            )
+        }
+    }
+
+    private fun overallDetail(
+        position: Int,
+        count: Int,
+        percent: Int,
+        speed: Double,
+        etaSeconds: Long
+    ): String {
+        return when {
+            speed > 1.0 && etaSeconds > 0L -> getString(
+                R.string.overall_transfer_full,
+                position,
+                count,
+                percent,
+                humanSpeed(speed),
+                remainingText(etaSeconds)
+            )
+
+            speed > 1.0 -> getString(
+                R.string.overall_transfer_speed,
+                position,
+                count,
+                percent,
+                humanSpeed(speed)
+            )
+
+            else -> getString(
+                R.string.overall_transfer_wait,
+                position,
+                count,
+                percent,
+                getString(R.string.calculating_time)
+            )
+        }
+    }
+
+    private fun overallPercent(done: Long, total: Long): Int {
+        if (total <= 0L) return 0
+        return ((done.coerceIn(0L, total) * 100L) / total)
+            .toInt()
+            .coerceIn(0, 100)
+    }
+
+    private fun remainingText(seconds: Long): String {
+        return getString(R.string.remaining_time, humanEta(seconds))
+    }
+
+    private fun humanEta(seconds: Long): String {
+        val safe = seconds.coerceAtLeast(0L)
+
+        return when {
+            safe < 60L -> getString(R.string.time_seconds, safe)
+            safe < 3600L -> getString(R.string.time_minutes, (safe + 59L) / 60L)
+            else -> {
+                val hours = safe / 3600L
+                val minutes = (safe % 3600L) / 60L
+                getString(R.string.time_hours_minutes, hours, minutes)
+            }
+        }
+    }
+
+    private fun humanSpeed(bytesPerSecond: Double): String {
+        return getString(
+            R.string.speed_format,
+            humanSize(bytesPerSecond.coerceAtLeast(0.0).roundToLong())
+        )
+    }
+
     private fun rpiSubType(item: PkgItem): Int? {
         return when (item.category.lowercase()) {
-            "gd" -> 6  // Game
-            "ac" -> 7  // Add-on content
-            "gp" -> 8  // Patch/update
-            "al" -> 9  // License/add-on license
+            "gd" -> 6
+            "ac" -> 7
+            "gp" -> 8
+            "al" -> 9
             else -> when (item.kind) {
                 PkgKind.GAME -> 6
                 PkgKind.UPDATE -> 8
@@ -298,9 +653,24 @@ class InstallerService : Service() {
         }
     }
 
+    private fun kindLabel(kind: PkgKind): String {
+        return getString(
+            when (kind) {
+                PkgKind.GAME -> R.string.kind_game
+                PkgKind.UPDATE -> R.string.kind_update
+                PkgKind.DLC -> R.string.kind_dlc
+                PkgKind.OTHER -> R.string.kind_pkg
+            }
+        )
+    }
+
     private fun currentTitle(): String {
         val task = currentTaskId
-        return if (task != null) "task $task" else "PKG"
+        return if (task != null) {
+            getString(R.string.task_label, task)
+        } else {
+            getString(R.string.kind_pkg)
+        }
     }
 
     private fun cancelInstall() {
@@ -310,13 +680,23 @@ class InstallerService : Service() {
         val task = currentTaskId
         val ip = currentPs4Ip
 
-        publishLive(
-            title = "PKG Pocket",
-            text = "Cancelando envio…",
-            percent = 0
+        publishGlobal(
+            title = getString(R.string.app_name),
+            text = getString(R.string.cancelling_transfer),
+            percent = lastOverallPercent,
+            overallText = getString(R.string.cancelling_transfer),
+            active = true
         )
 
-        // Para imediatamente novas leituras do PS4.
+        currentItemToken?.let {
+            publishItemOnly(
+                token = it,
+                status = getString(R.string.state_cancelled),
+                detail = getString(R.string.cancelled_by_user),
+                percent = currentItemPercent.coerceAtLeast(0)
+            )
+        }
+
         server?.stop()
 
         scope.launch {
@@ -327,13 +707,71 @@ class InstallerService : Service() {
 
             installJob?.cancel()
             currentTaskId = null
-            finishCancelled("Envio cancelado pelo usuário")
+            finishCancelled(getString(R.string.cancelled_by_user))
         }
     }
 
-    private fun publishProgress(title: String, text: String, percent: Int?) {
-        val shownPercent = percent ?: 0
+    private fun publishTransfer(
+        item: PkgItem,
+        title: String,
+        topText: String,
+        itemStatus: String,
+        itemDetail: String,
+        itemPercent: Int,
+        overallPercent: Int,
+        overallText: String
+    ) {
+        lastOverallPercent = overallPercent.coerceIn(0, 100)
+        currentItemPercent = itemPercent
+        currentItemDetail = itemDetail
 
+        getSystemService(NotificationManager::class.java).notify(
+            NOTIF_ID,
+            transferNotification(title, topText, lastOverallPercent)
+        )
+
+        sendBroadcast(
+            Intent(ACTION_STATUS)
+                .setPackage(packageName)
+                .putExtra(EXTRA_STATUS, topText)
+                .putExtra(EXTRA_PERCENT, lastOverallPercent)
+                .putExtra(EXTRA_OVERALL_STATUS, overallText)
+                .putExtra(EXTRA_ITEM_TOKEN, item.token)
+                .putExtra(EXTRA_ITEM_STATUS, itemStatus)
+                .putExtra(EXTRA_ITEM_DETAIL, itemDetail)
+                .putExtra(EXTRA_ITEM_PERCENT, itemPercent)
+                .putExtra(EXTRA_LOG_ONLY, false)
+                .putExtra(EXTRA_LIVE_UPDATE, true)
+                .putExtra(EXTRA_ACTIVE, true)
+        )
+    }
+
+    private fun publishItemOnly(
+        token: String,
+        status: String,
+        detail: String,
+        percent: Int
+    ) {
+        sendBroadcast(
+            Intent(ACTION_STATUS)
+                .setPackage(packageName)
+                .putExtra(EXTRA_ITEM_TOKEN, token)
+                .putExtra(EXTRA_ITEM_STATUS, status)
+                .putExtra(EXTRA_ITEM_DETAIL, detail)
+                .putExtra(EXTRA_ITEM_PERCENT, percent)
+                .putExtra(EXTRA_LOG_ONLY, true)
+                .putExtra(EXTRA_LIVE_UPDATE, false)
+                .putExtra(EXTRA_ACTIVE, true)
+        )
+    }
+
+    private fun publishGlobal(
+        title: String,
+        text: String,
+        percent: Int,
+        overallText: String,
+        active: Boolean
+    ) {
         getSystemService(NotificationManager::class.java).notify(
             NOTIF_ID,
             transferNotification(title, text, percent)
@@ -343,15 +781,12 @@ class InstallerService : Service() {
             Intent(ACTION_STATUS)
                 .setPackage(packageName)
                 .putExtra(EXTRA_STATUS, text)
-                .putExtra(EXTRA_PERCENT, shownPercent)
+                .putExtra(EXTRA_PERCENT, percent.coerceIn(0, 100))
+                .putExtra(EXTRA_OVERALL_STATUS, overallText)
                 .putExtra(EXTRA_LOG_ONLY, false)
                 .putExtra(EXTRA_LIVE_UPDATE, true)
-                .putExtra(EXTRA_ACTIVE, true)
+                .putExtra(EXTRA_ACTIVE, active)
         )
-    }
-
-    private fun publishLive(title: String, text: String, percent: Int?) {
-        publishProgress(title, text, percent)
     }
 
     private fun logOnly(text: String) {
@@ -372,7 +807,7 @@ class InstallerService : Service() {
         getSystemService(NotificationManager::class.java).notify(
             NOTIF_ID,
             finalNotification(
-                title = "Instalação concluída",
+                title = getString(R.string.notification_install_complete),
                 text = summary,
                 success = true
             )
@@ -382,13 +817,13 @@ class InstallerService : Service() {
     }
 
     private fun finishError(message: String) {
-        broadcastFinal(message, 0)
+        broadcastFinal(message, lastOverallPercent)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
             NOTIF_ID,
             finalNotification(
-                title = "Falha na instalação",
+                title = getString(R.string.notification_install_failed),
                 text = message,
                 success = false
             )
@@ -398,13 +833,13 @@ class InstallerService : Service() {
     }
 
     private fun finishCancelled(message: String) {
-        broadcastFinal(message, 0)
+        broadcastFinal(message, lastOverallPercent)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
             NOTIF_ID,
             finalNotification(
-                title = "Envio cancelado",
+                title = getString(R.string.notification_transfer_cancelled),
                 text = message,
                 success = false
             )
@@ -418,7 +853,8 @@ class InstallerService : Service() {
             Intent(ACTION_STATUS)
                 .setPackage(packageName)
                 .putExtra(EXTRA_STATUS, text)
-                .putExtra(EXTRA_PERCENT, percent)
+                .putExtra(EXTRA_PERCENT, percent.coerceIn(0, 100))
+                .putExtra(EXTRA_OVERALL_STATUS, text)
                 .putExtra(EXTRA_LOG_ONLY, false)
                 .putExtra(EXTRA_LIVE_UPDATE, false)
                 .putExtra(EXTRA_ACTIVE, false)
@@ -430,6 +866,7 @@ class InstallerService : Service() {
         server = null
         currentTaskId = null
         currentPs4Ip = null
+        currentItemToken = null
         releasePerformanceLocks()
         stopSelf()
     }
@@ -493,24 +930,32 @@ class InstallerService : Service() {
 
     private fun humanSize(bytes: Long): String {
         if (bytes < 1024L) return "$bytes B"
+
         val units = arrayOf("KB", "MB", "GB", "TB")
         var value = bytes.toDouble()
         var unit = -1
+
         do {
             value /= 1024.0
             unit++
         } while (value >= 1024.0 && unit < units.lastIndex)
-        return String.format(Locale.US, "%.1f %s", value, units[unit])
+
+        return String.format(Locale.getDefault(), "%.1f %s", value, units[unit])
     }
 
     private fun humanDuration(ms: Long): String {
         val totalSeconds = (ms / 1000.0).coerceAtLeast(0.0)
+
         if (totalSeconds < 60.0) {
-            return String.format(Locale.US, "%.1f s", totalSeconds)
+            return getString(
+                R.string.duration_seconds,
+                String.format(Locale.getDefault(), "%.1f", totalSeconds)
+            )
         }
+
         val minutes = (totalSeconds / 60).toInt()
         val seconds = (totalSeconds % 60).toInt()
-        return "${minutes}m ${seconds}s"
+        return getString(R.string.duration_minutes_seconds, minutes, seconds)
     }
 
     override fun onDestroy() {

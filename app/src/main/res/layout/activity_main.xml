@@ -14,7 +14,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="PKG Pocket"
+            android:text="@string/app_name"
             android:textSize="30sp"
             android:textStyle="bold" />
 
@@ -22,7 +22,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="PS4 PKG installer pelo celular — sem Termux"
+            android:text="@string/app_subtitle"
             android:textSize="15sp" />
 
         <com.google.android.material.button.MaterialButton
@@ -30,7 +30,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Selecionar PKGs" />
+            android:text="@string/select_pkgs" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -42,7 +42,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="IP do PS4">
+                android:hint="@string/ps4_ip_hint">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/ps4Ip"
@@ -56,7 +56,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="Detectar" />
+                android:text="@string/detect" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
@@ -64,14 +64,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Instalar tudo" />
+            android:text="@string/install_all" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/cancelInstall"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Cancelar envio"
+            android:text="@string/cancel_transfer"
             android:textColor="?attr/colorOnError"
             android:visibility="gone"
             app:backgroundTint="?attr/colorError" />
@@ -81,15 +81,24 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:text="Selecione um ou mais arquivos .pkg"
+            android:text="@string/select_pkg_prompt"
             android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/overallProgressInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/overall_idle"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
         <ProgressBar
             android:id="@+id/progress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:max="100"
             android:progress="0" />
 
@@ -99,7 +108,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Ver log" />
+            android:text="@string/view_log" />
 
         <LinearLayout
             android:id="@+id/logContainer"
@@ -113,7 +122,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Transferência atual"
+                android:text="@string/current_transfer"
                 android:textStyle="bold" />
 
             <TextView
@@ -122,7 +131,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
                 android:fontFamily="monospace"
-                android:text="Sem transferência ativa."
+                android:text="@string/no_active_transfer"
                 android:textIsSelectable="true"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -131,7 +140,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="Eventos"
+                android:text="@string/events"
                 android:textStyle="bold" />
 
             <TextView
@@ -140,7 +149,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:fontFamily="monospace"
-                android:text="Aguardando eventos…"
+                android:text="@string/waiting_events"
                 android:textIsSelectable="true"
                 android:textSize="12sp" />
         </LinearLayout>

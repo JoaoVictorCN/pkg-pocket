@@ -1,3 +1,110 @@
 <resources>
     <string name="app_name">PKG Pocket</string>
+    <string name="app_subtitle">PS4 PKG installer from your phone — no Termux</string>
+    <string name="select_pkgs">Select PKGs</string>
+    <string name="ps4_ip_hint">PS4 IP</string>
+    <string name="detect">Detect</string>
+    <string name="install_all">Install all</string>
+    <string name="cancel_transfer">Cancel transfer</string>
+    <string name="select_pkg_prompt">Select one or more .pkg files</string>
+    <string name="view_log">View log</string>
+    <string name="hide_log">Hide log</string>
+    <string name="current_transfer">Current transfer</string>
+    <string name="events">Events</string>
+    <string name="no_active_transfer">No active transfer.</string>
+    <string name="waiting_events">Waiting for events…</string>
+    <string name="pkg_cover">PKG cover</string>
+
+    <string name="reading_metadata">Reading metadata from %1$d PKG(s)…</string>
+    <string name="error_prefix">ERROR: %1$s</string>
+    <string name="missing_title_id">no Title ID</string>
+    <string name="log_pkg">PKG: %1$s • %2$s • %3$s • v%4$s • %5$s</string>
+    <string name="pkgs_ready">%1$d PKG(s) ready. Open Remote Package Installer on the PS4.</string>
+    <string name="opening_picker">Opening PKG picker…</string>
+    <string name="searching_rpi">Looking for a PS4 with RPI on the local network…</string>
+    <string name="rpi_found">RPI found at %1$s:12800</string>
+    <string name="rpi_not_found">RPI was not found. Open it on the PS4 and try again.</string>
+    <string name="select_pkgs_first">Select the PKGs first</string>
+    <string name="enter_ps4_ip">Enter or detect the PS4 IP</string>
+    <string name="install_cancelled_no_pkgs">Install cancelled: no PKG selected.</string>
+    <string name="install_cancelled_no_ip">Install cancelled: PS4 IP not provided.</string>
+    <string name="preparing_transfer">Preparing transfer…</string>
+    <string name="starting_queue">Starting queue of %1$d PKG(s) for %2$s…</string>
+    <string name="cancelling_transfer">Cancelling transfer…</string>
+    <string name="app_started">PKG Pocket started.</string>
+
+    <string name="pkg_details_version">Version %1$s  •  %2$s</string>
+    <string name="pkg_details_no_version">Version not provided  •  %1$s</string>
+    <string name="title_id_format">Title ID: %1$s</string>
+    <string name="content_id_format">Content ID: %1$s</string>
+
+    <string name="kind_game">GAME</string>
+    <string name="kind_update">UPDATE</string>
+    <string name="kind_dlc">DLC</string>
+    <string name="kind_pkg">PKG</string>
+
+    <string name="state_waiting">Waiting</string>
+    <string name="state_preparing">Preparing…</string>
+    <string name="state_registering">Registering on PS4…</string>
+    <string name="state_sending_percent">Sending / installing • %1$d%%</string>
+    <string name="state_waiting_ps4">Transfer continues • waiting for PS4 status…</string>
+    <string name="state_completed">Completed</string>
+    <string name="state_failed">Failed</string>
+    <string name="state_cancelled">Cancelled</string>
+
+    <string name="overall_idle">0% • Waiting</string>
+    <string name="overall_preparing">%1$d/%2$d PKGs • %3$d%% • Preparing…</string>
+    <string name="overall_position_percent">%1$d/%2$d PKGs • %3$d%%</string>
+    <string name="overall_transfer_full">%1$d/%2$d PKGs • %3$d%% • %4$s • %5$s</string>
+    <string name="overall_transfer_speed">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+    <string name="overall_transfer_wait">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+
+    <string name="transfer_amount">%1$s / %2$s</string>
+    <string name="transfer_detail_full">%1$s • %2$s • %3$s</string>
+    <string name="transfer_detail_speed">%1$s • %2$s</string>
+    <string name="transfer_detail_wait">%1$s • %2$s</string>
+    <string name="speed_format">%1$s/s</string>
+    <string name="calculating_time">Calculating time…</string>
+    <string name="remaining_time">~%1$s remaining</string>
+    <string name="time_seconds">%1$d sec</string>
+    <string name="time_minutes">%1$d min</string>
+    <string name="time_hours_minutes">%1$dh %2$dmin</string>
+    <string name="duration_seconds">%1$s s</string>
+    <string name="duration_minutes_seconds">%1$dm %2$ds</string>
+    <string name="card_completed_detail">%1$s • %2$s</string>
+
+    <string name="top_preparing">%1$d/%2$d • Preparing %3$s…</string>
+    <string name="top_registering">%1$d/%2$d • Registering task on PS4…</string>
+    <string name="top_sending_initial">%1$d/%2$d • %3$s • Starting transfer…</string>
+    <string name="top_waiting_ps4">%1$d/%2$d • Transfer continues • waiting for PS4…</string>
+    <string name="top_progress">%1$d/%2$d • %3$s • %4$d%% • %5$s</string>
+    <string name="top_completed">%1$d/%2$d • Completed • %3$s</string>
+
+    <string name="notification_channel">PKG transfer</string>
+    <string name="notification_preparing">Preparing transfer to PS4…</string>
+    <string name="notification_install_complete">Installation completed</string>
+    <string name="notification_install_failed">Installation failed</string>
+    <string name="notification_transfer_cancelled">Transfer cancelled</string>
+
+    <string name="error_no_ipv4">Phone has no local IPv4 address</string>
+    <string name="error_rpi_not_found">RPI not found at %1$s:12800</string>
+    <string name="error_no_pkgs">No PKG selected</string>
+    <string name="error_server_not_started">HTTP server not started</string>
+    <string name="error_no_task">RPI did not return a task_id and no task could be found</string>
+    <string name="error_in_pkg">Failed on %1$s: %2$s</string>
+    <string name="unknown_error">unknown error</string>
+    <string name="task_label">task %1$d</string>
+
+    <string name="log_server_error">Server error: %1$s</string>
+    <string name="log_install_request">Request sent to RPI: %1$s • %2$s</string>
+    <string name="log_install_response_lost">The /api/install response was lost; checking whether PS4 created the task…</string>
+    <string name="log_no_task_id">RPI did not return task_id; checking the task by Content ID…</string>
+    <string name="log_task_recovered">Task %1$d recovered by Content ID</string>
+    <string name="log_task_started">Task %1$d started for %2$s</string>
+    <string name="log_status_flaky">RPI status fluctuated (%1$dx); the PKG server is still transferring.</string>
+    <string name="log_completed">Completed: %1$s • %2$s</string>
+
+    <string name="cancelled_by_user">Transfer cancelled by user</string>
+    <string name="installation_completed_summary">Installation completed • %1$s • %2$s</string>
+    <string name="queue_completed_summary">Queue completed • %1$d PKGs • %2$s • %3$s</string>
 </resources>
