@@ -24,6 +24,14 @@
             android:paddingEnd="14dp"
             android:paddingBottom="10dp">
 
+            <CheckBox
+                android:id="@+id/selectionCheck"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:buttonTint="?attr/colorPrimary"
+                android:visibility="gone" />
+
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="104dp"
                 android:layout_height="104dp"

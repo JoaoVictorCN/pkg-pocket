@@ -2,6 +2,8 @@ package com.pkgpocket.app
 
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -16,6 +18,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -27,6 +30,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,11 +46,14 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
+    private var multiSelectMode = false
+    private val selectedTokens = linkedSetOf<String>()
 
     private data class PkgCardViews(
         val progress: ProgressBar,
         val status: TextView,
-        val meta: TextView
+        val meta: TextView,
+        val checkBox: CheckBox
     )
 
     private val pkgCards = mutableMapOf<String, PkgCardViews>()
@@ -80,6 +87,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             PkgRepository.items = parsed
+            persistSelection(parsed)
+            exitMultiSelectMode()
             render(parsed)
 
             parsed.forEach { item ->
@@ -227,6 +236,22 @@ class MainActivity : AppCompatActivity() {
             clearSelection()
         }
 
+        b.deleteSelected.setOnClickListener {
+            deleteSelectedPkgs()
+        }
+
+        b.cancelMultiSelect.setOnClickListener {
+            exitMultiSelectMode()
+        }
+
+        b.copyLog.setOnClickListener {
+            copyLogToClipboard()
+        }
+
+        b.shareLog.setOnClickListener {
+            shareLog()
+        }
+
         b.detectPs4.setOnClickListener {
             lifecycleScope.launch {
                 val searching = getString(R.string.searching_rpi)
@@ -303,11 +328,57 @@ class MainActivity : AppCompatActivity() {
         if (PkgRepository.items.isNotEmpty()) {
             render(PkgRepository.items)
             updateSelectionSummary(PkgRepository.items)
+            persistSelection(PkgRepository.items)
         } else {
-            b.clearSelection.visibility = View.GONE
+            restorePersistedSelection()
         }
 
         addLog(getString(R.string.app_started))
+    }
+
+    private fun persistSelection(items: List<PkgItem>) {
+        val encoded = items.joinToString("\n") { it.uri.toString() }
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .putString("selected_pkg_uris", encoded)
+            .apply()
+    }
+
+    private fun restorePersistedSelection() {
+        val saved = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .getString("selected_pkg_uris", "")
+            .orEmpty()
+            .lineSequence()
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .distinct()
+            .toList()
+
+        if (saved.isEmpty()) {
+            b.clearSelection.visibility = View.GONE
+            return
+        }
+
+        lifecycleScope.launch {
+            b.status.text = getString(R.string.restoring_selection, saved.size)
+
+            val restored = withContext(Dispatchers.IO) {
+                saved.mapNotNull { raw ->
+                    runCatching {
+                        PkgParser.parse(contentResolver, Uri.parse(raw))
+                    }.getOrNull()
+                }
+            }
+
+            PkgRepository.items = restored
+            persistSelection(restored)
+            render(restored)
+            updateSelectionSummary(restored)
+
+            if (restored.isNotEmpty()) {
+                addLog(getString(R.string.selection_restored, restored.size))
+            }
+        }
     }
 
     private fun updateSelectionSummary(items: List<PkgItem>) {
@@ -337,7 +408,9 @@ class MainActivity : AppCompatActivity() {
         if (demoJob?.isActive == true) demoJob?.cancel()
         demoJob = null
 
+        exitMultiSelectMode()
         PkgRepository.items = emptyList()
+        persistSelection(emptyList())
         b.pkgList.removeAllViews()
         pkgCards.clear()
 
@@ -351,6 +424,156 @@ class MainActivity : AppCompatActivity() {
 
         setDemoControlsEnabled(true)
         addLog(getString(R.string.selection_cleared))
+    }
+
+    private fun enterMultiSelectMode(firstToken: String) {
+        if (demoJob?.isActive == true || !b.installAll.isEnabled) return
+
+        multiSelectMode = true
+        selectedTokens.clear()
+        selectedTokens += firstToken
+        refreshMultiSelectUi()
+    }
+
+    private fun toggleMultiSelectToken(token: String) {
+        if (!multiSelectMode) return
+
+        if (!selectedTokens.add(token)) {
+            selectedTokens.remove(token)
+        }
+
+        if (selectedTokens.isEmpty()) {
+            exitMultiSelectMode()
+        } else {
+            refreshMultiSelectUi()
+        }
+    }
+
+    private fun refreshMultiSelectUi() {
+        b.selectionActions.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
+        b.selectionCount.text = getString(
+            R.string.selected_count,
+            selectedTokens.size
+        )
+
+        pkgCards.forEach { (token, refs) ->
+            refs.checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
+            refs.checkBox.isChecked = token in selectedTokens
+        }
+
+        if (multiSelectMode) {
+            b.selectPkgs.isEnabled = false
+            b.installAll.isEnabled = false
+            b.detectPs4.isEnabled = false
+            b.clearSelection.isEnabled = false
+        }
+    }
+
+    private fun exitMultiSelectMode() {
+        multiSelectMode = false
+        selectedTokens.clear()
+        b.selectionActions.visibility = View.GONE
+
+        pkgCards.values.forEach { refs ->
+            refs.checkBox.isChecked = false
+            refs.checkBox.visibility = View.GONE
+        }
+
+        if (demoJob?.isActive != true) {
+            b.selectPkgs.isEnabled = true
+            b.installAll.isEnabled = true
+            b.detectPs4.isEnabled = true
+            b.clearSelection.isEnabled = PkgRepository.items.isNotEmpty()
+        }
+    }
+
+    private fun deleteSelectedPkgs() {
+        if (!multiSelectMode || selectedTokens.isEmpty()) return
+
+        val tokens = selectedTokens.toSet()
+        val count = tokens.size
+        exitMultiSelectMode()
+
+        removeTokensWithUndo(
+            tokens,
+            getString(R.string.pkgs_removed, count)
+        )
+    }
+
+    private fun removeTokensWithUndo(
+        tokens: Set<String>,
+        message: String
+    ) {
+        if (tokens.isEmpty()) return
+
+        val before = PkgRepository.items
+        val updated = before.filterNot { it.token in tokens }
+        if (updated.size == before.size) return
+
+        PkgRepository.items = updated
+        persistSelection(updated)
+        render(updated)
+        updateSelectionSummary(updated)
+        addLog(message)
+
+        Snackbar.make(
+            b.root,
+            message,
+            Snackbar.LENGTH_LONG
+        )
+            .setAction(R.string.undo) {
+                PkgRepository.items = before
+                persistSelection(before)
+                render(before)
+                updateSelectionSummary(before)
+                addLog(getString(R.string.removal_undone))
+            }
+            .show()
+    }
+
+    private fun buildLogText(): String {
+        val events = if (logLines.isEmpty()) {
+            getString(R.string.waiting_events)
+        } else {
+            logLines.joinToString("\n")
+        }
+
+        return buildString {
+            append(getString(R.string.app_name))
+            append(" v")
+            append(BuildConfig.VERSION_NAME)
+            append("\n\n")
+            append(getString(R.string.current_transfer))
+            append(": ")
+            append(b.liveLog.text?.toString().orEmpty())
+            append("\n\n")
+            append(events)
+        }
+    }
+
+    private fun copyLogToClipboard() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(
+                getString(R.string.log_clipboard_label),
+                buildLogText()
+            )
+        )
+        Toast.makeText(this, R.string.log_copied, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun shareLog() {
+        val share = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, getString(R.string.log_share_subject))
+            .putExtra(Intent.EXTRA_TEXT, buildLogText())
+
+        startActivity(
+            Intent.createChooser(
+                share,
+                getString(R.string.share_log)
+            )
+        )
     }
 
     private fun startDemo() {
@@ -543,10 +766,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setDemoControlsEnabled(enabled: Boolean) {
+        if (!enabled) {
+            exitMultiSelectMode()
+        }
+
         b.selectPkgs.isEnabled = enabled
         b.installAll.isEnabled = enabled
         b.detectPs4.isEnabled = enabled
-        b.clearSelection.isEnabled = enabled
+        b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
     }
 
     private fun humanEta(seconds: Long): String {
@@ -663,6 +890,12 @@ class MainActivity : AppCompatActivity() {
             val progress = row.findViewById<ProgressBar>(R.id.itemProgress)
             val status = row.findViewById<TextView>(R.id.progressStatus)
             val meta = row.findViewById<TextView>(R.id.progressMeta)
+            val checkBox = row.findViewById<CheckBox>(R.id.selectionCheck)
+
+            checkBox.isClickable = false
+            checkBox.isFocusable = false
+            checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
+            checkBox.isChecked = item.token in selectedTokens
 
             progress.isIndeterminate = false
             progress.progress = 0
@@ -670,7 +903,23 @@ class MainActivity : AppCompatActivity() {
             status.text = getString(R.string.state_waiting)
             meta.visibility = View.GONE
 
-            pkgCards[item.token] = PkgCardViews(progress, status, meta)
+            pkgCards[item.token] = PkgCardViews(progress, status, meta, checkBox)
+
+            row.setOnLongClickListener {
+                if (demoJob?.isActive == true || !b.installAll.isEnabled) {
+                    false
+                } else {
+                    enterMultiSelectMode(item.token)
+                    true
+                }
+            }
+
+            row.setOnClickListener {
+                if (multiSelectMode) {
+                    toggleMultiSelectToken(item.token)
+                }
+            }
+
             attachSwipeToDelete(row, item)
             b.pkgList.addView(row)
         }
@@ -684,7 +933,7 @@ class MainActivity : AppCompatActivity() {
 
         row.setOnTouchListener { view, event ->
             // Durante envio real ou demo, a lista fica congelada.
-            if (!b.installAll.isEnabled || demoJob?.isActive == true) {
+            if (!b.installAll.isEnabled || demoJob?.isActive == true || multiSelectMode) {
                 view.animate()
                     .translationX(0f)
                     .alpha(1f)
@@ -774,7 +1023,7 @@ class MainActivity : AppCompatActivity() {
         item: PkgItem,
         direction: Float
     ) {
-        if (!b.installAll.isEnabled || demoJob?.isActive == true) {
+        if (!b.installAll.isEnabled || demoJob?.isActive == true || multiSelectMode) {
             row.animate()
                 .translationX(0f)
                 .alpha(1f)
@@ -783,8 +1032,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val updated = PkgRepository.items.filterNot { it.token == item.token }
-        if (updated.size == PkgRepository.items.size) {
+        if (PkgRepository.items.none { it.token == item.token }) {
             row.animate()
                 .translationX(0f)
                 .alpha(1f)
@@ -800,17 +1048,10 @@ class MainActivity : AppCompatActivity() {
             .alpha(0f)
             .setDuration(170)
             .withEndAction {
-                PkgRepository.items = updated
-                render(updated)
-                updateSelectionSummary(updated)
-
-                val msg = getString(R.string.pkg_removed, item.title)
-                addLog(msg)
-                Toast.makeText(
-                    this@MainActivity,
-                    msg,
-                    Toast.LENGTH_SHORT
-                ).show()
+                removeTokensWithUndo(
+                    setOf(item.token),
+                    getString(R.string.pkg_removed, item.title)
+                )
             }
             .start()
     }
