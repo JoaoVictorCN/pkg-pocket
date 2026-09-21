@@ -2,6 +2,7 @@
     <string name="app_name">PKG Pocket</string>
     <string name="app_subtitle">Instalador de PKG do PS4 pelo celular — sem Termux</string>
     <string name="select_pkgs">Selecionar PKGs</string>
+    <string name="clear_selection">Limpar seleção</string>
     <string name="ps4_ip_hint">IP do PS4</string>
     <string name="detect">Detectar</string>
     <string name="install_all">Instalar tudo</string>
@@ -20,6 +21,8 @@
     <string name="missing_title_id">sem Title ID</string>
     <string name="log_pkg">PKG: %1$s • %2$s • %3$s • v%4$s • %5$s</string>
     <string name="pkgs_ready">%1$d PKG(s) prontos. Abra o Remote Package Installer no PS4.</string>
+    <string name="selection_summary">%1$d PKGs • %2$s • %3$s</string>
+    <string name="selection_cleared">Seleção de PKGs limpa.</string>
     <string name="opening_picker">Abrindo seletor de PKGs…</string>
     <string name="searching_rpi">Procurando PS4 com RPI na rede local…</string>
     <string name="rpi_found">RPI encontrado em %1$s:12800</string>
@@ -32,6 +35,13 @@
     <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s…</string>
     <string name="cancelling_transfer">Cancelando envio…</string>
     <string name="app_started">PKG Pocket iniciado.</string>
+    <string name="demo_requires_pkg">Selecione pelo menos um PKG antes de iniciar o modo demo.</string>
+    <string name="demo_started">Modo demo iniciado — nenhuma conexão com o PS4 será usada.</string>
+    <string name="demo_stopped">Modo demo encerrado.</string>
+    <string name="demo_preparing">DEMO • Preparando interface…</string>
+    <string name="demo_stage">DEMO • %1$d/%2$d • %3$s</string>
+    <string name="demo_finished">DEMO • Simulação da fila concluída.</string>
+    <string name="demo_label">demo</string>
 
     <string name="pkg_details_version">Versão %1$s  •  %2$s</string>
     <string name="pkg_details_no_version">Versão não informada  •  %1$s</string>

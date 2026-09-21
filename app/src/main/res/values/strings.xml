@@ -2,6 +2,7 @@
     <string name="app_name">PKG Pocket</string>
     <string name="app_subtitle">PS4 PKG installer from your phone — no Termux</string>
     <string name="select_pkgs">Select PKGs</string>
+    <string name="clear_selection">Clear selection</string>
     <string name="ps4_ip_hint">PS4 IP</string>
     <string name="detect">Detect</string>
     <string name="install_all">Install all</string>
@@ -20,6 +21,8 @@
     <string name="missing_title_id">no Title ID</string>
     <string name="log_pkg">PKG: %1$s • %2$s • %3$s • v%4$s • %5$s</string>
     <string name="pkgs_ready">%1$d PKG(s) ready. Open Remote Package Installer on the PS4.</string>
+    <string name="selection_summary">%1$d PKGs • %2$s • %3$s</string>
+    <string name="selection_cleared">PKG selection cleared.</string>
     <string name="opening_picker">Opening PKG picker…</string>
     <string name="searching_rpi">Looking for a PS4 with RPI on the local network…</string>
     <string name="rpi_found">RPI found at %1$s:12800</string>
@@ -32,6 +35,13 @@
     <string name="starting_queue">Starting queue of %1$d PKG(s) for %2$s…</string>
     <string name="cancelling_transfer">Cancelling transfer…</string>
     <string name="app_started">PKG Pocket started.</string>
+    <string name="demo_requires_pkg">Select at least one PKG before starting demo mode.</string>
+    <string name="demo_started">Demo mode started — no PS4 connection will be used.</string>
+    <string name="demo_stopped">Demo mode stopped.</string>
+    <string name="demo_preparing">DEMO • Preparing interface…</string>
+    <string name="demo_stage">DEMO • %1$d/%2$d • %3$s</string>
+    <string name="demo_finished">DEMO • Queue simulation completed.</string>
+    <string name="demo_label">demo</string>
 
     <string name="pkg_details_version">Version %1$s  •  %2$s</string>
     <string name="pkg_details_no_version">Version not provided  •  %1$s</string>

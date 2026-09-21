@@ -23,9 +23,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private var demoJob: Job? = null
 
     private data class PkgCardViews(
         val progress: ProgressBar,
@@ -90,7 +94,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val ready = getString(R.string.pkgs_ready, parsed.size)
-            b.status.text = ready
+            updateSelectionSummary(parsed)
             b.liveLog.text = getString(R.string.no_active_transfer)
             b.progress.progress = 0
             b.overallProgressInfo.text = getString(R.string.overall_idle)
@@ -133,6 +137,8 @@ class MainActivity : AppCompatActivity() {
 
             b.cancelInstall.visibility = if (active) View.VISIBLE else View.GONE
             b.installAll.isEnabled = !active
+            b.selectPkgs.isEnabled = !active
+            b.clearSelection.isEnabled = !active && demoJob?.isActive != true
             if (!active) b.cancelInstall.isEnabled = true
 
             if (liveUpdate || !logOnly) {
@@ -192,9 +198,31 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
+        val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+        val savedIp = prefs.getString("last_ps4_ip", "").orEmpty()
+        if (savedIp.isNotBlank()) b.ps4Ip.setText(savedIp)
+        b.ps4Ip.doAfterTextChanged { editable ->
+            prefs.edit()
+                .putString("last_ps4_ip", editable?.toString()?.trim().orEmpty())
+                .apply()
+        }
+
+        b.appTitle.setOnLongClickListener {
+            if (demoJob?.isActive == true) {
+                stopDemo()
+            } else {
+                startDemo()
+            }
+            true
+        }
+
         b.selectPkgs.setOnClickListener {
             addLog(getString(R.string.opening_picker))
             pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*"))
+        }
+
+        b.clearSelection.setOnClickListener {
+            clearSelection()
         }
 
         b.detectPs4.setOnClickListener {
@@ -262,7 +290,271 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.text = getString(R.string.overall_idle)
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
+
+        if (PkgRepository.items.isNotEmpty()) {
+            render(PkgRepository.items)
+            updateSelectionSummary(PkgRepository.items)
+        } else {
+            b.clearSelection.visibility = View.GONE
+        }
+
         addLog(getString(R.string.app_started))
+    }
+
+    private fun updateSelectionSummary(items: List<PkgItem>) {
+        if (items.isEmpty()) {
+            b.status.text = getString(R.string.select_pkg_prompt)
+            b.clearSelection.visibility = View.GONE
+            return
+        }
+
+        val totalSize = items.sumOf { it.size.coerceAtLeast(0L) }
+        val kinds = items
+            .map { it.kind }
+            .distinct()
+            .sortedBy { it.order }
+            .joinToString(" + ") { kindLabel(it) }
+
+        b.status.text = getString(
+            R.string.selection_summary,
+            items.size,
+            humanSize(totalSize),
+            kinds
+        )
+        b.clearSelection.visibility = View.VISIBLE
+    }
+
+    private fun clearSelection() {
+        if (demoJob?.isActive == true) demoJob?.cancel()
+        demoJob = null
+
+        PkgRepository.items = emptyList()
+        b.pkgList.removeAllViews()
+        pkgCards.clear()
+
+        b.status.visibility = View.VISIBLE
+        b.status.text = getString(R.string.select_pkg_prompt)
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+        b.progress.progress = 0
+        b.clearSelection.visibility = View.GONE
+        b.liveLog.text = getString(R.string.no_active_transfer)
+
+        setDemoControlsEnabled(true)
+        addLog(getString(R.string.selection_cleared))
+    }
+
+    private fun startDemo() {
+        val ordered = PkgRepository.items.sortedWith(
+            compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
+        )
+
+        if (ordered.isEmpty()) {
+            Toast.makeText(this, R.string.demo_requires_pkg, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        resetPkgCardsForQueue()
+        setDemoControlsEnabled(false)
+        b.cancelInstall.visibility = View.GONE
+        b.status.visibility = View.VISIBLE
+        b.status.text = getString(R.string.demo_preparing)
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+        b.progress.progress = 0
+
+        addLog(getString(R.string.demo_started))
+        Toast.makeText(this, R.string.demo_started, Toast.LENGTH_SHORT).show()
+
+        demoJob = lifecycleScope.launch {
+            val fakeSpeedBytes = (28.5 * 1024.0 * 1024.0).toLong()
+            val totalSize = ordered.sumOf { it.size.coerceAtLeast(0L) }.coerceAtLeast(1L)
+            var completedBytes = 0L
+
+            try {
+                ordered.forEachIndexed { index, item ->
+                    val position = index + 1
+
+                    b.status.visibility = View.VISIBLE
+                    b.overallProgressInfo.visibility = View.GONE
+                    b.progress.visibility = View.GONE
+                    b.status.text = getString(
+                        R.string.demo_stage,
+                        position,
+                        ordered.size,
+                        getString(R.string.state_preparing)
+                    )
+                    updatePkgCard(
+                        item.token,
+                        null,
+                        getString(R.string.state_preparing),
+                        ""
+                    )
+                    delay(700)
+
+                    b.status.text = getString(
+                        R.string.demo_stage,
+                        position,
+                        ordered.size,
+                        getString(R.string.state_registering)
+                    )
+                    updatePkgCard(
+                        item.token,
+                        null,
+                        getString(R.string.state_registering),
+                        ""
+                    )
+                    delay(700)
+
+                    b.status.text = getString(
+                        R.string.demo_stage,
+                        position,
+                        ordered.size,
+                        getString(R.string.state_starting_transfer)
+                    )
+                    updatePkgCard(
+                        item.token,
+                        0,
+                        getString(R.string.state_starting_transfer),
+                        ""
+                    )
+                    delay(700)
+
+                    val steps = intArrayOf(1, 8, 23, 47, 72, 100)
+
+                    for (pc in steps) {
+                        val itemSize = item.size.coerceAtLeast(0L)
+                        val transferred = (itemSize * pc.toLong()) / 100L
+                        val itemRemaining = (itemSize - transferred).coerceAtLeast(0L)
+                        val itemEtaSeconds =
+                            if (fakeSpeedBytes > 0L) itemRemaining / fakeSpeedBytes else 0L
+
+                        val amount = getString(
+                            R.string.transfer_amount,
+                            humanSize(transferred),
+                            humanSize(itemSize)
+                        )
+                        val speedText = getString(
+                            R.string.speed_format,
+                            humanSize(fakeSpeedBytes)
+                        )
+                        val itemEtaText = getString(
+                            R.string.remaining_time,
+                            humanEta(itemEtaSeconds)
+                        )
+                        val itemDetail = getString(
+                            R.string.transfer_detail_full,
+                            amount,
+                            speedText,
+                            itemEtaText
+                        )
+
+                        updatePkgCard(
+                            item.token,
+                            pc,
+                            getString(R.string.state_sending_percent, pc),
+                            itemDetail
+                        )
+
+                        val overallDone = completedBytes + transferred
+                        val overallPercent =
+                            ((overallDone * 100L) / totalSize).toInt().coerceIn(0, 100)
+                        val queueRemaining = (totalSize - overallDone).coerceAtLeast(0L)
+                        val queueEtaSeconds =
+                            if (fakeSpeedBytes > 0L) queueRemaining / fakeSpeedBytes else 0L
+
+                        b.status.visibility = View.GONE
+                        b.overallProgressInfo.visibility = View.VISIBLE
+                        b.progress.visibility = View.VISIBLE
+                        b.progress.isIndeterminate = false
+                        b.progress.progress = overallPercent
+                        b.overallProgressInfo.text = getString(
+                            R.string.overall_transfer_full,
+                            position,
+                            ordered.size,
+                            overallPercent,
+                            speedText,
+                            getString(
+                                R.string.remaining_time,
+                                humanEta(queueEtaSeconds)
+                            )
+                        )
+
+                        delay(550)
+                    }
+
+                    completedBytes += item.size.coerceAtLeast(0L)
+
+                    updatePkgCard(
+                        item.token,
+                        100,
+                        getString(R.string.state_completed),
+                        getString(
+                            R.string.card_completed_detail,
+                            humanSize(item.size.coerceAtLeast(0L)),
+                            getString(R.string.demo_label)
+                        )
+                    )
+
+                    delay(500)
+                }
+
+                b.overallProgressInfo.visibility = View.GONE
+                b.progress.visibility = View.GONE
+                b.status.visibility = View.VISIBLE
+                b.status.text = getString(R.string.demo_finished)
+
+                addLog(getString(R.string.demo_finished))
+                Toast.makeText(
+                    this@MainActivity,
+                    R.string.demo_finished,
+                    Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                setDemoControlsEnabled(true)
+                demoJob = null
+            }
+        }
+    }
+
+    private fun stopDemo() {
+        demoJob?.cancel()
+        demoJob = null
+
+        resetPkgCardsForQueue()
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+        b.progress.progress = 0
+        b.status.visibility = View.VISIBLE
+        updateSelectionSummary(PkgRepository.items)
+        setDemoControlsEnabled(true)
+
+        addLog(getString(R.string.demo_stopped))
+        Toast.makeText(this, R.string.demo_stopped, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setDemoControlsEnabled(enabled: Boolean) {
+        b.selectPkgs.isEnabled = enabled
+        b.installAll.isEnabled = enabled
+        b.detectPs4.isEnabled = enabled
+        b.clearSelection.isEnabled = enabled
+    }
+
+    private fun humanEta(seconds: Long): String {
+        val safe = seconds.coerceAtLeast(0L)
+
+        return when {
+            safe < 60L -> getString(R.string.time_seconds, safe)
+            safe < 3600L -> {
+                val minutes = (safe + 59L) / 60L
+                getString(R.string.time_minutes, minutes)
+            }
+            else -> {
+                val hours = safe / 3600L
+                val minutes = (safe % 3600L) / 60L
+                getString(R.string.time_hours_minutes, hours, minutes)
+            }
+        }
     }
 
     private fun requestRuntimePermissions() {
