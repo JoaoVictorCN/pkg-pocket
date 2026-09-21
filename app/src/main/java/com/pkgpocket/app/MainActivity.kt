@@ -33,6 +33,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.color.DynamicColors
 import com.google.android.material.snackbar.Snackbar
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
@@ -208,6 +209,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DynamicColors.applyToActivityIfAvailable(this)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         playLaunchAnimation()
@@ -976,17 +978,22 @@ class MainActivity : AppCompatActivity() {
         val title = b.splashTitle
         val tagline = b.splashTagline
         val overlay = b.splashOverlay
+        val enter = android.view.animation.DecelerateInterpolator(1.6f)
+        val exit = android.view.animation.AccelerateDecelerateInterpolator()
 
         overlay.visibility = View.VISIBLE
         overlay.alpha = 1f
 
         logo.alpha = 0f
-        logo.scaleX = 0.84f
-        logo.scaleY = 0.84f
-        logo.translationY = 18f
+        logo.scaleX = 0.90f
+        logo.scaleY = 0.90f
+        logo.translationY = 22f
+
         title.alpha = 0f
-        title.translationY = 10f
+        title.translationY = 14f
+
         tagline.alpha = 0f
+        tagline.translationY = 8f
 
         overlay.post {
             logo.animate()
@@ -994,26 +1001,31 @@ class MainActivity : AppCompatActivity() {
                 .scaleX(1f)
                 .scaleY(1f)
                 .translationY(0f)
-                .setDuration(430L)
+                .setInterpolator(enter)
+                .setDuration(820L)
                 .start()
 
             title.animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setStartDelay(240L)
-                .setDuration(360L)
+                .setStartDelay(420L)
+                .setInterpolator(enter)
+                .setDuration(620L)
                 .start()
 
             tagline.animate()
-                .alpha(0.78f)
-                .setStartDelay(380L)
-                .setDuration(360L)
+                .alpha(0.82f)
+                .translationY(0f)
+                .setStartDelay(720L)
+                .setInterpolator(enter)
+                .setDuration(620L)
                 .start()
 
             overlay.animate()
                 .alpha(0f)
-                .setStartDelay(1050L)
-                .setDuration(280L)
+                .setStartDelay(1850L)
+                .setInterpolator(exit)
+                .setDuration(520L)
                 .withEndAction {
                     overlay.visibility = View.GONE
                     overlay.alpha = 1f

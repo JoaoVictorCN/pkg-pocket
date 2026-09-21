@@ -281,11 +281,12 @@
 
             <ImageView
                 android:id="@+id/splashLogo"
-                android:layout_width="132dp"
-                android:layout_height="132dp"
+                android:layout_width="124dp"
+                android:layout_height="124dp"
                 android:alpha="0"
                 android:contentDescription="@string/app_name"
-                android:src="@drawable/pkg_pocket_logo" />
+                android:scaleType="centerInside"
+                android:src="@drawable/pkg_pocket_splash_clean" />
 
             <TextView
                 android:id="@+id/splashTitle"
