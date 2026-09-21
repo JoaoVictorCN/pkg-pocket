@@ -162,6 +162,8 @@ class MainActivity : AppCompatActivity() {
             b.clearSelection.isEnabled = !active && demoJob?.isActive != true
             b.historyButton.isEnabled = !active && demoJob?.isActive != true
             b.helpButton.isEnabled = !active && demoJob?.isActive != true
+            b.smartLibraryButton.isEnabled = !active && demoJob?.isActive != true
+            b.diagnosticsButton.isEnabled = demoJob?.isActive != true
             if (!active) b.cancelInstall.isEnabled = true
 
             if (liveUpdate || !logOnly) {
@@ -289,6 +291,14 @@ class MainActivity : AppCompatActivity() {
             showFaq()
         }
 
+        b.smartLibraryButton.setOnClickListener {
+            showSmartLibrary()
+        }
+
+        b.diagnosticsButton.setOnClickListener {
+            runDiagnostics()
+        }
+
         b.detectPs4.setOnClickListener {
             lifecycleScope.launch {
                 val searching = getString(R.string.searching_rpi)
@@ -331,48 +341,7 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            clearCompletedCards()
-            resetPkgCardsForQueue()
-
-            PkgRepository.items
-                .sortedWith(
-                    compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
-                )
-                .firstOrNull()
-                ?.let { first ->
-                    updatePkgCard(
-                        first.token,
-                        null,
-                        getString(R.string.state_preparing),
-                        ""
-                    )
-                }
-
-            b.cancelInstall.visibility = View.VISIBLE
-            b.cancelInstall.isEnabled = true
-            b.installAll.isEnabled = false
-            b.progress.progress = 0
-            b.overallProgressInfo.text = getString(R.string.overall_idle)
-            b.status.visibility = View.VISIBLE
-            b.overallProgressInfo.visibility = View.GONE
-            b.progress.visibility = View.GONE
-            val rpiHint = if (PkgRepository.items.size > 1) {
-                getString(R.string.keep_rpi_open_queue)
-            } else {
-                getString(R.string.keep_rpi_open_single)
-            }
-
-            b.status.text = rpiHint
-            b.liveLog.text = rpiHint
-            addLog(rpiHint)
-            Toast.makeText(
-                this,
-                rpiHint,
-                Toast.LENGTH_LONG
-            ).show()
-
-            addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
-            ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
+            preflightInstall(ip)
         }
 
         b.cancelInstall.setOnClickListener {
@@ -623,6 +592,7 @@ class MainActivity : AppCompatActivity() {
             b.clearSelection.isEnabled = false
             b.historyButton.isEnabled = false
             b.helpButton.isEnabled = false
+            b.smartLibraryButton.isEnabled = false
         }
     }
 
@@ -643,6 +613,7 @@ class MainActivity : AppCompatActivity() {
             b.clearSelection.isEnabled = PkgRepository.items.isNotEmpty()
             b.historyButton.isEnabled = true
             b.helpButton.isEnabled = true
+            b.smartLibraryButton.isEnabled = true
         }
     }
 
@@ -941,6 +912,8 @@ class MainActivity : AppCompatActivity() {
         b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
         b.historyButton.isEnabled = enabled
         b.helpButton.isEnabled = enabled
+        b.smartLibraryButton.isEnabled = enabled
+        b.diagnosticsButton.isEnabled = enabled
     }
 
     private fun setupExitGuard() {
@@ -971,6 +944,322 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun preflightInstall(ip: String) {
+        val analysis = SmartLibraryAnalyzer.analyze(PkgRepository.items)
+
+        if (analysis.importantWarnings.isEmpty()) {
+            startInstallation(ip)
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.preflight_title)
+            .setMessage(buildSmartIssues(analysis))
+            .setNegativeButton(R.string.cancel_selection, null)
+            .setNeutralButton(R.string.optimize_queue) { _, _ ->
+                applyOptimizedQueue()
+            }
+            .setPositiveButton(R.string.install_anyway) { _, _ ->
+                startInstallation(ip)
+            }
+            .show()
+    }
+
+    private fun startInstallation(ip: String) {
+        clearCompletedCards()
+        resetPkgCardsForQueue()
+
+        PkgRepository.items
+            .sortedWith(
+                compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
+            )
+            .firstOrNull()
+            ?.let { first ->
+                updatePkgCard(
+                    first.token,
+                    null,
+                    getString(R.string.state_preparing),
+                    ""
+                )
+            }
+
+        b.cancelInstall.visibility = View.VISIBLE
+        b.cancelInstall.isEnabled = true
+        b.installAll.isEnabled = false
+        b.progress.progress = 0
+        b.overallProgressInfo.text = getString(R.string.overall_idle)
+        b.status.visibility = View.VISIBLE
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+
+        val rpiHint = if (PkgRepository.items.size > 1) {
+            getString(R.string.keep_rpi_open_queue)
+        } else {
+            getString(R.string.keep_rpi_open_single)
+        }
+
+        b.status.text = rpiHint
+        b.liveLog.text = rpiHint
+        addLog(rpiHint)
+        Toast.makeText(this, rpiHint, Toast.LENGTH_LONG).show()
+
+        addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
+        ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
+    }
+
+    private fun showSmartLibrary() {
+        if (PkgRepository.items.isEmpty()) {
+            Toast.makeText(this, R.string.select_pkgs_first, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val analysis = SmartLibraryAnalyzer.analyze(PkgRepository.items)
+        val totalSize = PkgRepository.items.sumOf { it.size.coerceAtLeast(0L) }
+
+        val message = buildString {
+            append(
+                getString(
+                    R.string.smart_summary,
+                    analysis.groups.size,
+                    PkgRepository.items.size,
+                    humanSize(totalSize)
+                )
+            )
+
+            analysis.groups.forEach { group ->
+                val installed = group.items.count {
+                    InstallHistoryStore.contains(this@MainActivity, it)
+                }
+
+                append("\n\n")
+                append(group.title)
+                append("\n")
+                append(
+                    getString(
+                        R.string.smart_group_line,
+                        group.titleId.ifBlank { "—" },
+                        group.games.size,
+                        group.updates.size,
+                        group.dlcs.size,
+                        humanSize(group.totalSize)
+                    )
+                )
+
+                if (installed > 0) {
+                    append("\n")
+                    append(
+                        getString(
+                            R.string.smart_installed_count,
+                            installed,
+                            group.items.size
+                        )
+                    )
+                }
+
+                val updateVersions = group.updates
+                    .map { it.version }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+
+                if (updateVersions.isNotEmpty()) {
+                    append("\n")
+                    append(
+                        getString(
+                            R.string.smart_updates_versions,
+                            updateVersions.joinToString(", ")
+                        )
+                    )
+                }
+            }
+
+            append("\n\n")
+            append(buildSmartIssues(analysis))
+            append("\n\n")
+            append(getString(R.string.smart_history_notice))
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.smart_library)
+            .setMessage(message)
+            .setNegativeButton(R.string.close, null)
+            .setNeutralButton(R.string.only_missing) { _, _ ->
+                filterInstalledFromQueue()
+            }
+            .setPositiveButton(R.string.optimize_queue) { _, _ ->
+                applyOptimizedQueue()
+            }
+            .show()
+    }
+
+    private fun buildSmartIssues(analysis: SmartAnalysis): String {
+        val lines = mutableListOf<String>()
+
+        if (analysis.duplicateTokens.isNotEmpty()) {
+            lines += getString(
+                R.string.issue_duplicates,
+                analysis.duplicateTokens.size
+            )
+        }
+
+        if (analysis.olderUpdateTokens.isNotEmpty()) {
+            lines += getString(
+                R.string.issue_old_updates,
+                analysis.olderUpdateTokens.size
+            )
+        }
+
+        analysis.importantWarnings
+            .filter { it.startsWith("MULTIPLE_BASES|") }
+            .forEach { raw ->
+                val parts = raw.split('|')
+                lines += getString(
+                    R.string.issue_multiple_bases,
+                    parts.getOrNull(1).orEmpty(),
+                    parts.getOrNull(2).orEmpty()
+                )
+            }
+
+        analysis.notices.forEach { raw ->
+            val parts = raw.split('|')
+            when (parts.firstOrNull()) {
+                "UPDATE_WITHOUT_BASE" -> lines += getString(
+                    R.string.issue_update_without_base,
+                    parts.getOrNull(1).orEmpty()
+                )
+
+                "DLC_WITHOUT_BASE" -> lines += getString(
+                    R.string.issue_dlc_without_base,
+                    parts.getOrNull(1).orEmpty()
+                )
+            }
+        }
+
+        return if (lines.isEmpty()) {
+            getString(R.string.smart_no_issues)
+        } else {
+            getString(R.string.smart_issues_header) +
+                "\n• " +
+                lines.joinToString("\n• ")
+        }
+    }
+
+    private fun applyOptimizedQueue() {
+        val before = PkgRepository.items
+        val optimized = SmartLibraryAnalyzer.optimize(before)
+
+        if (optimized.size == before.size) {
+            Toast.makeText(this, R.string.nothing_to_optimize, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        PkgRepository.items = optimized
+        persistSelection(optimized)
+        render(optimized)
+        updateSelectionSummary(optimized)
+
+        Toast.makeText(
+            this,
+            getString(R.string.queue_optimized, before.size - optimized.size),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun filterInstalledFromQueue() {
+        val before = PkgRepository.items
+        val missing = before.filterNot {
+            InstallHistoryStore.contains(this, it)
+        }
+
+        if (missing.size == before.size) {
+            Toast.makeText(this, R.string.no_history_matches, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        PkgRepository.items = missing
+        persistSelection(missing)
+        render(missing)
+        updateSelectionSummary(missing)
+
+        Toast.makeText(
+            this,
+            getString(R.string.history_filtered, before.size - missing.size),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun runDiagnostics() {
+        lifecycleScope.launch {
+            val ip = b.ps4Ip.text?.toString()?.trim().orEmpty()
+
+            val localIp = withContext(Dispatchers.IO) {
+                NetworkUtils.localIpv4()
+            }
+
+            val reachable = if (ip.isBlank()) {
+                false
+            } else {
+                withContext(Dispatchers.IO) {
+                    NetworkUtils.canConnect(ip)
+                }
+            }
+
+            val analysis = SmartLibraryAnalyzer.analyze(PkgRepository.items)
+            val warningCount =
+                analysis.importantWarnings.size +
+                    analysis.notices.size
+
+            val message = buildString {
+                append(
+                    getString(
+                        R.string.diag_phone_ip,
+                        localIp ?: getString(R.string.diag_unavailable)
+                    )
+                )
+                append("\n")
+                append(
+                    getString(
+                        R.string.diag_ps4_ip,
+                        ip.ifBlank { getString(R.string.diag_not_set) }
+                    )
+                )
+                append("\n")
+                append(
+                    getString(
+                        R.string.diag_rpi,
+                        if (reachable) {
+                            getString(R.string.diag_ok)
+                        } else {
+                            getString(R.string.diag_failed)
+                        }
+                    )
+                )
+                append("\n")
+                append(
+                    getString(
+                        R.string.diag_queue,
+                        PkgRepository.items.size,
+                        warningCount
+                    )
+                )
+                append("\n\n")
+                append(
+                    when {
+                        ip.isBlank() -> getString(R.string.diag_tip_ip)
+                        !reachable -> getString(R.string.diag_tip_rpi)
+                        warningCount > 0 -> getString(R.string.diag_tip_smart)
+                        else -> getString(R.string.diag_all_good)
+                    }
+                )
+            }
+
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.diagnostics)
+                .setMessage(message)
+                .setPositiveButton(R.string.close, null)
+                .show()
+        }
     }
 
     private fun playLaunchAnimation() {

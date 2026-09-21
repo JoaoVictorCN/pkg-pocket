@@ -22,8 +22,8 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "0.5.10"
+        versionCode = 23
+        versionName = "0.6.0"
     }
 
     signingConfigs {
