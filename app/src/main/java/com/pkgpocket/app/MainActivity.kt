@@ -17,6 +17,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +82,17 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
+
+        // Android 15 força edge-to-edge para apps com targetSdk 35.
+        // Respeita barra de status, navegação e recortes da tela.
+        ViewCompat.setOnApplyWindowInsetsListener(b.root) { view, insets ->
+            val safe = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(b.root)
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 9)
         }
