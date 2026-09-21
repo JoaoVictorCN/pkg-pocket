@@ -168,25 +168,54 @@ class InstallerService : Service() {
                     val url = activeServer.urlFor(localIp, item)
 
                     logOnly("Solicitação enviada ao RPI: ${item.kind.label} • ${item.title}")
-                    val result = RpiClient.install(ps4Ip, url)
-                    currentTaskId = result.taskId
 
-                    val task = result.taskId
+                    val installAttempt = runCatching { RpiClient.install(ps4Ip, url) }
+                    var task = installAttempt.getOrNull()?.taskId
+
                     if (task == null) {
-                        logOnly("RPI aceitou ${item.title}, mas não retornou task_id")
-                        delay(2000)
-                        return@forEachIndexed
+                        val originalError = installAttempt.exceptionOrNull()
+                        if (originalError != null) {
+                            logOnly(
+                                "A resposta de /api/install se perdeu; verificando se o PS4 criou a task…"
+                            )
+                        } else {
+                            logOnly(
+                                "RPI não retornou task_id; verificando a task pelo Content ID…"
+                            )
+                        }
+
+                        val subType = rpiSubType(item)
+                        if (subType != null && item.contentId.isNotBlank()) {
+                            repeat(4) { attempt ->
+                                if (task != null || cancelRequested) return@repeat
+                                delay(if (attempt == 0) 1200 else 1800)
+
+                                task = runCatching {
+                                    RpiClient.findTask(ps4Ip, item.contentId, subType)
+                                }.getOrNull()
+                            }
+                        }
+
+                        if (task == null) {
+                            if (originalError != null) throw originalError
+                            error("RPI não retornou task_id e nenhuma task foi encontrada")
+                        }
+
+                        logOnly("Task $task recuperada pelo Content ID")
+                    } else {
+                        logOnly("Task $task iniciada para ${item.title}")
                     }
 
-                    logOnly("Task $task iniciada para ${item.title}")
+                    currentTaskId = task
 
                     var done = false
                     var statusFailures = 0
+                    var pollDelayMs = 5000L
 
                     while (!done && !cancelRequested) {
-                        delay(2000)
+                        delay(pollDelayMs)
 
-                        val progress = runCatching { RpiClient.progress(ps4Ip, task) }
+                        val progress = runCatching { RpiClient.progress(ps4Ip, task!!) }
                             .onFailure {
                                 statusFailures++
                                 publishLive(
@@ -194,7 +223,8 @@ class InstallerService : Service() {
                                     text = "$prefix • Envio continua • aguardando status do PS4…",
                                     percent = null
                                 )
-                                if (statusFailures == 1 || statusFailures % 15 == 0) {
+                                pollDelayMs = (pollDelayMs + 5000L).coerceAtMost(20_000L)
+                                if (statusFailures == 1 || statusFailures % 6 == 0) {
                                     logOnly(
                                         "Status do RPI oscilou (${statusFailures}x); " +
                                             "o servidor continua enviando o PKG."
@@ -205,6 +235,7 @@ class InstallerService : Service() {
                             ?: continue
 
                         statusFailures = 0
+                        pollDelayMs = 5000L
 
                         val pc = RpiClient.percent(progress)
                         val transferred = RpiClient.bytesDone(progress)
@@ -249,6 +280,21 @@ class InstallerService : Service() {
             }
 
             finishSuccess(summary)
+        }
+    }
+
+    private fun rpiSubType(item: PkgItem): Int? {
+        return when (item.category.lowercase()) {
+            "gd" -> 6  // Game
+            "ac" -> 7  // Add-on content
+            "gp" -> 8  // Patch/update
+            "al" -> 9  // License/add-on license
+            else -> when (item.kind) {
+                PkgKind.GAME -> 6
+                PkgKind.UPDATE -> 8
+                PkgKind.DLC -> 7
+                PkgKind.OTHER -> null
+            }
         }
     }
 
