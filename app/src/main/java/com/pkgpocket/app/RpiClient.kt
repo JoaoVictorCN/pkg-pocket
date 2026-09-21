@@ -41,33 +41,29 @@ object RpiClient {
         post(ps4Ip, "/api/unregister_task", JSONObject().put("task_id", taskId))
 
     private fun post(ip: String, path: String, json: JSONObject): String {
-        val conn = URL("http://$ip:12800$path").openConnection() as HttpURLConnection
-
-        try {
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 3000
-            conn.readTimeout = 8000
-            conn.doOutput = true
-            conn.useCaches = false
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Connection", "close")
-
-            conn.outputStream.use {
-                it.write(json.toString().toByteArray(Charsets.UTF_8))
-            }
-
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-
-            if (code !in 200..299) {
-                error("RPI respondeu HTTP $code: $text")
-            }
-
-            return text
-        } finally {
-            conn.disconnect()
+        val conn = (URL("http://$ip:12800$path").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 2500
+            readTimeout = 5000
+            doOutput = true
+            useCaches = false
+            setRequestProperty("Content-Type", "application/json")
         }
+
+        conn.outputStream.use {
+            it.write(json.toString().toByteArray(Charsets.UTF_8))
+            it.flush()
+        }
+
+        val code = conn.responseCode
+        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+        val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+
+        if (code !in 200..299) {
+            error("RPI respondeu HTTP $code: $text")
+        }
+
+        return text
     }
 
     fun bytesTotal(j: JSONObject): Long =
