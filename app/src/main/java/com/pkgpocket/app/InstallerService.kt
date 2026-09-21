@@ -25,6 +25,7 @@ class InstallerService : Service() {
     companion object {
         const val ACTION_INSTALL_ALL = "com.pkgpocket.INSTALL_ALL"
         const val ACTION_CANCEL = "com.pkgpocket.CANCEL"
+        const val ACTION_RETRY_RPI = "com.pkgpocket.RETRY_RPI"
         const val ACTION_STATUS = "com.pkgpocket.STATUS"
 
         const val EXTRA_PS4_IP = "ps4_ip"
@@ -34,6 +35,7 @@ class InstallerService : Service() {
         const val EXTRA_LIVE_UPDATE = "live_update"
         const val EXTRA_ACTIVE = "active"
         const val EXTRA_FINAL_SUCCESS = "final_success"
+        const val EXTRA_RPI_STALLED = "rpi_stalled"
 
         const val EXTRA_OVERALL_STATUS = "overall_status"
         const val EXTRA_ITEM_TOKEN = "item_token"
@@ -44,6 +46,7 @@ class InstallerService : Service() {
         private const val CHANNEL = "pkg_transfer"
         private const val NOTIF_ID = 41
         private const val SPEED_WINDOW_MS = 30_000L
+        private const val RPI_STALL_FAILURES = 4
     }
 
     private data class TransferSample(
@@ -64,6 +67,8 @@ class InstallerService : Service() {
     @Volatile private var currentItemDetail = ""
     @Volatile private var lastOverallPercent = 0
     @Volatile private var cancelRequested = false
+    @Volatile private var waitingForRpiRecovery = false
+    @Volatile private var retryRpiRequested = false
 
     override fun onCreate() {
         super.onCreate()
@@ -95,9 +100,15 @@ class InstallerService : Service() {
             }
 
             ACTION_CANCEL -> cancelInstall()
+            ACTION_RETRY_RPI -> requestRpiRetry()
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun requestRpiRetry() {
+        if (!waitingForRpiRecovery) return
+        retryRpiRequested = true
     }
 
     private fun acquirePerformanceLocks() {
@@ -154,6 +165,8 @@ class InstallerService : Service() {
         currentItemPercent = 0
         currentItemDetail = ""
         lastOverallPercent = 0
+        waitingForRpiRecovery = false
+        retryRpiRequested = false
         restartServer(transferItems)
 
         installJob = scope.launch {
@@ -268,7 +281,7 @@ class InstallerService : Service() {
                         logOnly(getString(R.string.log_task_started, task!!, item.title))
                     }
 
-                    val activeTask = task ?: error(getString(R.string.error_no_task))
+                    var activeTask = task ?: error(getString(R.string.error_no_task))
                     currentTaskId = activeTask
 
                     var done = false
@@ -301,32 +314,137 @@ class InstallerService : Service() {
                     while (!done && !cancelRequested) {
                         delay(pollDelayMs)
 
-                        val progress = runCatching { RpiClient.progress(ps4Ip, activeTask) }
-                            .onFailure {
-                                statusFailures++
-                                pollDelayMs = (pollDelayMs + 5000L).coerceAtMost(20_000L)
+                        val progressAttempt = runCatching {
+                            RpiClient.progress(ps4Ip, activeTask)
+                        }
 
-                                publishTransfer(
-                                    item = item,
-                                    title = item.title,
-                                    topText = getString(
-                                        R.string.top_waiting_ps4,
-                                        position,
-                                        ordered.size
-                                    ),
-                                    itemStatus = getString(R.string.state_waiting_ps4),
-                                    itemDetail = lastMeta,
-                                    itemPercent = lastPc,
-                                    overallPercent = lastOverall,
-                                    overallText = lastOverallText
+                        if (progressAttempt.isFailure) {
+                            statusFailures++
+                            pollDelayMs = (pollDelayMs + 5000L).coerceAtMost(20_000L)
+
+                            publishTransfer(
+                                item = item,
+                                title = item.title,
+                                topText = getString(
+                                    R.string.top_waiting_ps4,
+                                    position,
+                                    ordered.size
+                                ),
+                                itemStatus = getString(R.string.state_waiting_ps4),
+                                itemDetail = lastMeta,
+                                itemPercent = lastPc,
+                                overallPercent = lastOverall,
+                                overallText = lastOverallText
+                            )
+
+                            if (statusFailures == 1) {
+                                logOnly(
+                                    getString(
+                                        R.string.log_status_flaky,
+                                        statusFailures
+                                    )
+                                )
+                            }
+
+                            if (statusFailures >= RPI_STALL_FAILURES) {
+                                waitingForRpiRecovery = true
+                                retryRpiRequested = false
+
+                                logOnly(
+                                    getString(
+                                        R.string.log_rpi_stalled,
+                                        statusFailures
+                                    )
                                 )
 
-                                if (statusFailures == 1 || statusFailures % 6 == 0) {
-                                    logOnly(getString(R.string.log_status_flaky, statusFailures))
+                                publishRpiStalled(
+                                    item = item,
+                                    overallPercent = lastOverall,
+                                    overallText = lastOverallText,
+                                    itemPercent = lastPc,
+                                    itemDetail = lastMeta
+                                )
+
+                                while (
+                                    waitingForRpiRecovery &&
+                                    !retryRpiRequested &&
+                                    !cancelRequested
+                                ) {
+                                    delay(500L)
                                 }
+
+                                if (cancelRequested) return@launch
+
+                                retryRpiRequested = false
+
+                                val directRecovery = runCatching {
+                                    RpiClient.progress(ps4Ip, activeTask)
+                                }.getOrNull()
+
+                                if (directRecovery != null) {
+                                    waitingForRpiRecovery = false
+                                    statusFailures = 0
+                                    pollDelayMs = 1000L
+                                    logOnly(getString(R.string.log_rpi_reconnected))
+                                    continue
+                                }
+
+                                val recoveredTask = rpiSubType(item)
+                                    ?.takeIf { item.contentId.isNotBlank() }
+                                    ?.let { subType ->
+                                        runCatching {
+                                            RpiClient.findTask(
+                                                ps4Ip,
+                                                item.contentId,
+                                                subType
+                                            )
+                                        }.getOrNull()
+                                    }
+
+                                if (recoveredTask != null) {
+                                    activeTask = recoveredTask
+                                    currentTaskId = recoveredTask
+                                    waitingForRpiRecovery = false
+                                    statusFailures = 0
+                                    pollDelayMs = 1000L
+
+                                    logOnly(
+                                        getString(
+                                            R.string.log_rpi_task_recovered_after_restart,
+                                            recoveredTask
+                                        )
+                                    )
+                                    continue
+                                }
+
+                                waitingForRpiRecovery = false
+
+                                if (
+                                    activeServer.wasFullyServed(
+                                        item.token,
+                                        item.size
+                                    )
+                                ) {
+                                    logOnly(
+                                        getString(
+                                            R.string.log_rpi_http_complete
+                                        )
+                                    )
+                                    done = true
+                                    break
+                                }
+
+                                error(
+                                    getString(
+                                        R.string.error_rpi_recovery_failed
+                                    )
+                                )
                             }
-                            .getOrNull()
-                            ?: continue
+
+                            continue
+                        }
+
+                        val progress = progressAttempt.getOrThrow()
 
                         statusFailures = 0
                         pollDelayMs = 5000L
@@ -719,6 +837,41 @@ class InstallerService : Service() {
         }
     }
 
+    private fun publishRpiStalled(
+        item: PkgItem,
+        overallPercent: Int,
+        overallText: String,
+        itemPercent: Int,
+        itemDetail: String
+    ) {
+        val text = getString(R.string.rpi_stalled_instruction)
+
+        getSystemService(NotificationManager::class.java).notify(
+            NOTIF_ID,
+            transferNotification(
+                getString(R.string.app_name),
+                text,
+                overallPercent
+            )
+        )
+
+        sendBroadcast(
+            Intent(ACTION_STATUS)
+                .setPackage(packageName)
+                .putExtra(EXTRA_STATUS, text)
+                .putExtra(EXTRA_PERCENT, overallPercent.coerceIn(0, 100))
+                .putExtra(EXTRA_OVERALL_STATUS, overallText)
+                .putExtra(EXTRA_ITEM_TOKEN, item.token)
+                .putExtra(EXTRA_ITEM_STATUS, getString(R.string.state_rpi_stalled))
+                .putExtra(EXTRA_ITEM_DETAIL, itemDetail)
+                .putExtra(EXTRA_ITEM_PERCENT, itemPercent)
+                .putExtra(EXTRA_LOG_ONLY, false)
+                .putExtra(EXTRA_LIVE_UPDATE, true)
+                .putExtra(EXTRA_ACTIVE, true)
+                .putExtra(EXTRA_RPI_STALLED, true)
+        )
+    }
+
     private fun publishTransfer(
         item: PkgItem,
         title: String,
@@ -751,6 +904,7 @@ class InstallerService : Service() {
                 .putExtra(EXTRA_LOG_ONLY, false)
                 .putExtra(EXTRA_LIVE_UPDATE, true)
                 .putExtra(EXTRA_ACTIVE, true)
+                .putExtra(EXTRA_RPI_STALLED, false)
         )
     }
 
@@ -794,6 +948,7 @@ class InstallerService : Service() {
                 .putExtra(EXTRA_LOG_ONLY, false)
                 .putExtra(EXTRA_LIVE_UPDATE, true)
                 .putExtra(EXTRA_ACTIVE, active)
+                .putExtra(EXTRA_RPI_STALLED, false)
         )
     }
 
@@ -872,6 +1027,7 @@ class InstallerService : Service() {
                 .putExtra(EXTRA_LIVE_UPDATE, false)
                 .putExtra(EXTRA_ACTIVE, false)
                 .putExtra(EXTRA_FINAL_SUCCESS, success)
+                .putExtra(EXTRA_RPI_STALLED, false)
         )
     }
 
@@ -881,6 +1037,8 @@ class InstallerService : Service() {
         currentTaskId = null
         currentPs4Ip = null
         currentItemToken = null
+        waitingForRpiRecovery = false
+        retryRpiRequested = false
         ActiveTransferQueue.clear()
         releasePerformanceLocks()
         stopSelf()

@@ -32,6 +32,15 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="quick_issue_missing_title_id">Title ID não encontrado.</string>
     <string name="quick_issue_missing_content_id">Content ID não encontrado.</string>
     <string name="cancel_transfer">Cancelar envio</string>
+    <string name="continue_queue">Continuar fila</string>
+    <string name="retrying_rpi">Tentando reconectar ao RPI…</string>
+    <string name="rpi_stalled_instruction">O RPI parou de responder. Reabra o Remote Package Installer no PS4, mantenha-o em foco e toque em Continuar fila.</string>
+    <string name="state_rpi_stalled">RPI indisponível • fila pausada</string>
+    <string name="log_rpi_stalled">RPI sem resposta após %1$d tentativas de status. Fila pausada para recuperação.</string>
+    <string name="log_rpi_reconnected">RPI respondeu novamente. Retomando a fila.</string>
+    <string name="log_rpi_task_recovered_after_restart">Task %1$d recuperada após reabrir o RPI. Retomando a fila.</string>
+    <string name="log_rpi_http_complete">O RPI não informa mais a task, mas o PKG foi servido por completo ao PS4. Considerando o envio concluído e continuando a fila.</string>
+    <string name="error_rpi_recovery_failed">O RPI respondeu novamente, mas a task atual não foi encontrada e o PKG não foi servido por completo. Tente novamente este PKG.</string>
     <string name="select_pkg_prompt">Selecione um ou mais arquivos .pkg</string>
     <string name="view_log">Ver log</string>
     <string name="hide_log">Ocultar log</string>
@@ -224,7 +233,7 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="log_no_task_id">RPI não retornou task_id; verificando a tarefa pelo Content ID…</string>
     <string name="log_task_recovered">Task %1$d recuperada pelo Content ID</string>
     <string name="log_task_started">Task %1$d iniciada para %2$s</string>
-    <string name="log_status_flaky">Status do RPI oscilou (%1$dx); o servidor continua enviando o PKG.</string>
+    <string name="log_status_flaky">Consulta de status do RPI falhou (%1$dx); o servidor de PKG continua disponível.</string>
     <string name="log_completed">Concluído: %1$s • %2$s</string>
 
     <string name="cancelled_by_user">Envio cancelado pelo usuário</string>

@@ -82,6 +82,15 @@
             android:visibility="gone"
             app:backgroundTint="?attr/colorError" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/retryRpi"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/continue_queue"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"
@@ -281,6 +290,16 @@
             android:orientation="vertical" />
     </LinearLayout>
 </ScrollView>
+
+    <View
+        android:id="@+id/helpRevealArea"
+        android:layout_width="40dp"
+        android:layout_height="56dp"
+        android:layout_gravity="end|center_vertical"
+        android:background="@android:color/transparent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/helpButton"

@@ -32,6 +32,15 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="quick_issue_missing_title_id">Title ID was not found.</string>
     <string name="quick_issue_missing_content_id">Content ID was not found.</string>
     <string name="cancel_transfer">Cancel transfer</string>
+    <string name="continue_queue">Continue queue</string>
+    <string name="retrying_rpi">Trying to reconnect to RPI…</string>
+    <string name="rpi_stalled_instruction">RPI stopped responding. Reopen Remote Package Installer on the PS4, keep it focused, then tap Continue queue.</string>
+    <string name="state_rpi_stalled">RPI unavailable • queue paused</string>
+    <string name="log_rpi_stalled">RPI did not answer after %1$d status attempts. Queue paused for recovery.</string>
+    <string name="log_rpi_reconnected">RPI is responding again. Resuming the queue.</string>
+    <string name="log_rpi_task_recovered_after_restart">Task %1$d recovered after RPI restart. Resuming the queue.</string>
+    <string name="log_rpi_http_complete">The RPI no longer reports the task, but the complete PKG was served to the PS4. Treating the transfer as completed and continuing the queue.</string>
+    <string name="error_rpi_recovery_failed">RPI responded again, but the current task was not found and the PKG was not fully served. Retry this PKG.</string>
     <string name="select_pkg_prompt">Select one or more .pkg files</string>
     <string name="view_log">View log</string>
     <string name="hide_log">Hide log</string>
@@ -224,7 +233,7 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="log_no_task_id">RPI did not return task_id; checking the task by Content ID…</string>
     <string name="log_task_recovered">Task %1$d recovered by Content ID</string>
     <string name="log_task_started">Task %1$d started for %2$s</string>
-    <string name="log_status_flaky">RPI status fluctuated (%1$dx); the PKG server is still transferring.</string>
+    <string name="log_status_flaky">RPI status query failed (%1$dx); the PKG server remains available.</string>
     <string name="log_completed">Completed: %1$s • %2$s</string>
 
     <string name="cancelled_by_user">Transfer cancelled by user</string>

@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private var demoJob: Job? = null
     private var helpHideJob: Job? = null
     private var helpBubbleCollapsed = false
+    private var helpBubbleOnLeft = false
     private var lastBackPressedAt = 0L
     private var multiSelectMode = false
     private val selectedTokens = linkedSetOf<String>()
@@ -144,6 +145,10 @@ class MainActivity : AppCompatActivity() {
                 InstallerService.EXTRA_FINAL_SUCCESS,
                 false
             )
+            val rpiStalled = intent.getBooleanExtra(
+                InstallerService.EXTRA_RPI_STALLED,
+                false
+            )
             val overallPercent = intent.getIntExtra(InstallerService.EXTRA_PERCENT, 0)
             val overallText = intent.getStringExtra(InstallerService.EXTRA_OVERALL_STATUS).orEmpty()
             val token = intent.getStringExtra(InstallerService.EXTRA_ITEM_TOKEN).orEmpty()
@@ -178,6 +183,12 @@ class MainActivity : AppCompatActivity() {
                 refs.installCheck.isEnabled = !active && demoJob?.isActive != true
             }
             if (!active) b.cancelInstall.isEnabled = true
+
+            if (intent.hasExtra(InstallerService.EXTRA_RPI_STALLED)) {
+                b.retryRpi.visibility =
+                    if (active && rpiStalled) View.VISIBLE else View.GONE
+                b.retryRpi.isEnabled = true
+            }
 
             if (liveUpdate || !logOnly) {
                 val visibleStatus = if (!showOverallProgress && itemPercent == 0 && itemStatus.isNotBlank()) {
@@ -383,6 +394,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        b.retryRpi.setOnClickListener {
+            b.retryRpi.isEnabled = false
+            b.status.visibility = View.VISIBLE
+            b.status.text = getString(R.string.retrying_rpi)
+            b.liveLog.text = getString(R.string.retrying_rpi)
+            addLog(getString(R.string.retrying_rpi))
+            ensureService(InstallerService.ACTION_RETRY_RPI)
+        }
+
         b.toggleLog.setOnClickListener {
             val show = b.logContainer.visibility != View.VISIBLE
             b.logContainer.visibility = if (show) View.VISIBLE else View.GONE
@@ -511,6 +531,7 @@ class MainActivity : AppCompatActivity() {
 
         b.selectionActions.visibility = View.GONE
         b.clearSelection.visibility = View.GONE
+        b.retryRpi.visibility = View.GONE
         b.status.visibility = View.VISIBLE
         b.status.text = getString(R.string.select_pkg_prompt)
         b.overallProgressInfo.visibility = View.GONE
@@ -531,6 +552,7 @@ class MainActivity : AppCompatActivity() {
         b.selectionActions.visibility = View.GONE
         b.clearSelection.visibility = View.GONE
         b.cancelInstall.visibility = View.GONE
+        b.retryRpi.visibility = View.GONE
         b.installAll.isEnabled = true
         b.selectPkgs.isEnabled = true
         b.status.visibility = View.VISIBLE
@@ -1239,6 +1261,7 @@ class MainActivity : AppCompatActivity() {
 
         b.cancelInstall.visibility = View.VISIBLE
         b.cancelInstall.isEnabled = true
+        b.retryRpi.visibility = View.GONE
         b.installAll.isEnabled = false
         pkgCards.values.forEach { refs ->
             refs.installCheck.isEnabled = false
@@ -1589,6 +1612,12 @@ class MainActivity : AppCompatActivity() {
         val bubble = b.helpButton
         bubble.visibility = View.INVISIBLE
         bubble.alpha = 0f
+        b.helpRevealArea.visibility = View.GONE
+
+        b.helpRevealArea.setOnClickListener {
+            helpHideJob?.cancel()
+            expandHelpBubble()
+        }
 
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         var downRawX = 0f
@@ -1682,13 +1711,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun expandHelpBubble() {
         val bubble = b.helpButton
-        if (bubble.visibility != View.VISIBLE) return
+        val parent = bubble.parent as? View ?: return
+        if (bubble.visibility != View.VISIBLE || parent.width <= 0) return
 
+        helpHideJob?.cancel()
+        b.helpRevealArea.visibility = View.GONE
         helpBubbleCollapsed = false
+
+        val margin = dp(8).toFloat()
+        val targetX = if (helpBubbleOnLeft) {
+            margin
+        } else {
+            (parent.width - bubble.width - margin).coerceAtLeast(margin)
+        }
+
         bubble.animate().cancel()
         bubble.animate()
+            .x(targetX)
             .alpha(1f)
-            .setDuration(120L)
+            .setDuration(180L)
+            .withEndAction {
+                scheduleHelpBubbleCollapse()
+            }
             .start()
     }
 
@@ -1699,7 +1743,8 @@ class MainActivity : AppCompatActivity() {
 
         val margin = dp(8).toFloat()
         val centerX = bubble.x + bubble.width / 2f
-        val targetX = if (centerX < parent.width / 2f) {
+        helpBubbleOnLeft = centerX < parent.width / 2f
+        val targetX = if (helpBubbleOnLeft) {
             margin
         } else {
             (parent.width - bubble.width - margin)
@@ -1739,7 +1784,9 @@ class MainActivity : AppCompatActivity() {
 
         val keepVisible = dp(10).toFloat()
         val centerX = bubble.x + bubble.width / 2f
-        val targetX = if (centerX < parent.width / 2f) {
+        helpBubbleOnLeft = centerX < parent.width / 2f
+
+        val targetX = if (helpBubbleOnLeft) {
             -(bubble.width - keepVisible)
         } else {
             parent.width - keepVisible
@@ -1748,12 +1795,35 @@ class MainActivity : AppCompatActivity() {
         bubble.animate().cancel()
         bubble.animate()
             .x(targetX)
-            .alpha(0.22f)
+            .alpha(0.28f)
             .setDuration(260L)
             .withEndAction {
                 helpBubbleCollapsed = true
+                positionHelpRevealArea()
             }
             .start()
+    }
+
+    private fun positionHelpRevealArea() {
+        val bubble = b.helpButton
+        val area = b.helpRevealArea
+        val parent = bubble.parent as? View ?: return
+        if (!helpBubbleCollapsed || parent.width <= 0) return
+
+        val areaWidth = dp(40)
+        val areaHeight = dp(56)
+        area.x = if (helpBubbleOnLeft) {
+            0f
+        } else {
+            (parent.width - areaWidth).coerceAtLeast(0).toFloat()
+        }
+
+        val centerY = bubble.y + bubble.height / 2f
+        val maxY = (parent.height - areaHeight).coerceAtLeast(0).toFloat()
+        area.y = (centerY - areaHeight / 2f).coerceIn(0f, maxY)
+        area.visibility = View.VISIBLE
+        area.bringToFront()
+        bubble.bringToFront()
     }
 
     private fun showInstallHistory() {

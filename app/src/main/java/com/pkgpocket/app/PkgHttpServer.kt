@@ -21,6 +21,8 @@ class PkgHttpServer(
 ) {
     private val running = AtomicBoolean(false)
     private val workers = Executors.newFixedThreadPool(16)
+    private val coverageLock = Any()
+    private val servedRanges = mutableMapOf<String, MutableList<LongRange>>()
     private var server: ServerSocket? = null
     private var acceptThread: Thread? = null
 
@@ -69,6 +71,52 @@ class PkgHttpServer(
     fun urlFor(localIp: String, item: PkgItem): String {
         val safeName = item.fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
         return "http://$localIp:$port/pkg/${item.token}/$safeName"
+    }
+
+    fun wasFullyServed(token: String, size: Long): Boolean {
+        if (size <= 0L) return false
+
+        synchronized(coverageLock) {
+            val ranges = servedRanges[token]
+                ?.sortedBy { it.first }
+                .orEmpty()
+
+            var next = 0L
+
+            for (range in ranges) {
+                if (range.first > next) return false
+                if (range.last >= next) {
+                    next = range.last + 1L
+                }
+                if (next >= size) return true
+            }
+
+            return false
+        }
+    }
+
+    private fun markServed(token: String, start: Long, end: Long) {
+        if (start < 0L || end < start) return
+
+        synchronized(coverageLock) {
+            val all = servedRanges.getOrPut(token) { mutableListOf() }
+            all += start..end
+
+            val merged = mutableListOf<LongRange>()
+
+            all.sortedBy { it.first }.forEach { range ->
+                val last = merged.lastOrNull()
+
+                if (last == null || range.first > last.last + 1L) {
+                    merged += range
+                } else {
+                    merged[merged.lastIndex] =
+                        last.first..maxOf(last.last, range.last)
+                }
+            }
+
+            servedRanges[token] = merged
+        }
     }
 
     private fun handle(socket: Socket) = socket.use { s ->
@@ -166,6 +214,7 @@ class PkgHttpServer(
                 }
 
                 output.flush()
+                markServed(item.token, start, end)
             }
         }
     }
