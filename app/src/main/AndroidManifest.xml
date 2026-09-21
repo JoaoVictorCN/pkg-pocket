@@ -24,6 +24,14 @@
         android:usesCleartextTraffic="true">
 
         <activity
+            android:name=".LibraryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".GameDetailActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

@@ -284,7 +284,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.historyButton.setOnClickListener {
-            showInstallHistory()
+            startActivity(Intent(this, LibraryActivity::class.java))
         }
 
         b.helpButton.setOnClickListener {

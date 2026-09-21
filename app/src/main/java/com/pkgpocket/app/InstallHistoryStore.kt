@@ -24,6 +24,10 @@ object InstallHistoryStore {
         val records = all(context).toMutableList()
         val key = keyFor(item)
 
+        if (item.kind == PkgKind.GAME) {
+            LibraryCoverStore.seedFromGame(context, item)
+        }
+
         records.removeAll { it.key == key }
         records.add(
             0,
@@ -80,6 +84,8 @@ object InstallHistoryStore {
             .edit()
             .putString(KEY, "[]")
             .apply()
+
+        LibraryCoverStore.clear(context)
     }
 
     private fun save(context: Context, records: List<InstalledPkgRecord>) {
