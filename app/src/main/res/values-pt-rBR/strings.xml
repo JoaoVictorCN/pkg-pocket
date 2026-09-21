@@ -23,6 +23,7 @@
     <string name="pkgs_ready">%1$d PKG(s) prontos. Abra o Remote Package Installer no PS4.</string>
     <string name="selection_summary">%1$d PKGs • %2$s • %3$s</string>
     <string name="selection_cleared">Seleção de PKGs limpa.</string>
+    <string name="pkg_removed">Removido: %1$s</string>
     <string name="opening_picker">Abrindo seletor de PKGs…</string>
     <string name="searching_rpi">Procurando PS4 com RPI na rede local…</string>
     <string name="rpi_found">RPI encontrado em %1$s:12800</string>

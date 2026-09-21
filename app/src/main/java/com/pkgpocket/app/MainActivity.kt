@@ -13,7 +13,9 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -669,8 +671,148 @@ class MainActivity : AppCompatActivity() {
             meta.visibility = View.GONE
 
             pkgCards[item.token] = PkgCardViews(progress, status, meta)
+            attachSwipeToDelete(row, item)
             b.pkgList.addView(row)
         }
+    }
+
+    private fun attachSwipeToDelete(row: View, item: PkgItem) {
+        val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
+        var downX = 0f
+        var downY = 0f
+        var swiping = false
+
+        row.setOnTouchListener { view, event ->
+            // Durante envio real ou demo, a lista fica congelada.
+            if (!b.installAll.isEnabled || demoJob?.isActive == true) {
+                view.animate()
+                    .translationX(0f)
+                    .alpha(1f)
+                    .setDuration(120)
+                    .start()
+                return@setOnTouchListener false
+            }
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    swiping = false
+                    false
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+
+                    if (!swiping &&
+                        kotlin.math.abs(dx) > touchSlop &&
+                        kotlin.math.abs(dx) > kotlin.math.abs(dy)
+                    ) {
+                        swiping = true
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
+                    }
+
+                    if (swiping) {
+                        view.translationX = dx
+                        val fade = 1f - (
+                            kotlin.math.abs(dx) /
+                                (view.width.coerceAtLeast(1) * 1.35f)
+                            ).coerceIn(0f, 0.55f)
+                        view.alpha = fade
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    if (!swiping) return@setOnTouchListener false
+
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
+
+                    val dx = event.rawX - downX
+                    val threshold = maxOf(
+                        view.width * 0.28f,
+                        96f * resources.displayMetrics.density
+                    )
+
+                    if (kotlin.math.abs(dx) >= threshold) {
+                        removePkgWithSwipe(
+                            row = view,
+                            item = item,
+                            direction = if (dx >= 0f) 1f else -1f
+                        )
+                    } else {
+                        view.animate()
+                            .translationX(0f)
+                            .alpha(1f)
+                            .setDuration(160)
+                            .start()
+                    }
+
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    view.parent?.requestDisallowInterceptTouchEvent(false)
+                    view.animate()
+                        .translationX(0f)
+                        .alpha(1f)
+                        .setDuration(160)
+                        .start()
+                    swiping
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    private fun removePkgWithSwipe(
+        row: View,
+        item: PkgItem,
+        direction: Float
+    ) {
+        if (!b.installAll.isEnabled || demoJob?.isActive == true) {
+            row.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(120)
+                .start()
+            return
+        }
+
+        val updated = PkgRepository.items.filterNot { it.token == item.token }
+        if (updated.size == PkgRepository.items.size) {
+            row.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(120)
+                .start()
+            return
+        }
+
+        val distance = (row.width.coerceAtLeast(1) * 1.15f) * direction
+
+        row.animate()
+            .translationX(distance)
+            .alpha(0f)
+            .setDuration(170)
+            .withEndAction {
+                PkgRepository.items = updated
+                render(updated)
+                updateSelectionSummary(updated)
+
+                val msg = getString(R.string.pkg_removed, item.title)
+                addLog(msg)
+                Toast.makeText(
+                    this@MainActivity,
+                    msg,
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .start()
     }
 
     private fun resetPkgCardsForQueue() {
