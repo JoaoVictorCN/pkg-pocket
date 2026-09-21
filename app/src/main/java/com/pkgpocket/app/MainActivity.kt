@@ -2066,11 +2066,20 @@ class MainActivity : AppCompatActivity() {
             permissions += Manifest.permission.POST_NOTIFICATIONS
         }
 
-        if (
-            Build.VERSION.SDK_INT <= 28 &&
-            checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissions += Manifest.permission.READ_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT <= 28) {
+            if (
+                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions += Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+
+            if (
+                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions += Manifest.permission.WRITE_EXTERNAL_STORAGE
+            }
         }
 
         if (permissions.isNotEmpty()) {

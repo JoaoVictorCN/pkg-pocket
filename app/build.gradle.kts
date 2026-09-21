@@ -42,11 +42,12 @@ android {
 
     buildTypes {
         getByName("debug") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
             buildConfigField("boolean", "ENABLE_DEMO", "true")
             buildConfigField("boolean", "PUBLIC_BETA", "false")
-            if (stableSigningReady) {
-                signingConfig = signingConfigs.getByName("stable")
-            }
+            // DEBUG usa a assinatura padrão de desenvolvimento.
+            // A chave estável fica exclusiva do RELEASE.
         }
 
         getByName("release") {
