@@ -64,6 +64,10 @@
     <string name="install_cancelled_no_pkgs">Install cancelled: no PKG selected.</string>
     <string name="install_cancelled_no_ip">Install cancelled: PS4 IP not provided.</string>
     <string name="preparing_transfer">Preparing transfer…</string>
+    <string name="keep_rpi_open_single">Keep Remote Package Installer open on the PS4 until the transfer starts.</string>
+    <string name="keep_rpi_open_queue">Multiple PKGs selected: keep Remote Package Installer open on the PS4 for the entire queue.</string>
+    <string name="press_back_again_to_exit">Press back again to exit</string>
+    <string name="press_back_again_active">Transfer in progress. Press back again to exit; the transfer will continue in the background.</string>
     <string name="starting_queue">Starting queue of %1$d PKG(s) for %2$s…</string>
     <string name="cancelling_transfer">Cancelling transfer…</string>
     <string name="app_started">PKG Pocket started.</string>

@@ -64,6 +64,10 @@
     <string name="install_cancelled_no_pkgs">Instalação cancelada: nenhum PKG selecionado.</string>
     <string name="install_cancelled_no_ip">Instalação cancelada: IP do PS4 não informado.</string>
     <string name="preparing_transfer">Preparando envio…</string>
+    <string name="keep_rpi_open_single">Mantenha o Remote Package Installer aberto no PS4 até o envio começar.</string>
+    <string name="keep_rpi_open_queue">Vários PKGs selecionados: mantenha o Remote Package Installer aberto no PS4 durante toda a fila.</string>
+    <string name="press_back_again_to_exit">Pressione voltar mais uma vez para sair</string>
+    <string name="press_back_again_active">Transferência em andamento. Pressione voltar novamente para sair; o envio continuará em segundo plano.</string>
     <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s…</string>
     <string name="cancelling_transfer">Cancelando envio…</string>
     <string name="app_started">PKG Pocket iniciado.</string>

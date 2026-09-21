@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -23,6 +24,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -49,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
+    private var lastBackPressedAt = 0L
     private var multiSelectMode = false
     private val selectedTokens = linkedSetOf<String>()
     private val completedCards = mutableMapOf<String, String>()
@@ -208,6 +211,7 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         playLaunchAnimation()
+        setupExitGuard()
 
         ViewCompat.setOnApplyWindowInsetsListener(b.root) { view, insets ->
             val safe = insets.getInsets(
@@ -350,7 +354,21 @@ class MainActivity : AppCompatActivity() {
             b.status.visibility = View.VISIBLE
             b.overallProgressInfo.visibility = View.GONE
             b.progress.visibility = View.GONE
-            b.liveLog.text = getString(R.string.preparing_transfer)
+            val rpiHint = if (PkgRepository.items.size > 1) {
+                getString(R.string.keep_rpi_open_queue)
+            } else {
+                getString(R.string.keep_rpi_open_single)
+            }
+
+            b.status.text = rpiHint
+            b.liveLog.text = rpiHint
+            addLog(rpiHint)
+            Toast.makeText(
+                this,
+                rpiHint,
+                Toast.LENGTH_LONG
+            ).show()
+
             addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
             ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
         }
@@ -921,6 +939,36 @@ class MainActivity : AppCompatActivity() {
         b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
         b.historyButton.isEnabled = enabled
         b.helpButton.isEnabled = enabled
+    }
+
+    private fun setupExitGuard() {
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    val now = SystemClock.elapsedRealtime()
+                    val activeTransfer = !b.installAll.isEnabled
+
+                    if (now - lastBackPressedAt <= 2_000L) {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                        return
+                    }
+
+                    lastBackPressedAt = now
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (activeTransfer) {
+                            R.string.press_back_again_active
+                        } else {
+                            R.string.press_back_again_to_exit
+                        },
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
     }
 
     private fun playLaunchAnimation() {
