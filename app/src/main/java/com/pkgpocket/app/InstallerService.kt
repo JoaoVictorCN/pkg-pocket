@@ -56,7 +56,12 @@ class InstallerService : Service() {
 
     private fun restartServer() {
         server?.stop()
-        server = PkgHttpServer(contentResolver, 8080) { PkgRepository.items }.also {
+        server = PkgHttpServer(
+            resolver = contentResolver,
+            port = 8080,
+            itemsProvider = { PkgRepository.items },
+            onLog = { message -> publish(message, 0) }
+        ).also {
             runCatching { it.start() }.onFailure { e -> publish("Erro no servidor: ${e.message}", 0) }
         }
     }
@@ -72,8 +77,11 @@ class InstallerService : Service() {
             ordered.forEachIndexed { index, item ->
                 publish("${index + 1}/${ordered.size}: enviando ${item.kind.label} — ${item.title}", 0)
                 try {
-                    val url = server!!.urlFor(localIp, item)
+                    val activeServer = server ?: error("Servidor HTTP não iniciado")
+                    val url = activeServer.urlFor(localIp, item)
+                    publish("Enviando URL ao RPI: $url", 0)
                     val result = RpiClient.install(ps4Ip, url)
+                    publish("RPI respondeu: ${result.raw}", 0)
                     val task = result.taskId
                     if (task == null) {
                         publish("RPI aceitou ${item.title}, mas não retornou task_id", 0)
