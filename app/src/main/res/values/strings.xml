@@ -15,6 +15,22 @@
     <string name="no_active_transfer">No active transfer.</string>
     <string name="waiting_events">Waiting for events…</string>
     <string name="pkg_cover">PKG cover</string>
+    <string name="brand_tagline">PS4 PKG installer via Android</string>
+    <string name="install_history">Installed</string>
+    <string name="help_faq">Help / FAQ</string>
+    <string name="state_installed_before">Installed previously with PKG Pocket</string>
+    <string name="history_empty">No installation history yet.</string>
+    <string name="history_item">%1$s\n%2$s • %3$s • %4$s\nInstalled with PKG Pocket • %5$s</string>
+    <string name="history_version">v%1$s</string>
+    <string name="history_no_version">version not reported</string>
+    <string name="clear_history">Clear history</string>
+    <string name="clear_history_confirm">Clear the local installation history?</string>
+    <string name="history_cleared">Installation history cleared.</string>
+    <string name="close">Close</string>
+    <string name="send_feedback">Send feedback</string>
+    <string name="feedback_open_failed">Could not open the feedback page.</string>
+    <string name="faq_title">PKG Pocket help</string>
+    <string name="faq_body">What does PKG Pocket do?\nIt sends PKGs already stored on your Android device to a PS4 through Remote Package Installer.\n\nWhat is required?\nThe phone and PS4 must be on the same local network. The PS4 must be powered on with a compatible HEN/GoldHEN environment and Remote Package Installer open.\n\nCan I select a game, update and DLCs together?\nYes. PKG Pocket identifies the packages and orders the queue as GAME → UPDATE → DLC.\n\nDoes PKG Pocket provide games or PKGs?\nNo. The app only works with files selected by the user.\n\nWhat does “Installed previously” mean?\nIt means that package previously completed successfully through PKG Pocket. It is a local history entry, not a live guarantee that the package is still installed on the PS4.\n\nWhere do missing covers come from?\nThe app uses the cover inside the PKG first. Internet lookup is only used when the PKG does not contain a cover.\n\nNeed a change, feature or bug fix?\nUse “Send feedback” below to open a pre-filled GitHub issue.</string>
 
     <string name="reading_metadata">Reading metadata from %1$d PKG(s)…</string>
     <string name="error_prefix">ERROR: %1$s</string>

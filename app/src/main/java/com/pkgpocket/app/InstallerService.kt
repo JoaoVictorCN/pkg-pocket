@@ -451,6 +451,10 @@ class InstallerService : Service() {
                         )
                     )
 
+                    runCatching {
+                        InstallHistoryStore.record(this@InstallerService, item)
+                    }
+
                     logOnly(getString(R.string.log_completed, kind, item.title))
                     currentTaskId = null
                     currentItemToken = null

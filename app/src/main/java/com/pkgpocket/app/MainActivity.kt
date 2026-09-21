@@ -24,6 +24,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -37,6 +38,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -154,6 +156,8 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = !active
             b.selectPkgs.isEnabled = !active
             b.clearSelection.isEnabled = !active && demoJob?.isActive != true
+            b.historyButton.isEnabled = !active && demoJob?.isActive != true
+            b.helpButton.isEnabled = !active && demoJob?.isActive != true
             if (!active) b.cancelInstall.isEnabled = true
 
             if (liveUpdate || !logOnly) {
@@ -190,6 +194,7 @@ class MainActivity : AppCompatActivity() {
                         ?.let { item ->
                             completedCards[itemStableKey(item)] = itemDetail
                             persistCompletedCards()
+                            InstallHistoryStore.record(this@MainActivity, item)
                         }
                 }
             }
@@ -202,6 +207,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
+        playLaunchAnimation()
 
         ViewCompat.setOnApplyWindowInsetsListener(b.root) { view, insets ->
             val safe = insets.getInsets(
@@ -231,13 +237,17 @@ class MainActivity : AppCompatActivity() {
                 .apply()
         }
 
-        b.appTitle.setOnLongClickListener {
-            if (demoJob?.isActive == true) {
-                stopDemo()
-            } else {
-                startDemo()
+        if (BuildConfig.ENABLE_DEMO) {
+            b.appTitle.setOnLongClickListener {
+                if (demoJob?.isActive == true) {
+                    stopDemo()
+                } else {
+                    startDemo()
+                }
+                true
             }
-            true
+        } else {
+            b.appTitle.isLongClickable = false
         }
 
         b.selectPkgs.setOnClickListener {
@@ -263,6 +273,14 @@ class MainActivity : AppCompatActivity() {
 
         b.shareLog.setOnClickListener {
             shareLog()
+        }
+
+        b.historyButton.setOnClickListener {
+            showInstallHistory()
+        }
+
+        b.helpButton.setOnClickListener {
+            showFaq()
         }
 
         b.detectPs4.setOnClickListener {
@@ -357,6 +375,7 @@ class MainActivity : AppCompatActivity() {
         loadCompletedCards()
 
         if (PkgRepository.items.isNotEmpty()) {
+            migrateCompletedCardsToHistory(PkgRepository.items)
             render(PkgRepository.items)
             updateSelectionSummary(PkgRepository.items)
             persistSelection(PkgRepository.items)
@@ -434,6 +453,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun migrateCompletedCardsToHistory(items: List<PkgItem>) {
+        items.forEach { item ->
+            if (
+                completedCards.containsKey(itemStableKey(item)) &&
+                !InstallHistoryStore.contains(this, item)
+            ) {
+                InstallHistoryStore.record(this, item)
+            }
+        }
+    }
+
     private fun persistSelection(items: List<PkgItem>) {
         val encoded = items.joinToString("\n") { it.uri.toString() }
         getSharedPreferences("pkg_pocket", MODE_PRIVATE)
@@ -471,6 +501,7 @@ class MainActivity : AppCompatActivity() {
             val normalized = normalizeKinds(restored)
             PkgRepository.items = normalized
             persistSelection(normalized)
+            migrateCompletedCardsToHistory(normalized)
             render(normalized)
             updateSelectionSummary(normalized)
 
@@ -570,6 +601,8 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = false
             b.detectPs4.isEnabled = false
             b.clearSelection.isEnabled = false
+            b.historyButton.isEnabled = false
+            b.helpButton.isEnabled = false
         }
     }
 
@@ -588,6 +621,8 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = true
             b.detectPs4.isEnabled = true
             b.clearSelection.isEnabled = PkgRepository.items.isNotEmpty()
+            b.historyButton.isEnabled = true
+            b.helpButton.isEnabled = true
         }
     }
 
@@ -884,6 +919,163 @@ class MainActivity : AppCompatActivity() {
         b.installAll.isEnabled = enabled
         b.detectPs4.isEnabled = enabled
         b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
+        b.historyButton.isEnabled = enabled
+        b.helpButton.isEnabled = enabled
+    }
+
+    private fun playLaunchAnimation() {
+        val logo = b.splashLogo
+        val title = b.splashTitle
+        val tagline = b.splashTagline
+        val overlay = b.splashOverlay
+
+        overlay.visibility = View.VISIBLE
+        overlay.alpha = 1f
+
+        logo.alpha = 0f
+        logo.scaleX = 0.84f
+        logo.scaleY = 0.84f
+        logo.translationY = 18f
+        title.alpha = 0f
+        title.translationY = 10f
+        tagline.alpha = 0f
+
+        overlay.post {
+            logo.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .translationY(0f)
+                .setDuration(430L)
+                .start()
+
+            title.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(240L)
+                .setDuration(360L)
+                .start()
+
+            tagline.animate()
+                .alpha(0.78f)
+                .setStartDelay(380L)
+                .setDuration(360L)
+                .start()
+
+            overlay.animate()
+                .alpha(0f)
+                .setStartDelay(1050L)
+                .setDuration(280L)
+                .withEndAction {
+                    overlay.visibility = View.GONE
+                    overlay.alpha = 1f
+                }
+                .start()
+        }
+    }
+
+    private fun showInstallHistory() {
+        val records = InstallHistoryStore.all(this)
+        val dateFormat = DateFormat.getDateTimeInstance(
+            DateFormat.SHORT,
+            DateFormat.SHORT
+        )
+
+        val message = if (records.isEmpty()) {
+            getString(R.string.history_empty)
+        } else {
+            records.joinToString("\n\n") { record ->
+                val versionText = if (record.version.isBlank()) {
+                    getString(R.string.history_no_version)
+                } else {
+                    getString(R.string.history_version, record.version)
+                }
+
+                val kind = runCatching {
+                    PkgKind.valueOf(record.kind)
+                }.getOrDefault(PkgKind.OTHER)
+
+                getString(
+                    R.string.history_item,
+                    record.title.ifBlank { record.fileName },
+                    kindLabel(kind),
+                    versionText,
+                    record.titleId.ifBlank { "—" },
+                    dateFormat.format(Date(record.installedAt))
+                )
+            }
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.install_history)
+            .setMessage(message)
+            .setPositiveButton(R.string.close, null)
+
+        if (records.isNotEmpty()) {
+            dialog.setNeutralButton(R.string.clear_history) { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.clear_history)
+                    .setMessage(R.string.clear_history_confirm)
+                    .setNegativeButton(R.string.cancel_selection, null)
+                    .setPositiveButton(R.string.clear_history) { _, _ ->
+                        InstallHistoryStore.clear(this)
+                        render(PkgRepository.items)
+                        updateSelectionSummary(PkgRepository.items)
+                        Toast.makeText(
+                            this,
+                            R.string.history_cleared,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    .show()
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun showFaq() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.faq_title)
+            .setMessage(R.string.faq_body)
+            .setNegativeButton(R.string.close, null)
+            .setPositiveButton(R.string.send_feedback) { _, _ ->
+                openFeedback()
+            }
+            .show()
+    }
+
+    private fun openFeedback() {
+        val body = buildString {
+            append("PKG Pocket: ")
+            append(BuildConfig.VERSION_NAME)
+            append("\nAndroid: ")
+            append(Build.VERSION.RELEASE)
+            append(" (SDK ")
+            append(Build.VERSION.SDK_INT)
+            append(")\nDevice: ")
+            append(Build.MANUFACTURER)
+            append(" ")
+            append(Build.MODEL)
+            append("\n\nType: Bug / Feature request / Change\n\nMessage:\n")
+        }
+
+        val uri = Uri.parse(
+            "https://github.com/VkctorC/pkg-pocket/issues/new"
+        ).buildUpon()
+            .appendQueryParameter("title", "[Feedback] ")
+            .appendQueryParameter("body", body)
+            .build()
+
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        }.onFailure {
+            Toast.makeText(
+                this,
+                R.string.feedback_open_failed,
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun humanEta(seconds: Long): String {
@@ -1061,7 +1253,11 @@ class MainActivity : AppCompatActivity() {
             } else {
                 progress.progress = 0
                 progress.visibility = View.GONE
-                status.text = getString(R.string.state_waiting)
+                status.text = if (InstallHistoryStore.contains(this, item)) {
+                    getString(R.string.state_installed_before)
+                } else {
+                    getString(R.string.state_waiting)
+                }
                 meta.text = ""
                 meta.visibility = View.GONE
             }

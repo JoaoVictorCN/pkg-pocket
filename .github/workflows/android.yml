@@ -32,12 +32,17 @@ jobs:
         run: |
           printf '%s' "$PKGPOCKET_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pkgpocket-signing.jks"
 
-      - name: Build debug APK
+      - name: Build debug and release APKs
         env:
           PKGPOCKET_KEYSTORE_PATH: ${{ runner.temp }}/pkgpocket-signing.jks
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: pkg-pocket-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-pocket-release-apk
+          path: app/build/outputs/apk/release/app-release.apk

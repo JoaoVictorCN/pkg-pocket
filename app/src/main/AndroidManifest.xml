@@ -17,7 +17,9 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@drawable/pkg_pocket_logo"
         android:label="PKG Pocket"
+        android:roundIcon="@drawable/pkg_pocket_logo"
         android:theme="@style/Theme.PkgPocket"
         android:usesCleartextTraffic="true">
 

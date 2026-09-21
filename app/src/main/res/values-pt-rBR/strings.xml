@@ -15,6 +15,22 @@
     <string name="no_active_transfer">Sem transferência ativa.</string>
     <string name="waiting_events">Aguardando eventos…</string>
     <string name="pkg_cover">Capa do PKG</string>
+    <string name="brand_tagline">PS4 PKG installer via Android</string>
+    <string name="install_history">Instalados</string>
+    <string name="help_faq">Ajuda / FAQ</string>
+    <string name="state_installed_before">Instalado anteriormente pelo PKG Pocket</string>
+    <string name="history_empty">Ainda não há histórico de instalações.</string>
+    <string name="history_item">%1$s\n%2$s • %3$s • %4$s\nInstalado pelo PKG Pocket • %5$s</string>
+    <string name="history_version">v%1$s</string>
+    <string name="history_no_version">versão não informada</string>
+    <string name="clear_history">Limpar histórico</string>
+    <string name="clear_history_confirm">Limpar o histórico local de instalações?</string>
+    <string name="history_cleared">Histórico de instalações limpo.</string>
+    <string name="close">Fechar</string>
+    <string name="send_feedback">Enviar feedback</string>
+    <string name="feedback_open_failed">Não foi possível abrir a página de feedback.</string>
+    <string name="faq_title">Ajuda do PKG Pocket</string>
+    <string name="faq_body">O que o PKG Pocket faz?\nEle envia PKGs já armazenados no Android para o PS4 através do Remote Package Installer.\n\nO que é necessário?\nCelular e PS4 precisam estar na mesma rede local. O PS4 precisa estar ligado com um ambiente HEN/GoldHEN compatível e com o Remote Package Installer aberto.\n\nPosso selecionar jogo, update e DLCs juntos?\nSim. O PKG Pocket identifica os pacotes e organiza a fila em JOGO → UPDATE → DLC.\n\nO PKG Pocket fornece jogos ou PKGs?\nNão. O aplicativo trabalha apenas com arquivos selecionados pelo usuário.\n\nO que significa “Instalado anteriormente”?\nSignifica que aquele pacote já foi concluído com sucesso pelo PKG Pocket. É um registro local, não uma confirmação em tempo real de que ele ainda está instalado no PS4.\n\nDe onde vêm as capas que faltam?\nPrimeiro o app usa a capa contida no próprio PKG. A internet só é consultada quando o PKG não possui capa.\n\nQuer pedir alteração, recurso novo ou reportar um bug?\nUse “Enviar feedback” abaixo para abrir uma issue do GitHub já preenchida.</string>
 
     <string name="reading_metadata">Lendo metadados de %1$d PKG(s)…</string>
     <string name="error_prefix">ERRO: %1$s</string>
