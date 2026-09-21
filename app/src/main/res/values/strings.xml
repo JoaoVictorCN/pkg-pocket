@@ -30,6 +30,7 @@
     <string name="restoring_selection">Restoring %1$d saved PKG(s)…</string>
     <string name="selection_restored">Restored %1$d PKG(s) from the previous session.</string>
     <string name="selected_count">%1$d selected</string>
+    <string name="selected_count_one">1 selected</string>
     <string name="selected_count_zero">0 selected</string>
     <string name="delete_selected">Delete</string>
     <string name="cancel_selection">Cancel</string>

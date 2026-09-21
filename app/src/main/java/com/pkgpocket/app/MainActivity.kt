@@ -451,10 +451,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshMultiSelectUi() {
         b.selectionActions.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
-        b.selectionCount.text = getString(
-            R.string.selected_count,
-            selectedTokens.size
-        )
+        b.selectionCount.text = if (selectedTokens.size == 1) {
+            getString(R.string.selected_count_one)
+        } else {
+            getString(
+                R.string.selected_count,
+                selectedTokens.size
+            )
+        }
 
         pkgCards.forEach { (token, refs) ->
             refs.checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
@@ -505,6 +509,12 @@ class MainActivity : AppCompatActivity() {
         message: String
     ) {
         if (tokens.isEmpty()) return
+
+        if (multiSelectMode) {
+            exitMultiSelectMode()
+        } else {
+            selectedTokens.removeAll(tokens)
+        }
 
         val before = PkgRepository.items
         val updated = before.filterNot { it.token in tokens }
@@ -959,6 +969,8 @@ class MainActivity : AppCompatActivity() {
                         kotlin.math.abs(dx) > kotlin.math.abs(dy)
                     ) {
                         swiping = true
+                        view.cancelLongPress()
+                        view.isPressed = false
                         view.parent?.requestDisallowInterceptTouchEvent(true)
                     }
 
@@ -1040,6 +1052,9 @@ class MainActivity : AppCompatActivity() {
                 .start()
             return
         }
+
+        row.cancelLongPress()
+        row.isPressed = false
 
         val distance = (row.width.coerceAtLeast(1) * 1.15f) * direction
 
