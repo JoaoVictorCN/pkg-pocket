@@ -84,28 +84,48 @@ object RpiClient {
             output.flush()
 
             val input = BufferedInputStream(socket.getInputStream(), 16 * 1024)
-            val responseHeaders = readResponseHeaders(input)
-            val statusCode = parseStatusCode(responseHeaders)
 
-            val headerMap = responseHeaders
-                .lineSequence()
-                .drop(1)
-                .mapNotNull { line ->
-                    val i = line.indexOf(':')
-                    if (i <= 0) null
-                    else line.substring(0, i).trim().lowercase() to line.substring(i + 1).trim()
+            // Algumas builds do RPI retornam JSON direto no socket, sem status-line HTTP.
+            // Detectamos isso antes de tentar interpretar os headers.
+            val prefix = ByteArrayOutputStream()
+            var firstMeaningful = -1
+            while (prefix.size() < 32 && firstMeaningful < 0) {
+                val b = input.read()
+                if (b < 0) break
+                prefix.write(b)
+                if (!b.toChar().isWhitespace()) firstMeaningful = b
+            }
+
+            val statusCode: Int
+            val bodyBytes: ByteArray
+
+            if (firstMeaningful == '{'.code || firstMeaningful == '['.code) {
+                statusCode = 200
+                bodyBytes = readJsonBody(input, prefix.toByteArray())
+            } else {
+                val responseHeaders = readResponseHeaders(input, prefix.toByteArray())
+                statusCode = parseStatusCode(responseHeaders)
+
+                val headerMap = responseHeaders
+                    .lineSequence()
+                    .drop(1)
+                    .mapNotNull { line ->
+                        val i = line.indexOf(':')
+                        if (i <= 0) null
+                        else line.substring(0, i).trim().lowercase() to line.substring(i + 1).trim()
+                    }
+                    .toMap()
+
+                bodyBytes = when {
+                    headerMap["transfer-encoding"]?.contains("chunked", ignoreCase = true) == true ->
+                        readChunkedBody(input)
+
+                    headerMap["content-length"]?.toLongOrNull() != null ->
+                        readKnownLengthBody(input, headerMap["content-length"]!!.toLong())
+
+                    else ->
+                        readUntilCloseOrTimeout(input)
                 }
-                .toMap()
-
-            val bodyBytes = when {
-                headerMap["transfer-encoding"]?.contains("chunked", ignoreCase = true) == true ->
-                    readChunkedBody(input)
-
-                headerMap["content-length"]?.toLongOrNull() != null ->
-                    readKnownLengthBody(input, headerMap["content-length"]!!.toLong())
-
-                else ->
-                    readUntilCloseOrTimeout(input)
             }
 
             var text = bodyBytes.toString(Charsets.UTF_8).trim()
@@ -134,11 +154,23 @@ object RpiClient {
         }
     }
 
-    private fun readResponseHeaders(input: BufferedInputStream): String {
+    private fun readResponseHeaders(input: BufferedInputStream, prefix: ByteArray): String {
         val out = ByteArrayOutputStream()
-        var state = 0
+        out.write(prefix)
 
-        while (out.size() < 64 * 1024) {
+        var state = 0
+        for (b in prefix) {
+            val x = b.toInt() and 0xFF
+            state = when {
+                state == 0 && x == '\r'.code -> 1
+                state == 1 && x == '\n'.code -> 2
+                state == 2 && x == '\r'.code -> 3
+                state == 3 && x == '\n'.code -> 4
+                else -> 0
+            }
+        }
+
+        while (out.size() < 64 * 1024 && state != 4) {
             val b = input.read()
             if (b < 0) break
             out.write(b)
@@ -150,15 +182,83 @@ object RpiClient {
                 state == 3 && b == '\n'.code -> 4
                 else -> 0
             }
-
-            if (state == 4) break
         }
 
         val text = out.toString(Charsets.US_ASCII.name())
-        if (!text.startsWith("HTTP/")) {
-            error("Resposta HTTP inválida do RPI")
+        if (!text.trimStart().startsWith("HTTP/")) {
+            error("Resposta inválida do RPI: ${text.take(120).replace("\r", "\\r").replace("\n", "\\n")}")
         }
-        return text
+        return text.trimStart()
+    }
+
+    private fun readJsonBody(input: BufferedInputStream, prefix: ByteArray): ByteArray {
+        val out = ByteArrayOutputStream()
+        out.write(prefix)
+
+        var depth = 0
+        var started = false
+        var inString = false
+        var escaped = false
+
+        fun consume(x: Int): Boolean {
+            val c = x.toChar()
+
+            if (!started) {
+                if (c == '{' || c == '[') {
+                    started = true
+                    depth = 1
+                }
+                return false
+            }
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false
+                } else if (c == '\\') {
+                    escaped = true
+                } else if (c == '"') {
+                    inString = false
+                }
+                return false
+            }
+
+            when (c) {
+                '"' -> inString = true
+                '{', '[' -> depth++
+                '}', ']' -> {
+                    depth--
+                    if (depth == 0) return true
+                }
+            }
+            return false
+        }
+
+        // Reprocessa apenas a partir do primeiro caractere JSON do prefixo.
+        depth = 0
+        started = false
+        inString = false
+        escaped = false
+
+        var complete = false
+        for (b in prefix) {
+            if (consume(b.toInt() and 0xFF)) {
+                complete = true
+                break
+            }
+        }
+
+        while (!complete && out.size() < 1024 * 1024) {
+            val b = try {
+                input.read()
+            } catch (_: SocketTimeoutException) {
+                break
+            }
+            if (b < 0) break
+            out.write(b)
+            if (consume(b)) complete = true
+        }
+
+        return out.toByteArray()
     }
 
     private fun parseStatusCode(headers: String): Int {

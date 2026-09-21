@@ -3,6 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val signingStorePath = System.getenv("PKGPOCKET_KEYSTORE_PATH")
+val signingStorePassword = System.getenv("PKGPOCKET_KEYSTORE_PASSWORD")
+val signingKeyAlias = System.getenv("PKGPOCKET_KEY_ALIAS")
+val signingKeyPassword = System.getenv("PKGPOCKET_KEY_PASSWORD")
+val stableSigningReady =
+    !signingStorePath.isNullOrBlank() &&
+    !signingStorePassword.isNullOrBlank() &&
+    !signingKeyAlias.isNullOrBlank() &&
+    !signingKeyPassword.isNullOrBlank() &&
+    file(signingStorePath).exists()
+
 android {
     namespace = "com.pkgpocket.app"
     compileSdk = 35
@@ -11,8 +22,27 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.4.2"
+        versionCode = 10
+        versionName = "0.4.3"
+    }
+
+    signingConfigs {
+        if (stableSigningReady) {
+            create("stable") {
+                storeFile = file(signingStorePath!!)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (stableSigningReady) {
+                signingConfig = signingConfigs.getByName("stable")
+            }
+        }
     }
 
     buildFeatures {
