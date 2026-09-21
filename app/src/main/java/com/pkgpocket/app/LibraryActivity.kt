@@ -111,9 +111,10 @@ class LibraryActivity : AppCompatActivity() {
         }
 
         grid = GridLayout(this).apply {
-            columnCount = 2
+            columnCount = 3
             alignmentMode = GridLayout.ALIGN_BOUNDS
             useDefaultMargins = false
+            gravity = Gravity.CENTER_HORIZONTAL
         }
 
         scroll.addView(
@@ -165,14 +166,9 @@ class LibraryActivity : AppCompatActivity() {
             return
         }
 
-        val availableWidth =
-            resources.displayMetrics.widthPixels -
-                root.paddingLeft -
-                root.paddingRight -
-                dp(12)
-
-        val cardWidth = (availableWidth / 2).coerceAtLeast(dp(140))
-        val coverHeight = (cardWidth * 1.42f).toInt()
+        // Mesmo tamanho das capas exibidas nos cards do instalador.
+        val cardWidth = dp(104)
+        val coverHeight = dp(104)
 
         groups.forEach { group ->
             val card = MaterialCardView(this).apply {
@@ -208,7 +204,7 @@ class LibraryActivity : AppCompatActivity() {
                 GridLayout.LayoutParams().apply {
                     width = cardWidth
                     height = coverHeight
-                    setMargins(dp(3), dp(6), dp(3), dp(6))
+                    setMargins(dp(2), dp(6), dp(2), dp(6))
                 }
             )
 

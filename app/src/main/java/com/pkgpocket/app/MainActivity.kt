@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
+    private var helpHideJob: Job? = null
+    private var helpBubbleCollapsed = false
     private var lastBackPressedAt = 0L
     private var multiSelectMode = false
     private val selectedTokens = linkedSetOf<String>()
@@ -229,6 +231,7 @@ class MainActivity : AppCompatActivity() {
         DynamicColors.applyToActivityIfAvailable(this)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
+        setupHelpBubble()
         playLaunchAnimation()
         setupExitGuard()
 
@@ -298,12 +301,12 @@ class MainActivity : AppCompatActivity() {
             shareLog()
         }
 
-        b.historyButton.setOnClickListener {
-            startActivity(Intent(this, LibraryActivity::class.java))
+        b.clearLog.setOnClickListener {
+            clearVisibleLog()
         }
 
-        b.helpButton.setOnClickListener {
-            showFaq()
+        b.historyButton.setOnClickListener {
+            startActivity(Intent(this, LibraryActivity::class.java))
         }
 
         b.smartLibraryButton.setOnClickListener {
@@ -371,9 +374,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.cancelInstall.setOnClickListener {
-            b.cancelInstall.isEnabled = false
-            b.liveLog.text = getString(R.string.cancelling_transfer)
-            ensureService(InstallerService.ACTION_CANCEL)
+            if (demoJob?.isActive == true) {
+                stopDemo()
+            } else {
+                b.cancelInstall.isEnabled = false
+                b.liveLog.text = getString(R.string.cancelling_transfer)
+                ensureService(InstallerService.ACTION_CANCEL)
+            }
         }
 
         b.toggleLog.setOnClickListener {
@@ -711,6 +718,21 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun clearVisibleLog() {
+        logLines.clear()
+        b.logText.text = getString(R.string.waiting_events)
+
+        if (b.cancelInstall.visibility != View.VISIBLE) {
+            b.liveLog.text = getString(R.string.no_active_transfer)
+        }
+
+        Toast.makeText(
+            this,
+            R.string.log_cleared,
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
     private fun buildLogText(): String {
         val events = if (logLines.isEmpty()) {
             getString(R.string.waiting_events)
@@ -768,7 +790,11 @@ class MainActivity : AppCompatActivity() {
 
         resetPkgCardsForQueue()
         setDemoControlsEnabled(false)
-        b.cancelInstall.visibility = View.GONE
+        b.cancelInstall.visibility = View.VISIBLE
+        b.cancelInstall.isEnabled = true
+        pkgCards.values.forEach { refs ->
+            refs.installCheck.isEnabled = false
+        }
         b.status.visibility = View.VISIBLE
         b.status.text = getString(R.string.demo_preparing)
         b.overallProgressInfo.visibility = View.GONE
@@ -937,6 +963,8 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
         b.progress.progress = 0
+        b.cancelInstall.visibility = View.GONE
+        b.cancelInstall.isEnabled = true
         b.status.visibility = View.VISIBLE
         updateSelectionSummary(PkgRepository.items)
         setDemoControlsEnabled(true)
@@ -958,6 +986,9 @@ class MainActivity : AppCompatActivity() {
         b.helpButton.isEnabled = enabled
         b.smartLibraryButton.isEnabled = enabled
         b.diagnosticsButton.isEnabled = enabled
+        pkgCards.values.forEach { refs ->
+            refs.installCheck.isEnabled = enabled
+        }
     }
 
     private fun setupExitGuard() {
@@ -966,11 +997,12 @@ class MainActivity : AppCompatActivity() {
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     val now = SystemClock.elapsedRealtime()
-                    val activeTransfer = !b.installAll.isEnabled
+                    val activeTransfer =
+                        b.cancelInstall.visibility == View.VISIBLE &&
+                            demoJob?.isActive != true
 
                     if (now - lastBackPressedAt <= 2_000L) {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
+                        hardCloseApp(activeTransfer)
                         return
                     }
 
@@ -988,6 +1020,31 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun hardCloseApp(activeTransfer: Boolean) {
+        helpHideJob?.cancel()
+        demoJob?.cancel()
+        demoJob = null
+
+        PkgRepository.items = emptyList()
+        ActiveTransferQueue.clear()
+        completedCards.clear()
+        selectedTokens.clear()
+        installSelectedTokens.clear()
+        multiSelectMode = false
+
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .remove("selected_pkg_uris")
+            .remove("completed_pkg_cards")
+            .apply()
+
+        if (activeTransfer) {
+            stopService(Intent(this, InstallerService::class.java))
+        }
+
+        finishAndRemoveTask()
     }
 
     private fun selectedInstallItems(): List<PkgItem> {
@@ -1021,19 +1078,33 @@ class MainActivity : AppCompatActivity() {
             )
 
             if (report.issueCount == 0) {
+                val totalSize = items.sumOf { it.size.coerceAtLeast(0L) }
+                val etaSeconds = estimatePreInstallSeconds(items)
+                val etaText = humanEta(etaSeconds)
+
                 val ok = getString(
                     R.string.quick_check_ok,
                     report.okCount,
                     duration
                 )
                 addLog(ok)
-                Toast.makeText(
-                    this@MainActivity,
-                    ok,
-                    Toast.LENGTH_SHORT
-                ).show()
 
-                preflightInstall(ip, items)
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(R.string.quick_check_ready_title)
+                    .setMessage(
+                        getString(
+                            R.string.quick_check_ready_message,
+                            report.okCount,
+                            humanSize(totalSize),
+                            etaText
+                        )
+                    )
+                    .setNegativeButton(R.string.cancel_selection, null)
+                    .setPositiveButton(R.string.install_all) { _, _ ->
+                        preflightInstall(ip, items)
+                    }
+                    .show()
+
                 return@launch
             }
 
@@ -1066,15 +1137,41 @@ class MainActivity : AppCompatActivity() {
                 append(getString(R.string.quick_check_note))
             }.trim()
 
+            val dialogTitle = if (report.errorCount == 0) {
+                R.string.quick_check_ready_with_warnings_title
+            } else {
+                R.string.quick_check_title
+            }
+
+            val finalDetails = if (report.errorCount == 0) {
+                val eta = humanEta(estimatePreInstallSeconds(items))
+                getString(R.string.quick_check_apt_with_warnings, eta) +
+                    "\n\n" +
+                    details
+            } else {
+                details
+            }
+
             AlertDialog.Builder(this@MainActivity)
-                .setTitle(R.string.quick_check_title)
-                .setMessage(details)
+                .setTitle(dialogTitle)
+                .setMessage(finalDetails)
                 .setNegativeButton(R.string.cancel_selection, null)
                 .setPositiveButton(R.string.quick_check_continue) { _, _ ->
                     preflightInstall(ip, items)
                 }
                 .show()
         }
+    }
+
+    private fun estimatePreInstallSeconds(items: List<PkgItem>): Long {
+        val totalBytes = items.sumOf { it.size.coerceAtLeast(0L) }
+        if (totalBytes <= 0L) return 0L
+
+        val estimatedBytesPerSecond = 28.5 * 1024.0 * 1024.0
+        val transferSeconds = (totalBytes / estimatedBytesPerSecond).toLong()
+        val queueOverheadSeconds = items.size * 8L
+
+        return (transferSeconds + queueOverheadSeconds).coerceAtLeast(1L)
     }
 
     private fun formatQuickIssue(issue: QuickVerifyIssue): String {
@@ -1143,6 +1240,9 @@ class MainActivity : AppCompatActivity() {
         b.cancelInstall.visibility = View.VISIBLE
         b.cancelInstall.isEnabled = true
         b.installAll.isEnabled = false
+        pkgCards.values.forEach { refs ->
+            refs.installCheck.isEnabled = false
+        }
         b.progress.progress = 0
         b.overallProgressInfo.text = getString(R.string.overall_idle)
         b.status.visibility = View.VISIBLE
@@ -1475,9 +1575,186 @@ class MainActivity : AppCompatActivity() {
                 .withEndAction {
                     overlay.visibility = View.GONE
                     overlay.alpha = 1f
+                    showHelpBubbleAfterSplash()
                 }
                 .start()
         }
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun setupHelpBubble() {
+        val bubble = b.helpButton
+        bubble.visibility = View.INVISIBLE
+        bubble.alpha = 0f
+
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        var downRawX = 0f
+        var downRawY = 0f
+        var downX = 0f
+        var downY = 0f
+        var moved = false
+        var collapsedOnDown = false
+
+        bubble.setOnTouchListener { view, event ->
+            val parent = view.parent as? View ?: return@setOnTouchListener false
+
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    helpHideJob?.cancel()
+                    collapsedOnDown = helpBubbleCollapsed
+                    expandHelpBubble()
+                    downRawX = event.rawX
+                    downRawY = event.rawY
+                    downX = view.x
+                    downY = view.y
+                    moved = false
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downRawX
+                    val dy = event.rawY - downRawY
+
+                    if (!moved &&
+                        (
+                            kotlin.math.abs(dx) > slop ||
+                                kotlin.math.abs(dy) > slop
+                            )
+                    ) {
+                        moved = true
+                    }
+
+                    val maxX = (parent.width - view.width).coerceAtLeast(0).toFloat()
+                    val maxY = (parent.height - view.height).coerceAtLeast(0).toFloat()
+
+                    view.x = (downX + dx).coerceIn(0f, maxX)
+                    view.y = (downY + dy).coerceIn(0f, maxY)
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    if (!moved && !collapsedOnDown) {
+                        showFaq()
+                    }
+
+                    snapHelpBubbleToNearestEdge()
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> {
+                    snapHelpBubbleToNearestEdge()
+                    true
+                }
+
+                else -> true
+            }
+        }
+    }
+
+    private fun showHelpBubbleAfterSplash() {
+        val bubble = b.helpButton
+        val parent = bubble.parent as? View ?: return
+
+        bubble.visibility = View.VISIBLE
+        bubble.alpha = 0f
+        helpBubbleCollapsed = false
+
+        bubble.post {
+            val margin = dp(8)
+            bubble.x = (parent.width - bubble.width - margin)
+                .coerceAtLeast(margin)
+                .toFloat()
+            bubble.y = ((parent.height - bubble.height) * 0.42f)
+                .coerceAtLeast(margin.toFloat())
+
+            bubble.animate()
+                .alpha(1f)
+                .setDuration(220L)
+                .withEndAction {
+                    scheduleHelpBubbleCollapse()
+                }
+                .start()
+        }
+    }
+
+    private fun expandHelpBubble() {
+        val bubble = b.helpButton
+        if (bubble.visibility != View.VISIBLE) return
+
+        helpBubbleCollapsed = false
+        bubble.animate().cancel()
+        bubble.animate()
+            .alpha(1f)
+            .setDuration(120L)
+            .start()
+    }
+
+    private fun snapHelpBubbleToNearestEdge() {
+        val bubble = b.helpButton
+        val parent = bubble.parent as? View ?: return
+        if (parent.width <= 0 || bubble.width <= 0) return
+
+        val margin = dp(8).toFloat()
+        val centerX = bubble.x + bubble.width / 2f
+        val targetX = if (centerX < parent.width / 2f) {
+            margin
+        } else {
+            (parent.width - bubble.width - margin)
+                .coerceAtLeast(margin.toInt())
+                .toFloat()
+        }
+
+        val maxY = (parent.height - bubble.height - dp(8))
+            .coerceAtLeast(dp(8))
+            .toFloat()
+
+        bubble.y = bubble.y.coerceIn(dp(8).toFloat(), maxY)
+
+        bubble.animate().cancel()
+        bubble.animate()
+            .x(targetX)
+            .alpha(1f)
+            .setDuration(180L)
+            .withEndAction {
+                helpBubbleCollapsed = false
+                scheduleHelpBubbleCollapse()
+            }
+            .start()
+    }
+
+    private fun scheduleHelpBubbleCollapse() {
+        helpHideJob?.cancel()
+        helpHideJob = lifecycleScope.launch {
+            delay(4_500L)
+            collapseHelpBubbleToEdge()
+        }
+    }
+
+    private fun collapseHelpBubbleToEdge() {
+        val bubble = b.helpButton
+        val parent = bubble.parent as? View ?: return
+        if (bubble.visibility != View.VISIBLE || parent.width <= 0) return
+
+        val keepVisible = dp(10).toFloat()
+        val centerX = bubble.x + bubble.width / 2f
+        val targetX = if (centerX < parent.width / 2f) {
+            -(bubble.width - keepVisible)
+        } else {
+            parent.width - keepVisible
+        }
+
+        bubble.animate().cancel()
+        bubble.animate()
+            .x(targetX)
+            .alpha(0.22f)
+            .setDuration(260L)
+            .withEndAction {
+                helpBubbleCollapsed = true
+            }
+            .start()
     }
 
     private fun showInstallHistory() {
@@ -2022,6 +2299,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        helpHideJob?.cancel()
+
         if (isFinishing) {
             PkgRepository.items = emptyList()
             completedCards.clear()

@@ -10,7 +10,16 @@
     <string name="select_at_least_one_to_install">Select at least one PKG to install</string>
     <string name="quick_check_title">Quick PKG check</string>
     <string name="quick_check_running">Checking %1$d PKG(s)…</string>
-    <string name="quick_check_ok">Quick check: %1$d PKG(s) OK • %2$s</string>
+    <string name="quick_check_ok">Quick check: %1$d PKG(s) ready to install • %2$s</string>
+    <string name="quick_check_ready_title">PKGs ready to install</string>
+    <string name="quick_check_ready_message">All %1$d selected PKG(s) passed the quick structural check.
+
+Total: %2$s
+Approximate ETA: ~%3$s
+
+Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
+    <string name="quick_check_ready_with_warnings_title">PKGs ready with warnings</string>
+    <string name="quick_check_apt_with_warnings">No structural error was found. The selected PKGs are ready to install, with the warnings below. Approximate ETA: ~%1$s.</string>
     <string name="quick_check_result">%1$d/%2$d PKGs without warnings • %3$s</string>
     <string name="quick_check_note">This is a fast structural check. It does not read or hash the entire PKG.</string>
     <string name="quick_check_continue">Continue</string>
@@ -117,6 +126,8 @@
     <string name="cancel_selection">Cancel</string>
     <string name="copy_log">Copy log</string>
     <string name="share_log">Share log</string>
+    <string name="clear_log">Clear</string>
+    <string name="log_cleared">Log cleared.</string>
     <string name="log_copied">Log copied.</string>
     <string name="log_clipboard_label">PKG Pocket log</string>
     <string name="log_share_subject">PKG Pocket log</string>
@@ -132,7 +143,7 @@
     <string name="keep_rpi_open_single">Keep Remote Package Installer open on the PS4 until the transfer starts.</string>
     <string name="keep_rpi_open_queue">Multiple PKGs selected: keep Remote Package Installer open on the PS4 for the entire queue.</string>
     <string name="press_back_again_to_exit">Press back again to exit</string>
-    <string name="press_back_again_active">Transfer in progress. Press back again to exit; the transfer will continue in the background.</string>
+    <string name="press_back_again_active">Transfer in progress. Press back again to fully close PKG Pocket and interrupt the transfer.</string>
     <string name="starting_queue">Starting queue of %1$d PKG(s) for %2$s…</string>
     <string name="cancelling_transfer">Cancelling transfer…</string>
     <string name="app_started">PKG Pocket started.</string>

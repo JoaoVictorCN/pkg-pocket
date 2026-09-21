@@ -10,7 +10,16 @@
     <string name="select_at_least_one_to_install">Marque pelo menos um PKG para instalar</string>
     <string name="quick_check_title">Verificação rápida dos PKGs</string>
     <string name="quick_check_running">Verificando %1$d PKG(s)…</string>
-    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) OK • %2$s</string>
+    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) aptos para instalação • %2$s</string>
+    <string name="quick_check_ready_title">PKGs aptos para instalação</string>
+    <string name="quick_check_ready_message">Todos os %1$d PKG(s) selecionados passaram na verificação estrutural rápida.
+
+Total: %2$s
+ETA aproximado: ~%3$s
+
+A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
+    <string name="quick_check_ready_with_warnings_title">PKGs aptos com avisos</string>
+    <string name="quick_check_apt_with_warnings">Nenhum erro estrutural foi encontrado. Os PKGs selecionados estão aptos para instalação, com os avisos abaixo. ETA aproximado: ~%1$s.</string>
     <string name="quick_check_result">%1$d/%2$d PKGs sem avisos • %3$s</string>
     <string name="quick_check_note">Esta é uma verificação estrutural rápida. Ela não lê nem calcula hash do PKG inteiro.</string>
     <string name="quick_check_continue">Continuar</string>
@@ -117,6 +126,8 @@
     <string name="cancel_selection">Cancelar</string>
     <string name="copy_log">Copiar log</string>
     <string name="share_log">Compartilhar log</string>
+    <string name="clear_log">Limpar</string>
+    <string name="log_cleared">Log limpo.</string>
     <string name="log_copied">Log copiado.</string>
     <string name="log_clipboard_label">Log do PKG Pocket</string>
     <string name="log_share_subject">Log do PKG Pocket</string>
@@ -132,7 +143,7 @@
     <string name="keep_rpi_open_single">Mantenha o Remote Package Installer aberto no PS4 até o envio começar.</string>
     <string name="keep_rpi_open_queue">Vários PKGs selecionados: mantenha o Remote Package Installer aberto no PS4 durante toda a fila.</string>
     <string name="press_back_again_to_exit">Pressione voltar mais uma vez para sair</string>
-    <string name="press_back_again_active">Transferência em andamento. Pressione voltar novamente para sair; o envio continuará em segundo plano.</string>
+    <string name="press_back_again_active">Transferência em andamento. Pressione voltar novamente para fechar o PKG Pocket por completo e interromper o envio.</string>
     <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s…</string>
     <string name="cancelling_transfer">Cancelando envio…</string>
     <string name="app_started">PKG Pocket iniciado.</string>
