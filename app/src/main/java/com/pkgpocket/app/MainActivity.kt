@@ -134,6 +134,10 @@ class MainActivity : AppCompatActivity() {
             val logOnly = intent.getBooleanExtra(InstallerService.EXTRA_LOG_ONLY, false)
             val liveUpdate = intent.getBooleanExtra(InstallerService.EXTRA_LIVE_UPDATE, false)
             val active = intent.getBooleanExtra(InstallerService.EXTRA_ACTIVE, false)
+            val finalSuccess = intent.getBooleanExtra(
+                InstallerService.EXTRA_FINAL_SUCCESS,
+                false
+            )
             val overallPercent = intent.getIntExtra(InstallerService.EXTRA_PERCENT, 0)
             val overallText = intent.getStringExtra(InstallerService.EXTRA_OVERALL_STATUS).orEmpty()
             val token = intent.getStringExtra(InstallerService.EXTRA_ITEM_TOKEN).orEmpty()
@@ -206,6 +210,10 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (!liveUpdate && text.isNotBlank()) addLog(text)
+
+            if (!active && finalSuccess) {
+                clearQueueAfterSuccessfulInstall(text)
+            }
         }
     }
 
@@ -361,15 +369,17 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
 
+        if (savedInstanceState == null) {
+            resetTransientInstallerSession()
+        }
+
         loadCompletedCards()
 
         if (PkgRepository.items.isNotEmpty()) {
-            migrateCompletedCardsToHistory(PkgRepository.items)
             render(PkgRepository.items)
             updateSelectionSummary(PkgRepository.items)
-            persistSelection(PkgRepository.items)
         } else {
-            restorePersistedSelection()
+            showEmptyQueue()
         }
 
         addLog(getString(R.string.app_started))
@@ -379,37 +389,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadCompletedCards() {
         completedCards.clear()
-
-        val raw = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
-            .getString("completed_pkg_cards", "{}")
-            .orEmpty()
-
-        runCatching {
-            val json = JSONObject(raw)
-            val keys = json.keys()
-
-            while (keys.hasNext()) {
-                val key = keys.next()
-                completedCards[key] = json.optString(key, "")
-            }
-        }
     }
 
     private fun persistCompletedCards() {
-        val json = JSONObject()
-        completedCards.forEach { (key, detail) ->
-            json.put(key, detail)
-        }
-
-        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
-            .edit()
-            .putString("completed_pkg_cards", json.toString())
-            .apply()
+        // Estado de progresso/conclusão é apenas da sessão atual.
     }
 
     private fun clearCompletedCards() {
         completedCards.clear()
-        persistCompletedCards()
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .remove("completed_pkg_cards")
+            .apply()
     }
 
     private fun normalizeKinds(items: List<PkgItem>): List<PkgItem> {
@@ -454,50 +445,74 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun persistSelection(items: List<PkgItem>) {
-        val encoded = items.joinToString("\n") { it.uri.toString() }
+        // A fila é temporária. Nunca persistimos os PKGs selecionados.
         getSharedPreferences("pkg_pocket", MODE_PRIVATE)
             .edit()
-            .putString("selected_pkg_uris", encoded)
+            .remove("selected_pkg_uris")
             .apply()
     }
 
     private fun restorePersistedSelection() {
-        val saved = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
-            .getString("selected_pkg_uris", "")
-            .orEmpty()
-            .lineSequence()
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .distinct()
-            .toList()
+        // Compatibilidade com versões antigas: apaga qualquer fila salva.
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .remove("selected_pkg_uris")
+            .apply()
 
-        if (saved.isEmpty()) {
-            b.clearSelection.visibility = View.GONE
-            return
-        }
+        PkgRepository.items = emptyList()
+        showEmptyQueue()
+    }
 
-        lifecycleScope.launch {
-            b.status.text = getString(R.string.restoring_selection, saved.size)
+    private fun resetTransientInstallerSession() {
+        PkgRepository.items = emptyList()
+        completedCards.clear()
+        selectedTokens.clear()
+        multiSelectMode = false
 
-            val restored = withContext(Dispatchers.IO) {
-                saved.mapNotNull { raw ->
-                    runCatching {
-                        PkgParser.parse(contentResolver, Uri.parse(raw))
-                    }.getOrNull()
-                }
-            }
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .remove("selected_pkg_uris")
+            .remove("completed_pkg_cards")
+            .apply()
+    }
 
-            val normalized = normalizeKinds(restored)
-            PkgRepository.items = normalized
-            persistSelection(normalized)
-            migrateCompletedCardsToHistory(normalized)
-            render(normalized)
-            updateSelectionSummary(normalized)
+    private fun showEmptyQueue() {
+        b.pkgList.removeAllViews()
+        pkgCards.clear()
+        selectedTokens.clear()
+        multiSelectMode = false
 
-            if (restored.isNotEmpty()) {
-                addLog(getString(R.string.selection_restored, restored.size))
-            }
-        }
+        b.selectionActions.visibility = View.GONE
+        b.clearSelection.visibility = View.GONE
+        b.status.visibility = View.VISIBLE
+        b.status.text = getString(R.string.select_pkg_prompt)
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+        b.progress.progress = 0
+        b.liveLog.text = getString(R.string.no_active_transfer)
+    }
+
+    private fun clearQueueAfterSuccessfulInstall(summary: String) {
+        PkgRepository.items = emptyList()
+        clearCompletedCards()
+        selectedTokens.clear()
+        multiSelectMode = false
+
+        b.pkgList.removeAllViews()
+        pkgCards.clear()
+        b.selectionActions.visibility = View.GONE
+        b.clearSelection.visibility = View.GONE
+        b.cancelInstall.visibility = View.GONE
+        b.installAll.isEnabled = true
+        b.selectPkgs.isEnabled = true
+        b.status.visibility = View.VISIBLE
+        b.status.text = summary.ifBlank { getString(R.string.select_pkg_prompt) }
+        b.liveLog.text = summary.ifBlank { getString(R.string.no_active_transfer) }
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
+        b.progress.progress = 0
+
+        persistSelection(emptyList())
     }
 
     private fun updateSelectionSummary(items: List<PkgItem>) {
@@ -1004,6 +1019,8 @@ class MainActivity : AppCompatActivity() {
         b.liveLog.text = rpiHint
         addLog(rpiHint)
         Toast.makeText(this, rpiHint, Toast.LENGTH_LONG).show()
+
+        ActiveTransferQueue.set(PkgRepository.items)
 
         addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
         ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
@@ -1845,6 +1862,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        if (isFinishing) {
+            PkgRepository.items = emptyList()
+            completedCards.clear()
+            selectedTokens.clear()
+
+            getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+                .edit()
+                .remove("selected_pkg_uris")
+                .remove("completed_pkg_cards")
+                .apply()
+        }
+
         unregisterReceiver(statusReceiver)
         super.onDestroy()
     }

@@ -33,6 +33,7 @@ class InstallerService : Service() {
         const val EXTRA_LOG_ONLY = "log_only"
         const val EXTRA_LIVE_UPDATE = "live_update"
         const val EXTRA_ACTIVE = "active"
+        const val EXTRA_FINAL_SUCCESS = "final_success"
 
         const val EXTRA_OVERALL_STATUS = "overall_status"
         const val EXTRA_ITEM_TOKEN = "item_token"
@@ -128,12 +129,12 @@ class InstallerService : Service() {
         if (wifiLock?.isHeld == true) wifiLock?.release()
     }
 
-    private fun restartServer() {
+    private fun restartServer(items: List<PkgItem>) {
         server?.stop()
         server = PkgHttpServer(
             resolver = contentResolver,
             port = 8080,
-            itemsProvider = { PkgRepository.items },
+            itemsProvider = { items },
             onLog = ::logOnly
         ).also {
             runCatching { it.start() }
@@ -144,13 +145,16 @@ class InstallerService : Service() {
     private fun installAll(ps4Ip: String) {
         if (installJob?.isActive == true) return
 
+        val transferItems = ActiveTransferQueue.get()
+            .ifEmpty { PkgRepository.items.toList() }
+
         cancelRequested = false
         currentPs4Ip = ps4Ip
         currentItemToken = null
         currentItemPercent = 0
         currentItemDetail = ""
         lastOverallPercent = 0
-        restartServer()
+        restartServer(transferItems)
 
         installJob = scope.launch {
             acquirePerformanceLocks()
@@ -166,7 +170,7 @@ class InstallerService : Service() {
                 return@launch
             }
 
-            val ordered = PkgRepository.items.sortedWith(
+            val ordered = transferItems.sortedWith(
                 compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
             )
 
@@ -805,7 +809,8 @@ class InstallerService : Service() {
     }
 
     private fun finishSuccess(summary: String) {
-        broadcastFinal(summary, 100)
+        broadcastFinal(summary, 100, success = true)
+        PkgRepository.items = emptyList()
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
@@ -821,7 +826,7 @@ class InstallerService : Service() {
     }
 
     private fun finishError(message: String) {
-        broadcastFinal(message, lastOverallPercent)
+        broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
@@ -837,7 +842,7 @@ class InstallerService : Service() {
     }
 
     private fun finishCancelled(message: String) {
-        broadcastFinal(message, lastOverallPercent)
+        broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
@@ -852,7 +857,11 @@ class InstallerService : Service() {
         cleanupAndStop()
     }
 
-    private fun broadcastFinal(text: String, percent: Int) {
+    private fun broadcastFinal(
+        text: String,
+        percent: Int,
+        success: Boolean
+    ) {
         sendBroadcast(
             Intent(ACTION_STATUS)
                 .setPackage(packageName)
@@ -862,6 +871,7 @@ class InstallerService : Service() {
                 .putExtra(EXTRA_LOG_ONLY, false)
                 .putExtra(EXTRA_LIVE_UPDATE, false)
                 .putExtra(EXTRA_ACTIVE, false)
+                .putExtra(EXTRA_FINAL_SUCCESS, success)
         )
     }
 
@@ -871,6 +881,7 @@ class InstallerService : Service() {
         currentTaskId = null
         currentPs4Ip = null
         currentItemToken = null
+        ActiveTransferQueue.clear()
         releasePerformanceLocks()
         stopSelf()
     }
