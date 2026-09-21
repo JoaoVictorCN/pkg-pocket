@@ -94,6 +94,9 @@ class MainActivity : AppCompatActivity() {
             b.liveLog.text = getString(R.string.no_active_transfer)
             b.progress.progress = 0
             b.overallProgressInfo.text = getString(R.string.overall_idle)
+            b.status.visibility = View.VISIBLE
+            b.overallProgressInfo.visibility = View.GONE
+            b.progress.visibility = View.GONE
             addLog(ready)
         }
     }
@@ -108,33 +111,56 @@ class MainActivity : AppCompatActivity() {
             val active = intent.getBooleanExtra(InstallerService.EXTRA_ACTIVE, false)
             val overallPercent = intent.getIntExtra(InstallerService.EXTRA_PERCENT, 0)
             val overallText = intent.getStringExtra(InstallerService.EXTRA_OVERALL_STATUS).orEmpty()
+            val token = intent.getStringExtra(InstallerService.EXTRA_ITEM_TOKEN).orEmpty()
+            val rawItemStatus = intent.getStringExtra(InstallerService.EXTRA_ITEM_STATUS).orEmpty()
+            val itemDetail = intent.getStringExtra(InstallerService.EXTRA_ITEM_DETAIL).orEmpty()
+            val itemPercent = if (intent.hasExtra(InstallerService.EXTRA_ITEM_PERCENT)) {
+                intent.getIntExtra(InstallerService.EXTRA_ITEM_PERCENT, 0)
+            } else {
+                null
+            }
+
+            val itemStatus = if (
+                itemPercent == 0 &&
+                rawItemStatus == getString(R.string.state_sending_percent, 0)
+            ) {
+                getString(R.string.state_starting_transfer)
+            } else {
+                rawItemStatus
+            }
+
+            val showOverallProgress = overallPercent > 0
 
             b.cancelInstall.visibility = if (active) View.VISIBLE else View.GONE
             b.installAll.isEnabled = !active
             if (!active) b.cancelInstall.isEnabled = true
 
             if (liveUpdate || !logOnly) {
-                if (text.isNotBlank()) {
-                    b.status.text = text
+                val visibleStatus = if (!showOverallProgress && itemPercent == 0 && itemStatus.isNotBlank()) {
+                    itemStatus
+                } else {
+                    text
+                }
+
+                if (visibleStatus.isNotBlank()) {
+                    b.status.text = visibleStatus
                     b.liveLog.text = text
                 }
+
+                // Durante a transferência real, o topo mostra apenas o progresso da fila.
+                // Percentual/velocidade/ETA do PKG ficam somente no card.
+                b.status.visibility = if (showOverallProgress) View.GONE else View.VISIBLE
+                b.overallProgressInfo.visibility = if (showOverallProgress) View.VISIBLE else View.GONE
+                b.progress.visibility = if (showOverallProgress) View.VISIBLE else View.GONE
                 b.progress.isIndeterminate = false
                 b.progress.progress = overallPercent.coerceIn(0, 100)
+
                 if (overallText.isNotBlank()) {
                     b.overallProgressInfo.text = overallText
                 }
             }
 
-            val token = intent.getStringExtra(InstallerService.EXTRA_ITEM_TOKEN).orEmpty()
             if (token.isNotBlank()) {
-                val itemStatus = intent.getStringExtra(InstallerService.EXTRA_ITEM_STATUS).orEmpty()
-                val itemDetail = intent.getStringExtra(InstallerService.EXTRA_ITEM_DETAIL).orEmpty()
-                val itemPercent = if (intent.hasExtra(InstallerService.EXTRA_ITEM_PERCENT)) {
-                    intent.getIntExtra(InstallerService.EXTRA_ITEM_PERCENT, 0)
-                } else {
-                    null
-                }
-
                 updatePkgCard(token, itemPercent, itemStatus, itemDetail)
             }
 
@@ -212,6 +238,9 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = false
             b.progress.progress = 0
             b.overallProgressInfo.text = getString(R.string.overall_idle)
+            b.status.visibility = View.VISIBLE
+            b.overallProgressInfo.visibility = View.GONE
+            b.progress.visibility = View.GONE
             b.liveLog.text = getString(R.string.preparing_transfer)
             addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
             ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
@@ -231,6 +260,8 @@ class MainActivity : AppCompatActivity() {
 
         b.liveLog.text = getString(R.string.no_active_transfer)
         b.overallProgressInfo.text = getString(R.string.overall_idle)
+        b.overallProgressInfo.visibility = View.GONE
+        b.progress.visibility = View.GONE
         addLog(getString(R.string.app_started))
     }
 
@@ -334,6 +365,7 @@ class MainActivity : AppCompatActivity() {
 
             progress.isIndeterminate = false
             progress.progress = 0
+            progress.visibility = View.GONE
             status.text = getString(R.string.state_waiting)
             meta.visibility = View.GONE
 
@@ -346,6 +378,7 @@ class MainActivity : AppCompatActivity() {
         pkgCards.values.forEach { refs ->
             refs.progress.isIndeterminate = false
             refs.progress.progress = 0
+            refs.progress.visibility = View.GONE
             refs.status.text = getString(R.string.state_waiting)
             refs.meta.text = ""
             refs.meta.visibility = View.GONE
@@ -360,18 +393,28 @@ class MainActivity : AppCompatActivity() {
     ) {
         val refs = pkgCards[token] ?: return
 
+        val showProgress = percent != null && percent > 0
+
         if (percent != null) {
-            if (percent < 0) {
-                refs.progress.isIndeterminate = true
-            } else {
+            if (showProgress) {
+                refs.progress.visibility = View.VISIBLE
                 refs.progress.isIndeterminate = false
                 refs.progress.progress = percent.coerceIn(0, 100)
+            } else {
+                refs.progress.isIndeterminate = false
+                refs.progress.progress = 0
+                refs.progress.visibility = View.GONE
             }
         }
 
         if (statusText.isNotBlank()) refs.status.text = statusText
 
-        if (detailText.isBlank()) {
+        val terminalState =
+            statusText == getString(R.string.state_completed) ||
+                statusText == getString(R.string.state_failed) ||
+                statusText == getString(R.string.state_cancelled)
+
+        if (detailText.isBlank() || (!showProgress && !terminalState)) {
             refs.meta.text = ""
             refs.meta.visibility = View.GONE
         } else {

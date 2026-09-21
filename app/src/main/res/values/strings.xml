@@ -46,6 +46,7 @@
     <string name="state_waiting">Waiting</string>
     <string name="state_preparing">Preparing…</string>
     <string name="state_registering">Registering on PS4…</string>
+    <string name="state_starting_transfer">Starting transfer…</string>
     <string name="state_sending_percent">Sending / installing • %1$d%%</string>
     <string name="state_waiting_ps4">Transfer continues • waiting for PS4 status…</string>
     <string name="state_completed">Completed</string>

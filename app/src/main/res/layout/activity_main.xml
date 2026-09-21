@@ -91,7 +91,8 @@
             android:layout_marginTop="8dp"
             android:text="@string/overall_idle"
             android:textSize="13sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <ProgressBar
             android:id="@+id/progress"
@@ -100,7 +101,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:max="100"
-            android:progress="0" />
+            android:progress="0"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/toggleLog"

@@ -46,6 +46,7 @@
     <string name="state_waiting">Aguardando</string>
     <string name="state_preparing">Preparando…</string>
     <string name="state_registering">Registrando no PS4…</string>
+    <string name="state_starting_transfer">Iniciando envio…</string>
     <string name="state_sending_percent">Enviando / instalando • %1$d%%</string>
     <string name="state_waiting_ps4">Envio continua • aguardando status do PS4…</string>
     <string name="state_completed">Concluído</string>
