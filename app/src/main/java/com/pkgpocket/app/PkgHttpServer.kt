@@ -20,14 +20,14 @@ class PkgHttpServer(
     private val onLog: (String) -> Unit = {}
 ) {
     private val running = AtomicBoolean(false)
-    private val workers = Executors.newFixedThreadPool(12)
+    private val workers = Executors.newFixedThreadPool(16)
     private var server: ServerSocket? = null
     private var acceptThread: Thread? = null
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
         server = ServerSocket(port).apply { reuseAddress = true }
-        onLog("Servidor HTTP ativo na porta $port")
+        onLog("Servidor HTTP pronto na porta $port")
 
         acceptThread = Thread {
             while (running.get()) {
@@ -38,19 +38,19 @@ class PkgHttpServer(
                             try {
                                 handle(socket)
                             } catch (t: Throwable) {
-                                if (!isExpectedDisconnect(t)) {
-                                    onLog("HTTP falhou: ${t.javaClass.simpleName}: ${t.message ?: "sem detalhes"}")
+                                if (!isExpectedDisconnect(t) && running.get()) {
+                                    onLog("Falha HTTP: ${t.javaClass.simpleName}: ${t.message ?: "sem detalhes"}")
                                 }
                                 runCatching { socket.close() }
                             }
                         }
                     } catch (t: Throwable) {
                         runCatching { socket.close() }
-                        if (running.get()) onLog("Falha ao despachar conexão HTTP: ${t.message}")
+                        if (running.get()) onLog("Falha ao despachar conexão: ${t.message}")
                     }
                 } catch (t: Throwable) {
                     if (!running.get()) break
-                    onLog("Falha no accept HTTP: ${t.message}")
+                    onLog("Falha no servidor HTTP: ${t.message}")
                 }
             }
         }.apply {
@@ -73,8 +73,12 @@ class PkgHttpServer(
 
     private fun handle(socket: Socket) = socket.use { s ->
         s.soTimeout = 30_000
-        val input = BufferedInputStream(s.getInputStream())
-        val output = BufferedOutputStream(s.getOutputStream(), 256 * 1024)
+        s.tcpNoDelay = true
+        runCatching { s.sendBufferSize = 1024 * 1024 }
+
+        val input = BufferedInputStream(s.getInputStream(), 64 * 1024)
+        val output = BufferedOutputStream(s.getOutputStream(), 1024 * 1024)
+
         val headerText = readHeaders(input) ?: return@use
         val lines = headerText.split("\r\n")
         val req = lines.firstOrNull()?.split(' ') ?: return@use
@@ -89,13 +93,15 @@ class PkgHttpServer(
             writeSimple(output, "404 Not Found")
             return@use
         }
+
         if (method != "GET" && method != "HEAD") {
             writeSimple(output, "405 Method Not Allowed")
             return@use
         }
+
         if (item.size <= 0L) {
             writeSimple(output, "500 Internal Server Error")
-            onLog("HTTP: tamanho inválido para ${item.fileName}: ${item.size}")
+            onLog("Tamanho inválido para ${item.fileName}: ${item.size}")
             return@use
         }
 
@@ -113,7 +119,7 @@ class PkgHttpServer(
                     .toByteArray(StandardCharsets.US_ASCII)
             )
             output.flush()
-            onLog("HTTP 416 para ${item.fileName}: ${rangeHeader ?: "sem Range"}")
+            onLog("Range inválido solicitado pelo PS4")
             return@use
         }
 
@@ -122,9 +128,7 @@ class PkgHttpServer(
         val partial = rangeHeader != null
         val status = if (partial) "206 Partial Content" else "200 OK"
 
-        onLog("$method ${item.fileName} • bytes $start-$end de ${item.size}")
-
-        val h = buildString {
+        val headers = buildString {
             append("HTTP/1.1 $status\r\n")
             append("Content-Type: application/octet-stream\r\n")
             append("Accept-Ranges: bytes\r\n")
@@ -133,7 +137,8 @@ class PkgHttpServer(
             append("Connection: close\r\n\r\n")
         }
 
-        output.write(h.toByteArray(StandardCharsets.US_ASCII))
+        output.write(headers.toByteArray(StandardCharsets.US_ASCII))
+
         if (method == "HEAD") {
             output.flush()
             return@use
@@ -146,23 +151,21 @@ class PkgHttpServer(
             FileInputStream(it.fileDescriptor).use { fis ->
                 seek(fis, start)
 
-                val buf = ByteArray(512 * 1024)
+                val buf = ByteArray(1024 * 1024)
                 var remaining = len
-                var sent = 0L
 
                 while (remaining > 0 && running.get()) {
                     val ask = minOf(buf.size.toLong(), remaining).toInt()
                     val n = fis.read(buf, 0, ask)
+
                     if (n < 0) throw EOFException("PKG terminou antes do byte $end")
                     if (n == 0) continue
 
                     output.write(buf, 0, n)
                     remaining -= n
-                    sent += n
                 }
 
                 output.flush()
-                onLog("HTTP concluiu ${item.fileName}: $sent byte(s)")
             }
         }
     }
@@ -178,6 +181,7 @@ class PkgHttpServer(
 
     private fun seek(fis: FileInputStream, offset: Long) {
         if (offset == 0L) return
+
         try {
             fis.channel.position(offset)
             return
@@ -191,7 +195,9 @@ class PkgHttpServer(
             if (skipped > 0) {
                 remaining -= skipped
             } else {
-                if (fis.read() < 0) throw EOFException("Não foi possível avançar até o byte $offset")
+                if (fis.read() < 0) {
+                    throw EOFException("Não foi possível avançar até o byte $offset")
+                }
                 remaining--
             }
         }
@@ -209,7 +215,6 @@ class PkgHttpServer(
         val left = raw.substring(0, dash).trim()
         val right = raw.substring(dash + 1).trim()
 
-        // Suffix range: bytes=-500 => últimos 500 bytes
         if (left.isEmpty()) {
             val suffix = right.toLongOrNull() ?: return null
             if (suffix <= 0L) return null
@@ -242,10 +247,13 @@ class PkgHttpServer(
     private fun readHeaders(input: BufferedInputStream): String? {
         val out = java.io.ByteArrayOutputStream()
         var state = 0
+
         while (out.size() < 64 * 1024) {
             val x = input.read()
             if (x < 0) return null
+
             out.write(x)
+
             state = when {
                 state == 0 && x == '\r'.code -> 1
                 state == 1 && x == '\n'.code -> 2
@@ -253,8 +261,10 @@ class PkgHttpServer(
                 state == 3 && x == '\n'.code -> 4
                 else -> 0
             }
+
             if (state == 4) break
         }
+
         return out.toString(StandardCharsets.US_ASCII.name())
     }
 }

@@ -6,9 +6,11 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,13 +21,17 @@ import java.util.Locale
 
 class InstallerService : Service() {
     companion object {
-        const val ACTION_REFRESH = "com.pkgpocket.REFRESH"
         const val ACTION_INSTALL_ALL = "com.pkgpocket.INSTALL_ALL"
+        const val ACTION_CANCEL = "com.pkgpocket.CANCEL"
         const val ACTION_STATUS = "com.pkgpocket.STATUS"
+
         const val EXTRA_PS4_IP = "ps4_ip"
         const val EXTRA_STATUS = "status"
         const val EXTRA_PERCENT = "percent"
         const val EXTRA_LOG_ONLY = "log_only"
+        const val EXTRA_LIVE_UPDATE = "live_update"
+        const val EXTRA_ACTIVE = "active"
+
         private const val CHANNEL = "pkg_transfer"
         private const val NOTIF_ID = 41
     }
@@ -34,16 +40,20 @@ class InstallerService : Service() {
     private var installJob: Job? = null
     private var server: PkgHttpServer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+
+    @Volatile private var currentTaskId: Int? = null
+    @Volatile private var currentPs4Ip: String? = null
+    @Volatile private var cancelRequested = false
 
     override fun onCreate() {
         super.onCreate()
+
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Transferência de PKG", NotificationManager.IMPORTANCE_LOW)
         )
 
-        // O serviço só é iniciado quando o usuário manda instalar.
-        // A barra indeterminada aparece apenas enquanto preparamos a transferência.
         startForeground(
             NOTIF_ID,
             transferNotification(
@@ -56,30 +66,44 @@ class InstallerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_REFRESH -> restartServer()
             ACTION_INSTALL_ALL -> {
-                if (server == null) restartServer()
                 val ip = intent.getStringExtra(EXTRA_PS4_IP).orEmpty()
                 if (ip.isNotBlank()) installAll(ip)
             }
+
+            ACTION_CANCEL -> cancelInstall()
         }
+
         return START_NOT_STICKY
     }
 
-    private fun acquireWakeLock() {
-        if (wakeLock?.isHeld == true) return
-        val pm = getSystemService(PowerManager::class.java)
-        wakeLock = pm.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "PkgPocket:Transfer"
-        ).apply {
-            setReferenceCounted(false)
-            acquire()
+    private fun acquirePerformanceLocks() {
+        if (wakeLock?.isHeld != true) {
+            val pm = getSystemService(PowerManager::class.java)
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "PkgPocket:Transfer"
+            ).apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        }
+
+        if (wifiLock?.isHeld != true) {
+            val wm = applicationContext.getSystemService(WifiManager::class.java)
+            wifiLock = wm.createWifiLock(
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+                "PkgPocket:HighPerfWifi"
+            ).apply {
+                setReferenceCounted(false)
+                acquire()
+            }
         }
     }
 
-    private fun releaseWakeLock() {
+    private fun releasePerformanceLocks() {
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        if (wifiLock?.isHeld == true) wifiLock?.release()
     }
 
     private fun restartServer() {
@@ -97,8 +121,13 @@ class InstallerService : Service() {
 
     private fun installAll(ps4Ip: String) {
         if (installJob?.isActive == true) return
+
+        cancelRequested = false
+        currentPs4Ip = ps4Ip
+        restartServer()
+
         installJob = scope.launch {
-            acquireWakeLock()
+            acquirePerformanceLocks()
 
             val localIp = NetworkUtils.localIpv4()
             if (localIp == null) {
@@ -123,46 +152,94 @@ class InstallerService : Service() {
             val queueStartedAt = android.os.SystemClock.elapsedRealtime()
             val totalSize = ordered.sumOf { it.size.coerceAtLeast(0L) }
 
-            ordered.forEachIndexed { index, item ->
-                val prefix = "${index + 1}/${ordered.size}"
-                publishProgress(
-                    title = item.title,
-                    text = "$prefix • Preparando ${item.kind.label.lowercase()}…",
-                    percent = null
-                )
+            try {
+                ordered.forEachIndexed { index, item ->
+                    if (cancelRequested) return@launch
 
-                try {
+                    val prefix = "${index + 1}/${ordered.size}"
+
+                    publishProgress(
+                        title = item.title,
+                        text = "$prefix • Preparando ${item.kind.label.lowercase()}…",
+                        percent = null
+                    )
+
                     val activeServer = server ?: error("Servidor HTTP não iniciado")
                     val url = activeServer.urlFor(localIp, item)
 
-                    logOnly("Enviando URL ao RPI: $url")
+                    logOnly("Solicitação enviada ao RPI: ${item.kind.label} • ${item.title}")
                     val result = RpiClient.install(ps4Ip, url)
-                    logOnly("RPI respondeu: ${result.raw}")
+                    currentTaskId = result.taskId
 
                     val task = result.taskId
                     if (task == null) {
                         logOnly("RPI aceitou ${item.title}, mas não retornou task_id")
                         delay(2000)
-                    } else {
-                        var done = false
-                        while (!done) {
-                            delay(2000)
-                            val p = RpiClient.progress(ps4Ip, task)
-                            val pc = RpiClient.percent(p)
-
-                            publishProgress(
-                                title = item.title,
-                                text = "$prefix • ${item.kind.label} • $pc%",
-                                percent = pc
-                            )
-                            done = RpiClient.isFinished(p)
-                        }
+                        return@forEachIndexed
                     }
-                } catch (e: Exception) {
-                    finishError("Falha em ${item.title}: ${e.message ?: "erro desconhecido"}")
-                    return@launch
+
+                    logOnly("Task $task iniciada para ${item.title}")
+
+                    var done = false
+                    var statusFailures = 0
+
+                    while (!done && !cancelRequested) {
+                        delay(2000)
+
+                        val progress = runCatching { RpiClient.progress(ps4Ip, task) }
+                            .onFailure {
+                                statusFailures++
+                                publishLive(
+                                    title = item.title,
+                                    text = "$prefix • Envio continua • aguardando status do PS4…",
+                                    percent = null
+                                )
+                                if (statusFailures == 1 || statusFailures % 15 == 0) {
+                                    logOnly(
+                                        "Status do RPI oscilou (${statusFailures}x); " +
+                                            "o servidor continua enviando o PKG."
+                                    )
+                                }
+                            }
+                            .getOrNull()
+                            ?: continue
+
+                        statusFailures = 0
+
+                        val pc = RpiClient.percent(progress)
+                        val transferred = RpiClient.bytesDone(progress)
+                        val total = RpiClient.bytesTotal(progress).takeIf { it > 0L } ?: item.size
+
+                        val amountText = if (transferred > 0L && total > 0L) {
+                            "${humanSize(transferred)} / ${humanSize(total)}"
+                        } else {
+                            humanSize(item.size)
+                        }
+
+                        publishProgress(
+                            title = item.title,
+                            text = "$prefix • ${item.kind.label} • $pc% • $amountText",
+                            percent = pc
+                        )
+
+                        done = RpiClient.isFinished(progress)
+                    }
+
+                    if (cancelRequested) return@launch
+
+                    logOnly("Concluído: ${item.kind.label} • ${item.title}")
+                    currentTaskId = null
                 }
+            } catch (_: CancellationException) {
+                return@launch
+            } catch (e: Exception) {
+                if (!cancelRequested) {
+                    finishError("Falha em ${currentTitle()}: ${e.message ?: "erro desconhecido"}")
+                }
+                return@launch
             }
+
+            if (cancelRequested) return@launch
 
             val elapsed = android.os.SystemClock.elapsedRealtime() - queueStartedAt
             val summary = if (ordered.size == 1) {
@@ -172,6 +249,39 @@ class InstallerService : Service() {
             }
 
             finishSuccess(summary)
+        }
+    }
+
+    private fun currentTitle(): String {
+        val task = currentTaskId
+        return if (task != null) "task $task" else "PKG"
+    }
+
+    private fun cancelInstall() {
+        if (cancelRequested) return
+        cancelRequested = true
+
+        val task = currentTaskId
+        val ip = currentPs4Ip
+
+        publishLive(
+            title = "PKG Pocket",
+            text = "Cancelando envio…",
+            percent = 0
+        )
+
+        // Para imediatamente novas leituras do PS4.
+        server?.stop()
+
+        scope.launch {
+            if (task != null && !ip.isNullOrBlank()) {
+                runCatching { RpiClient.stop(ip, task) }
+                runCatching { RpiClient.unregister(ip, task) }
+            }
+
+            installJob?.cancel()
+            currentTaskId = null
+            finishCancelled("Envio cancelado pelo usuário")
         }
     }
 
@@ -189,7 +299,13 @@ class InstallerService : Service() {
                 .putExtra(EXTRA_STATUS, text)
                 .putExtra(EXTRA_PERCENT, shownPercent)
                 .putExtra(EXTRA_LOG_ONLY, false)
+                .putExtra(EXTRA_LIVE_UPDATE, true)
+                .putExtra(EXTRA_ACTIVE, true)
         )
+    }
+
+    private fun publishLive(title: String, text: String, percent: Int?) {
+        publishProgress(title, text, percent)
     }
 
     private fun logOnly(text: String) {
@@ -198,18 +314,13 @@ class InstallerService : Service() {
                 .setPackage(packageName)
                 .putExtra(EXTRA_STATUS, text)
                 .putExtra(EXTRA_LOG_ONLY, true)
+                .putExtra(EXTRA_LIVE_UPDATE, false)
+                .putExtra(EXTRA_ACTIVE, true)
         )
     }
 
     private fun finishSuccess(summary: String) {
-        sendBroadcast(
-            Intent(ACTION_STATUS)
-                .setPackage(packageName)
-                .putExtra(EXTRA_STATUS, summary)
-                .putExtra(EXTRA_PERCENT, 100)
-                .putExtra(EXTRA_LOG_ONLY, false)
-        )
-
+        broadcastFinal(summary, 100)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
@@ -221,19 +332,11 @@ class InstallerService : Service() {
             )
         )
 
-        releaseWakeLock()
-        stopSelf()
+        cleanupAndStop()
     }
 
     private fun finishError(message: String) {
-        sendBroadcast(
-            Intent(ACTION_STATUS)
-                .setPackage(packageName)
-                .putExtra(EXTRA_STATUS, message)
-                .putExtra(EXTRA_PERCENT, 0)
-                .putExtra(EXTRA_LOG_ONLY, false)
-        )
-
+        broadcastFinal(message, 0)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
         getSystemService(NotificationManager::class.java).notify(
@@ -245,7 +348,43 @@ class InstallerService : Service() {
             )
         )
 
-        releaseWakeLock()
+        cleanupAndStop()
+    }
+
+    private fun finishCancelled(message: String) {
+        broadcastFinal(message, 0)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+
+        getSystemService(NotificationManager::class.java).notify(
+            NOTIF_ID,
+            finalNotification(
+                title = "Envio cancelado",
+                text = message,
+                success = false
+            )
+        )
+
+        cleanupAndStop()
+    }
+
+    private fun broadcastFinal(text: String, percent: Int) {
+        sendBroadcast(
+            Intent(ACTION_STATUS)
+                .setPackage(packageName)
+                .putExtra(EXTRA_STATUS, text)
+                .putExtra(EXTRA_PERCENT, percent)
+                .putExtra(EXTRA_LOG_ONLY, false)
+                .putExtra(EXTRA_LIVE_UPDATE, false)
+                .putExtra(EXTRA_ACTIVE, false)
+        )
+    }
+
+    private fun cleanupAndStop() {
+        server?.stop()
+        server = null
+        currentTaskId = null
+        currentPs4Ip = null
+        releasePerformanceLocks()
         stopSelf()
     }
 
@@ -332,7 +471,7 @@ class InstallerService : Service() {
         server?.stop()
         installJob?.cancel()
         scope.coroutineContext[Job]?.cancel()
-        releaseWakeLock()
+        releasePerformanceLocks()
         super.onDestroy()
     }
 
