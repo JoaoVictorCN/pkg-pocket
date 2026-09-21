@@ -55,13 +55,15 @@ class MainActivity : AppCompatActivity() {
     private var lastBackPressedAt = 0L
     private var multiSelectMode = false
     private val selectedTokens = linkedSetOf<String>()
+    private val installSelectedTokens = linkedSetOf<String>()
     private val completedCards = mutableMapOf<String, String>()
 
     private data class PkgCardViews(
         val progress: ProgressBar,
         val status: TextView,
         val meta: TextView,
-        val checkBox: CheckBox
+        val checkBox: CheckBox,
+        val installCheck: CheckBox
     )
 
     private val pkgCards = mutableMapOf<String, PkgCardViews>()
@@ -96,6 +98,8 @@ class MainActivity : AppCompatActivity() {
 
             val normalized = normalizeKinds(parsed)
             clearCompletedCards()
+            installSelectedTokens.clear()
+            installSelectedTokens.addAll(normalized.map { it.token })
             PkgRepository.items = normalized
             persistSelection(normalized)
             exitMultiSelectMode()
@@ -168,6 +172,9 @@ class MainActivity : AppCompatActivity() {
             b.helpButton.isEnabled = !active && demoJob?.isActive != true
             b.smartLibraryButton.isEnabled = !active && demoJob?.isActive != true
             b.diagnosticsButton.isEnabled = demoJob?.isActive != true
+            pkgCards.values.forEach { refs ->
+                refs.installCheck.isEnabled = !active && demoJob?.isActive != true
+            }
             if (!active) b.cancelInstall.isEnabled = true
 
             if (liveUpdate || !logOnly) {
@@ -343,13 +350,24 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            val installItems = selectedInstallItems()
+
+            if (installItems.isEmpty()) {
+                Toast.makeText(
+                    this,
+                    R.string.select_at_least_one_to_install,
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+
             if (ip.isBlank()) {
                 Toast.makeText(this, R.string.enter_ps4_ip, Toast.LENGTH_SHORT).show()
                 addLog(getString(R.string.install_cancelled_no_ip))
                 return@setOnClickListener
             }
 
-            preflightInstall(ip)
+            quickVerifyThenPreflight(ip, installItems)
         }
 
         b.cancelInstall.setOnClickListener {
@@ -467,6 +485,7 @@ class MainActivity : AppCompatActivity() {
         PkgRepository.items = emptyList()
         completedCards.clear()
         selectedTokens.clear()
+        installSelectedTokens.clear()
         multiSelectMode = false
 
         getSharedPreferences("pkg_pocket", MODE_PRIVATE)
@@ -480,6 +499,7 @@ class MainActivity : AppCompatActivity() {
         b.pkgList.removeAllViews()
         pkgCards.clear()
         selectedTokens.clear()
+        installSelectedTokens.clear()
         multiSelectMode = false
 
         b.selectionActions.visibility = View.GONE
@@ -496,6 +516,7 @@ class MainActivity : AppCompatActivity() {
         PkgRepository.items = emptyList()
         clearCompletedCards()
         selectedTokens.clear()
+        installSelectedTokens.clear()
         multiSelectMode = false
 
         b.pkgList.removeAllViews()
@@ -544,6 +565,7 @@ class MainActivity : AppCompatActivity() {
 
         exitMultiSelectMode()
         clearCompletedCards()
+        installSelectedTokens.clear()
         PkgRepository.items = emptyList()
         persistSelection(emptyList())
         b.pkgList.removeAllViews()
@@ -598,6 +620,7 @@ class MainActivity : AppCompatActivity() {
         pkgCards.forEach { (token, refs) ->
             refs.checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
             refs.checkBox.isChecked = token in selectedTokens
+            refs.installCheck.visibility = if (multiSelectMode) View.GONE else View.VISIBLE
         }
 
         if (multiSelectMode) {
@@ -616,9 +639,11 @@ class MainActivity : AppCompatActivity() {
         selectedTokens.clear()
         b.selectionActions.visibility = View.GONE
 
-        pkgCards.values.forEach { refs ->
+        pkgCards.forEach { (token, refs) ->
             refs.checkBox.isChecked = false
             refs.checkBox.visibility = View.GONE
+            refs.installCheck.visibility = View.VISIBLE
+            refs.installCheck.isChecked = token in installSelectedTokens
         }
 
         if (demoJob?.isActive != true) {
@@ -658,9 +683,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         val before = PkgRepository.items
+        val installSelectionBefore = installSelectedTokens.toSet()
         val updated = before.filterNot { it.token in tokens }
         if (updated.size == before.size) return
 
+        installSelectedTokens.removeAll(tokens)
         PkgRepository.items = updated
         persistSelection(updated)
         render(updated)
@@ -673,6 +700,8 @@ class MainActivity : AppCompatActivity() {
             Snackbar.LENGTH_LONG
         )
             .setAction(R.string.undo) {
+                installSelectedTokens.clear()
+                installSelectedTokens.addAll(installSelectionBefore)
                 PkgRepository.items = before
                 persistSelection(before)
                 render(before)
@@ -961,11 +990,119 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun preflightInstall(ip: String) {
-        val analysis = SmartLibraryAnalyzer.analyze(PkgRepository.items)
+    private fun selectedInstallItems(): List<PkgItem> {
+        return PkgRepository.items.filter {
+            it.token in installSelectedTokens
+        }
+    }
+
+    private fun quickVerifyThenPreflight(
+        ip: String,
+        items: List<PkgItem>
+    ) {
+        b.installAll.isEnabled = false
+        b.status.visibility = View.VISIBLE
+        b.status.text = getString(R.string.quick_check_running, items.size)
+
+        lifecycleScope.launch {
+            val report = withContext(Dispatchers.IO) {
+                PkgQuickVerifier.verify(
+                    contentResolver,
+                    items
+                )
+            }
+
+            b.installAll.isEnabled = true
+
+            val duration = String.format(
+                Locale.getDefault(),
+                "%.1f s",
+                report.elapsedMs / 1000.0
+            )
+
+            if (report.issueCount == 0) {
+                val ok = getString(
+                    R.string.quick_check_ok,
+                    report.okCount,
+                    duration
+                )
+                addLog(ok)
+                Toast.makeText(
+                    this@MainActivity,
+                    ok,
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                preflightInstall(ip, items)
+                return@launch
+            }
+
+            val details = buildString {
+                append(
+                    getString(
+                        R.string.quick_check_result,
+                        report.okCount,
+                        items.size,
+                        duration
+                    )
+                )
+                append("\n\n")
+
+                report.results.forEach { result ->
+                    if (result.issues.isEmpty()) return@forEach
+
+                    append(result.item.fileName)
+                    append("\n")
+
+                    result.issues.forEach { issue ->
+                        append("• ")
+                        append(formatQuickIssue(issue))
+                        append("\n")
+                    }
+
+                    append("\n")
+                }
+
+                append(getString(R.string.quick_check_note))
+            }.trim()
+
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.quick_check_title)
+                .setMessage(details)
+                .setNegativeButton(R.string.cancel_selection, null)
+                .setPositiveButton(R.string.quick_check_continue) { _, _ ->
+                    preflightInstall(ip, items)
+                }
+                .show()
+        }
+    }
+
+    private fun formatQuickIssue(issue: QuickVerifyIssue): String {
+        return getString(
+            when (issue.code) {
+                QuickIssueCode.UNREADABLE -> R.string.quick_issue_unreadable
+                QuickIssueCode.TOO_SMALL -> R.string.quick_issue_too_small
+                QuickIssueCode.BAD_MAGIC -> R.string.quick_issue_bad_magic
+                QuickIssueCode.BAD_ENTRY_COUNT -> R.string.quick_issue_bad_entry_count
+                QuickIssueCode.BAD_TABLE -> R.string.quick_issue_bad_table
+                QuickIssueCode.METADATA_OUT_OF_BOUNDS ->
+                    R.string.quick_issue_metadata_bounds
+                QuickIssueCode.MISSING_TITLE_ID ->
+                    R.string.quick_issue_missing_title_id
+                QuickIssueCode.MISSING_CONTENT_ID ->
+                    R.string.quick_issue_missing_content_id
+            }
+        )
+    }
+
+    private fun preflightInstall(
+        ip: String,
+        items: List<PkgItem>
+    ) {
+        val analysis = SmartLibraryAnalyzer.analyze(items)
 
         if (analysis.importantWarnings.isEmpty()) {
-            startInstallation(ip)
+            startInstallation(ip, items)
             return
         }
 
@@ -977,16 +1114,19 @@ class MainActivity : AppCompatActivity() {
                 applyOptimizedQueue()
             }
             .setPositiveButton(R.string.install_anyway) { _, _ ->
-                startInstallation(ip)
+                startInstallation(ip, items)
             }
             .show()
     }
 
-    private fun startInstallation(ip: String) {
+    private fun startInstallation(
+        ip: String,
+        items: List<PkgItem>
+    ) {
         clearCompletedCards()
         resetPkgCardsForQueue()
 
-        PkgRepository.items
+        items
             .sortedWith(
                 compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
             )
@@ -1009,7 +1149,7 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
 
-        val rpiHint = if (PkgRepository.items.size > 1) {
+        val rpiHint = if (items.size > 1) {
             getString(R.string.keep_rpi_open_queue)
         } else {
             getString(R.string.keep_rpi_open_single)
@@ -1020,9 +1160,9 @@ class MainActivity : AppCompatActivity() {
         addLog(rpiHint)
         Toast.makeText(this, rpiHint, Toast.LENGTH_LONG).show()
 
-        ActiveTransferQueue.set(PkgRepository.items)
+        ActiveTransferQueue.set(items)
 
-        addLog(getString(R.string.starting_queue, PkgRepository.items.size, ip))
+        addLog(getString(R.string.starting_queue, items.size, ip))
         ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
     }
 
@@ -1525,6 +1665,9 @@ class MainActivity : AppCompatActivity() {
         b.pkgList.removeAllViews()
         pkgCards.clear()
 
+        val validTokens = items.map { it.token }.toSet()
+        installSelectedTokens.retainAll(validTokens)
+
         val sorted = items.sortedWith(
             compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
         )
@@ -1601,11 +1744,22 @@ class MainActivity : AppCompatActivity() {
             val status = row.findViewById<TextView>(R.id.progressStatus)
             val meta = row.findViewById<TextView>(R.id.progressMeta)
             val checkBox = row.findViewById<CheckBox>(R.id.selectionCheck)
+            val installCheck = row.findViewById<CheckBox>(R.id.installCheck)
 
             checkBox.isClickable = false
             checkBox.isFocusable = false
             checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
             checkBox.isChecked = item.token in selectedTokens
+
+            installCheck.visibility = if (multiSelectMode) View.GONE else View.VISIBLE
+            installCheck.isChecked = item.token in installSelectedTokens
+            installCheck.setOnCheckedChangeListener { _, checked ->
+                if (checked) {
+                    installSelectedTokens += item.token
+                } else {
+                    installSelectedTokens -= item.token
+                }
+            }
 
             val completedDetail = completedCards[itemStableKey(item)]
 
@@ -1628,7 +1782,13 @@ class MainActivity : AppCompatActivity() {
                 meta.visibility = View.GONE
             }
 
-            pkgCards[item.token] = PkgCardViews(progress, status, meta, checkBox)
+            pkgCards[item.token] = PkgCardViews(
+                progress,
+                status,
+                meta,
+                checkBox,
+                installCheck
+            )
 
             row.setOnLongClickListener {
                 if (demoJob?.isActive == true || !b.installAll.isEnabled) {

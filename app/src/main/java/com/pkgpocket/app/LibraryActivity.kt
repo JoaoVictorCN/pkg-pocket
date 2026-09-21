@@ -64,8 +64,9 @@ class LibraryActivity : AppCompatActivity() {
 
         val back = MaterialButton(this).apply {
             text = "‹"
-            textSize = 28f
+            textSize = 26f
             minWidth = dp(48)
+            cornerRadius = dp(18)
             setOnClickListener { finish() }
         }
 
@@ -78,6 +79,14 @@ class LibraryActivity : AppCompatActivity() {
 
         val clear = MaterialButton(this).apply {
             text = getString(R.string.clear_history_short)
+            cornerRadius = dp(18)
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorError,
+                    0
+                )
+            )
             setOnClickListener { confirmClearHistory() }
         }
 
