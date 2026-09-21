@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -21,34 +22,57 @@ import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
+    private val logLines = mutableListOf<String>()
+    private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     private val pickPkgs = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
         lifecycleScope.launch {
-            b.status.text = "Lendo metadados de ${uris.size} PKG(s)…"
+            val reading = "Lendo metadados de ${uris.size} PKG(s)…"
+            b.status.text = reading
+            addLog(reading)
+
             val parsed = withContext(Dispatchers.IO) {
                 uris.mapNotNull { uri ->
                     runCatching {
                         runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
                         PkgParser.parse(contentResolver, uri)
-                    }.onFailure { e -> runOnUiThread { Toast.makeText(this@MainActivity, "${uri.lastPathSegment}: ${e.message}", Toast.LENGTH_LONG).show() } }.getOrNull()
+                    }.onFailure { e ->
+                        runOnUiThread {
+                            val msg = "${uri.lastPathSegment}: ${e.message}"
+                            addLog("ERRO: $msg")
+                            Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+                        }
+                    }.getOrNull()
                 }
             }
+
             PkgRepository.items = parsed
             render(parsed)
             ensureService(InstallerService.ACTION_REFRESH)
-            b.status.text = "${parsed.size} PKG(s) prontos. Abra o Remote Package Installer no PS4."
+
+            parsed.forEach { item ->
+                addLog("PKG: ${item.kind.label} • ${item.title} • ${item.titleId.ifBlank { "sem Title ID" }} • v${item.version.ifBlank { "?" }} • ${humanSize(item.size)}")
+            }
+
+            val ready = "${parsed.size} PKG(s) prontos. Abra o Remote Package Installer no PS4."
+            b.status.text = ready
+            addLog(ready)
         }
     }
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            b.status.text = intent?.getStringExtra(InstallerService.EXTRA_STATUS).orEmpty()
+            val text = intent?.getStringExtra(InstallerService.EXTRA_STATUS).orEmpty()
+            b.status.text = text
             b.progress.progress = intent?.getIntExtra(InstallerService.EXTRA_PERCENT, 0) ?: 0
+            if (text.isNotBlank()) addLog(text)
         }
     }
 
@@ -61,21 +85,61 @@ class MainActivity : AppCompatActivity() {
         }
         ContextCompat.registerReceiver(this, statusReceiver, IntentFilter(InstallerService.ACTION_STATUS), ContextCompat.RECEIVER_NOT_EXPORTED)
 
-        b.selectPkgs.setOnClickListener { pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*")) }
+        b.selectPkgs.setOnClickListener {
+            addLog("Abrindo seletor de PKGs…")
+            pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*"))
+        }
+
         b.detectPs4.setOnClickListener {
             lifecycleScope.launch {
-                b.status.text = "Procurando PS4 com RPI na rede local…"
+                val searching = "Procurando PS4 com RPI na rede local…"
+                b.status.text = searching
+                addLog(searching)
                 val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
-                if (ip != null) { b.ps4Ip.setText(ip); b.status.text = "RPI encontrado em $ip:12800" }
-                else b.status.text = "Não encontrei o RPI. Abra-o no PS4 e tente novamente."
+                if (ip != null) {
+                    b.ps4Ip.setText(ip)
+                    val found = "RPI encontrado em $ip:12800"
+                    b.status.text = found
+                    addLog(found)
+                } else {
+                    val notFound = "Não encontrei o RPI. Abra-o no PS4 e tente novamente."
+                    b.status.text = notFound
+                    addLog(notFound)
+                }
             }
         }
+
         b.installAll.setOnClickListener {
             val ip = b.ps4Ip.text?.toString()?.trim().orEmpty()
-            if (PkgRepository.items.isEmpty()) { Toast.makeText(this, "Selecione os PKGs primeiro", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-            if (ip.isBlank()) { Toast.makeText(this, "Digite ou detecte o IP do PS4", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+            if (PkgRepository.items.isEmpty()) {
+                Toast.makeText(this, "Selecione os PKGs primeiro", Toast.LENGTH_SHORT).show()
+                addLog("Instalação cancelada: nenhum PKG selecionado.")
+                return@setOnClickListener
+            }
+            if (ip.isBlank()) {
+                Toast.makeText(this, "Digite ou detecte o IP do PS4", Toast.LENGTH_SHORT).show()
+                addLog("Instalação cancelada: IP do PS4 não informado.")
+                return@setOnClickListener
+            }
+            addLog("Iniciando fila de ${PkgRepository.items.size} PKG(s) para $ip…")
             ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
         }
+
+        b.toggleLog.setOnClickListener {
+            val show = b.logContainer.visibility != View.VISIBLE
+            b.logContainer.visibility = if (show) View.VISIBLE else View.GONE
+            b.toggleLog.text = if (show) "Ocultar log" else "Ver log"
+        }
+
+        addLog("PKG Pocket iniciado.")
+    }
+
+    private fun addLog(message: String) {
+        val clean = message.trim()
+        if (clean.isBlank()) return
+        logLines += "[${clock.format(Date())}] $clean"
+        while (logLines.size > 250) logLines.removeAt(0)
+        b.logText.text = logLines.joinToString("\n")
     }
 
     private fun ensureService(action: String, ip: String? = null) {
