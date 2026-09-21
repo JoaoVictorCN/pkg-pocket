@@ -40,6 +40,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private var demoJob: Job? = null
     private var multiSelectMode = false
     private val selectedTokens = linkedSetOf<String>()
+    private val completedCards = mutableMapOf<String, String>()
 
     private data class PkgCardViews(
         val progress: ProgressBar,
@@ -86,12 +88,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            PkgRepository.items = parsed
-            persistSelection(parsed)
+            val normalized = normalizeKinds(parsed)
+            clearCompletedCards()
+            PkgRepository.items = normalized
+            persistSelection(normalized)
             exitMultiSelectMode()
-            render(parsed)
+            render(normalized)
 
-            parsed.forEach { item ->
+            normalized.forEach { item ->
                 addLog(
                     getString(
                         R.string.log_pkg,
@@ -104,8 +108,8 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
-            val ready = getString(R.string.pkgs_ready, parsed.size)
-            updateSelectionSummary(parsed)
+            val ready = getString(R.string.pkgs_ready, normalized.size)
+            updateSelectionSummary(normalized)
             b.liveLog.text = getString(R.string.no_active_transfer)
             b.progress.progress = 0
             b.overallProgressInfo.text = getString(R.string.overall_idle)
@@ -179,6 +183,15 @@ class MainActivity : AppCompatActivity() {
 
             if (token.isNotBlank()) {
                 updatePkgCard(token, itemPercent, itemStatus, itemDetail)
+
+                if (itemStatus == getString(R.string.state_completed)) {
+                    PkgRepository.items
+                        .firstOrNull { it.token == token }
+                        ?.let { item ->
+                            completedCards[itemStableKey(item)] = itemDetail
+                            persistCompletedCards()
+                        }
+                }
             }
 
             if (!liveUpdate && text.isNotBlank()) addLog(text)
@@ -294,7 +307,23 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            clearCompletedCards()
             resetPkgCardsForQueue()
+
+            PkgRepository.items
+                .sortedWith(
+                    compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
+                )
+                .firstOrNull()
+                ?.let { first ->
+                    updatePkgCard(
+                        first.token,
+                        null,
+                        getString(R.string.state_preparing),
+                        ""
+                    )
+                }
+
             b.cancelInstall.visibility = View.VISIBLE
             b.cancelInstall.isEnabled = true
             b.installAll.isEnabled = false
@@ -325,6 +354,8 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
 
+        loadCompletedCards()
+
         if (PkgRepository.items.isNotEmpty()) {
             render(PkgRepository.items)
             updateSelectionSummary(PkgRepository.items)
@@ -334,6 +365,73 @@ class MainActivity : AppCompatActivity() {
         }
 
         addLog(getString(R.string.app_started))
+    }
+
+    private fun itemStableKey(item: PkgItem): String = item.uri.toString()
+
+    private fun loadCompletedCards() {
+        completedCards.clear()
+
+        val raw = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .getString("completed_pkg_cards", "{}")
+            .orEmpty()
+
+        runCatching {
+            val json = JSONObject(raw)
+            val keys = json.keys()
+
+            while (keys.hasNext()) {
+                val key = keys.next()
+                completedCards[key] = json.optString(key, "")
+            }
+        }
+    }
+
+    private fun persistCompletedCards() {
+        val json = JSONObject()
+        completedCards.forEach { (key, detail) ->
+            json.put(key, detail)
+        }
+
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .putString("completed_pkg_cards", json.toString())
+            .apply()
+    }
+
+    private fun clearCompletedCards() {
+        completedCards.clear()
+        persistCompletedCards()
+    }
+
+    private fun normalizeKinds(items: List<PkgItem>): List<PkgItem> {
+        val extraGameTokens = mutableSetOf<String>()
+
+        items
+            .filter { it.titleId.isNotBlank() }
+            .groupBy { it.titleId.uppercase(Locale.ROOT) }
+            .values
+            .forEach { group ->
+                val gameLike = group.filter { it.category.equals("gd", ignoreCase = true) }
+
+                if (gameLike.size > 1) {
+                    val base = gameLike.maxByOrNull { it.size }
+
+                    gameLike
+                        .filter { it.token != base?.token }
+                        .forEach { extra ->
+                            extraGameTokens += extra.token
+                        }
+                }
+            }
+
+        return items.map { item ->
+            if (item.token in extraGameTokens) {
+                item.copy(kind = PkgKind.DLC)
+            } else {
+                item
+            }
+        }
     }
 
     private fun persistSelection(items: List<PkgItem>) {
@@ -370,10 +468,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            PkgRepository.items = restored
-            persistSelection(restored)
-            render(restored)
-            updateSelectionSummary(restored)
+            val normalized = normalizeKinds(restored)
+            PkgRepository.items = normalized
+            persistSelection(normalized)
+            render(normalized)
+            updateSelectionSummary(normalized)
 
             if (restored.isNotEmpty()) {
                 addLog(getString(R.string.selection_restored, restored.size))
@@ -409,6 +508,7 @@ class MainActivity : AppCompatActivity() {
         demoJob = null
 
         exitMultiSelectMode()
+        clearCompletedCards()
         PkgRepository.items = emptyList()
         persistSelection(emptyList())
         b.pkgList.removeAllViews()
@@ -891,10 +991,52 @@ class MainActivity : AppCompatActivity() {
             row.findViewById<TextView>(R.id.fileName).text = item.fileName
 
             val iv = row.findViewById<ImageView>(R.id.icon)
-            item.icon?.let { bytes ->
+            iv.tag = item.token
+
+            val embeddedIcon = item.icon
+            val sameTitleFallback = if (embeddedIcon == null && item.titleId.isNotBlank()) {
+                sorted.firstOrNull {
+                    it.token != item.token &&
+                        it.titleId.equals(item.titleId, ignoreCase = true) &&
+                        it.icon != null
+                }?.icon
+            } else {
+                null
+            }
+
+            val immediateIcon = embeddedIcon ?: sameTitleFallback
+            immediateIcon?.let { bytes ->
                 runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
                     .getOrNull()
                     ?.let(iv::setImageBitmap)
+            }
+
+            if (embeddedIcon == null) {
+                lifecycleScope.launch {
+                    val onlineBytes = withContext(Dispatchers.IO) {
+                        CoverResolver.resolve(
+                            context = this@MainActivity,
+                            item = item,
+                            allowTitleFallback = sameTitleFallback == null
+                        )
+                    }
+
+                    if (
+                        onlineBytes != null &&
+                        iv.tag == item.token &&
+                        iv.isAttachedToWindow
+                    ) {
+                        runCatching {
+                            BitmapFactory.decodeByteArray(
+                                onlineBytes,
+                                0,
+                                onlineBytes.size
+                            )
+                        }
+                            .getOrNull()
+                            ?.let(iv::setImageBitmap)
+                    }
+                }
             }
 
             val progress = row.findViewById<ProgressBar>(R.id.itemProgress)
@@ -907,11 +1049,22 @@ class MainActivity : AppCompatActivity() {
             checkBox.visibility = if (multiSelectMode) View.VISIBLE else View.GONE
             checkBox.isChecked = item.token in selectedTokens
 
+            val completedDetail = completedCards[itemStableKey(item)]
+
             progress.isIndeterminate = false
-            progress.progress = 0
-            progress.visibility = View.GONE
-            status.text = getString(R.string.state_waiting)
-            meta.visibility = View.GONE
+            if (completedDetail != null) {
+                progress.progress = 100
+                progress.visibility = View.VISIBLE
+                status.text = getString(R.string.state_completed)
+                meta.text = completedDetail
+                meta.visibility = if (completedDetail.isBlank()) View.GONE else View.VISIBLE
+            } else {
+                progress.progress = 0
+                progress.visibility = View.GONE
+                status.text = getString(R.string.state_waiting)
+                meta.text = ""
+                meta.visibility = View.GONE
+            }
 
             pkgCards[item.token] = PkgCardViews(progress, status, meta, checkBox)
 
