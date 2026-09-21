@@ -31,6 +31,29 @@
             android:text="@string/app_subtitle"
             android:textSize="15sp" />
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/betaBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorSecondaryContainer"
+            app:cardCornerRadius="14dp"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:id="@+id/betaBannerText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="9dp"
+                android:text="@string/public_beta_banner_initial"
+                android:textColor="?attr/colorOnSecondaryContainer"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </com.google.android.material.card.MaterialCardView>
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/selectPkgs"
             android:layout_width="match_parent"

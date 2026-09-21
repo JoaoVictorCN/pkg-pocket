@@ -1,6 +1,21 @@
 <resources>
     <string name="app_name">PKG Pocket</string>
     <string name="app_subtitle">Instalador de PKG do PS4 pelo celular — sem Termux</string>
+    <string name="public_beta_banner_initial">BETA PÚBLICA • 5 JOGOS • 5 DLCs • 5 UPDATES</string>
+    <string name="public_beta_banner">BETA PÚBLICA • Jogos %1$d/%2$d • DLCs %3$d/%4$d • Updates %5$d/%6$d</string>
+    <string name="public_beta_not_enough_uses_title">Cota da beta atingida</string>
+    <string name="public_beta_not_enough_uses_message">A seleção ultrapassa uma das cotas restantes da beta.
+
+Jogos: %1$d selecionado(s) • %2$d restante(s)
+DLCs: %3$d selecionada(s) • %4$d restante(s)
+Updates: %5$d selecionado(s) • %6$d restante(s)
+
+Desmarque itens da categoria esgotada e tente novamente.</string>
+    <string name="public_beta_service_queue_too_large">Cota da beta excedida. Jogos: %1$d selecionado(s)/%2$d restante(s) • DLCs: %3$d/%4$d • Updates: %5$d/%6$d.</string>
+    <string name="public_beta_limit_reached_title">Limite da beta pública atingido</string>
+    <string name="public_beta_limit_reached_message">Você utilizou todas as cotas da beta pública: 5 jogos, 5 DLCs e 5 updates. Obrigado por testar o PKG Pocket. Consulte a página de releases para obter a versão atual.</string>
+    <string name="public_beta_open_releases">Abrir releases</string>
+    <string name="public_beta_close_app">Fechar app</string>
     <string name="select_pkgs">Selecionar PKGs</string>
     <string name="clear_selection">Limpar seleção</string>
     <string name="ps4_ip_hint">IP do PS4</string>

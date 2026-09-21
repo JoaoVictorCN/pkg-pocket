@@ -1,6 +1,21 @@
 <resources>
     <string name="app_name">PKG Pocket</string>
     <string name="app_subtitle">PS4 PKG installer from your phone — no Termux</string>
+    <string name="public_beta_banner_initial">PUBLIC BETA • 5 GAMES • 5 DLCs • 5 UPDATES</string>
+    <string name="public_beta_banner">PUBLIC BETA • Games %1$d/%2$d • DLCs %3$d/%4$d • Updates %5$d/%6$d</string>
+    <string name="public_beta_not_enough_uses_title">Beta quota reached</string>
+    <string name="public_beta_not_enough_uses_message">This selection exceeds a remaining beta quota.
+
+Games: %1$d selected • %2$d left
+DLCs: %3$d selected • %4$d left
+Updates: %5$d selected • %6$d left
+
+Deselect items from the exhausted category and try again.</string>
+    <string name="public_beta_service_queue_too_large">Public beta quota exceeded. Games: %1$d selected/%2$d left • DLCs: %3$d/%4$d • Updates: %5$d/%6$d.</string>
+    <string name="public_beta_limit_reached_title">Public beta limit reached</string>
+    <string name="public_beta_limit_reached_message">You used all public beta quotas: 5 games, 5 DLCs and 5 updates. Thanks for testing PKG Pocket. Check the releases page for the current version.</string>
+    <string name="public_beta_open_releases">Open releases</string>
+    <string name="public_beta_close_app">Close app</string>
     <string name="select_pkgs">Select PKGs</string>
     <string name="clear_selection">Clear selection</string>
     <string name="ps4_ip_hint">PS4 IP</string>

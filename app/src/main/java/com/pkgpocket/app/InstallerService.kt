@@ -192,6 +192,21 @@ class InstallerService : Service() {
                 return@launch
             }
 
+            if (BuildConfig.PUBLIC_BETA && !PublicBetaUsage.canFit(this@InstallerService, ordered)) {
+                finishError(
+                    getString(
+                        R.string.public_beta_service_queue_too_large,
+                        PublicBetaUsage.requestedGames(ordered),
+                        PublicBetaUsage.remainingGames(this@InstallerService),
+                        PublicBetaUsage.requestedDlcs(ordered),
+                        PublicBetaUsage.remainingDlcs(this@InstallerService),
+                        PublicBetaUsage.requestedUpdates(ordered),
+                        PublicBetaUsage.remainingUpdates(this@InstallerService)
+                    )
+                )
+                return@launch
+            }
+
             val queueStartedAt = SystemClock.elapsedRealtime()
             val totalSize = ordered.sumOf { it.size.coerceAtLeast(0L) }
             var completedBytes = 0L
@@ -551,6 +566,10 @@ class InstallerService : Service() {
                         humanSize(item.size),
                         humanDuration(itemDuration)
                     )
+
+                    if (BuildConfig.PUBLIC_BETA) {
+                        PublicBetaUsage.recordCompleted(this@InstallerService, item.kind)
+                    }
 
                     publishTransfer(
                         item = item,

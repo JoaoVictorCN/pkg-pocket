@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
+    private var betaLimitDialogShown = false
     private var helpHideJob: Job? = null
     private var helpBubbleCollapsed = false
     private var helpBubbleOnLeft = false
@@ -226,6 +227,8 @@ class MainActivity : AppCompatActivity() {
                             persistCompletedCards()
                             InstallHistoryStore.record(this@MainActivity, item)
                         }
+
+                    updatePublicBetaBanner()
                 }
             }
 
@@ -233,6 +236,14 @@ class MainActivity : AppCompatActivity() {
 
             if (!active && finalSuccess) {
                 clearQueueAfterSuccessfulInstall(text)
+                updatePublicBetaBanner()
+
+                if (PublicBetaUsage.fullyExhausted(this@MainActivity)) {
+                    lifecycleScope.launch {
+                        delay(900L)
+                        enforcePublicBetaFullLimit()
+                    }
+                }
             }
         }
     }
@@ -243,6 +254,7 @@ class MainActivity : AppCompatActivity() {
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         setupHelpBubble()
+        setupPublicBeta()
         playLaunchAnimation()
         setupExitGuard()
 
@@ -375,6 +387,10 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            if (!canStartPublicBetaQueue(installItems)) {
+                return@setOnClickListener
+            }
+
             if (ip.isBlank()) {
                 Toast.makeText(this, R.string.enter_ps4_ip, Toast.LENGTH_SHORT).show()
                 addLog(getString(R.string.install_cancelled_no_ip))
@@ -428,6 +444,99 @@ class MainActivity : AppCompatActivity() {
         }
 
         addLog(getString(R.string.app_started))
+    }
+
+    private fun setupPublicBeta() {
+        if (!BuildConfig.PUBLIC_BETA) {
+            b.betaBanner.visibility = View.GONE
+            return
+        }
+
+        b.betaBanner.visibility = View.VISIBLE
+        updatePublicBetaBanner()
+
+        lifecycleScope.launch {
+            delay(2_500L)
+            enforcePublicBetaFullLimit()
+        }
+    }
+
+    private fun updatePublicBetaBanner() {
+        if (!BuildConfig.PUBLIC_BETA) {
+            b.betaBanner.visibility = View.GONE
+            return
+        }
+
+        b.betaBanner.visibility = View.VISIBLE
+        b.betaBannerText.text = getString(
+            R.string.public_beta_banner,
+            PublicBetaUsage.usedGames(this),
+            BuildConfig.BETA_MAX_GAMES,
+            PublicBetaUsage.usedDlcs(this),
+            BuildConfig.BETA_MAX_DLCS,
+            PublicBetaUsage.usedUpdates(this),
+            BuildConfig.BETA_MAX_UPDATES
+        )
+    }
+
+    private fun canStartPublicBetaQueue(items: List<PkgItem>): Boolean {
+        if (!BuildConfig.PUBLIC_BETA) return true
+
+        if (PublicBetaUsage.canFit(this, items)) {
+            return true
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.public_beta_not_enough_uses_title)
+            .setMessage(
+                getString(
+                    R.string.public_beta_not_enough_uses_message,
+                    PublicBetaUsage.requestedGames(items),
+                    PublicBetaUsage.remainingGames(this),
+                    PublicBetaUsage.requestedDlcs(items),
+                    PublicBetaUsage.remainingDlcs(this),
+                    PublicBetaUsage.requestedUpdates(items),
+                    PublicBetaUsage.remainingUpdates(this)
+                )
+            )
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+
+        return false
+    }
+
+    private fun enforcePublicBetaFullLimit(): Boolean {
+        if (!BuildConfig.PUBLIC_BETA) return false
+        if (!PublicBetaUsage.fullyExhausted(this)) return false
+        if (betaLimitDialogShown || isFinishing || isDestroyed) return true
+
+        betaLimitDialogShown = true
+        helpHideJob?.cancel()
+        b.helpButton.visibility = View.GONE
+        b.helpRevealArea.visibility = View.GONE
+        b.mainContent.visibility = View.INVISIBLE
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.public_beta_limit_reached_title)
+            .setMessage(R.string.public_beta_limit_reached_message)
+            .setCancelable(false)
+            .setNegativeButton(R.string.public_beta_close_app) { _, _ ->
+                finishAndRemoveTask()
+            }
+            .setPositiveButton(R.string.public_beta_open_releases) { _, _ ->
+                runCatching {
+                    startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://github.com/VkctorC/pkg-pocket/releases")
+                        )
+                    )
+                }
+                finishAndRemoveTask()
+            }
+            .show()
+
+        return true
     }
 
     private fun itemStableKey(item: PkgItem): String = item.uri.toString()
