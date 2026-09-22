@@ -41,7 +41,7 @@ jobs:
         working-directory: cloudflare
         run: |
           set -euo pipefail
-          OUT="$(npx --yes wrangler@4.41.1 deploy 2>&1|tee /dev/stderr)"
+          OUT="$(npx --yes wrangler@latest deploy 2>&1|tee /dev/stderr)"
           URL="$(printf '%s\n' "$OUT"|grep -Eo 'https://[^ ]+\.workers\.dev'|tail -n1)"
           test -n "$URL"
           echo "PKGPOCKET_BETA_API_URL=$URL" >> "$GITHUB_ENV"
