@@ -1,0 +1,7 @@
+name = "pkg-pocket-beta"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+[[kv_namespaces]]
+binding = "BETA_USAGE"
+id = "__KV_ID__"

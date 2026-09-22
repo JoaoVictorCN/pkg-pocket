@@ -1,333 +1,36 @@
 package com.pkgpocket.app
-
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import android.provider.Settings
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 import java.security.MessageDigest
 
 object PublicBetaUsage {
-    private const val PREFS = "pkg_pocket_public_beta"
-    private const val KEY_GAMES = "completed_game_uses"
-    private const val KEY_DLCS = "completed_dlc_uses"
-    private const val KEY_UPDATES = "completed_update_uses"
-
-    // Cópia discreta em armazenamento compartilhado.
-    // Ela sobrevive a "Limpar dados" porque não fica dentro de /data/data do app.
-    private const val BACKUP_NAME = ".ppb_9c4f7b1d.dat"
-    private const val BACKUP_DIR = ".pkgpocket"
-    private const val FORMAT_VERSION = 1
-    private const val SIGNING_SALT = "pkg-pocket-public-beta-usage-v1-7f2c91"
-
-    enum class Bucket {
-        GAME,
-        DLC,
-        UPDATE
-    }
-
-    private data class Counts(
-        val games: Int,
-        val dlcs: Int,
-        val updates: Int
-    )
-
-    private fun bucketFor(kind: PkgKind): Bucket {
-        return when (kind) {
-            PkgKind.GAME -> Bucket.GAME
-            PkgKind.DLC -> Bucket.DLC
-            PkgKind.UPDATE -> Bucket.UPDATE
-            // PKG não classificado usa a cota de jogos para não virar brecha.
-            PkgKind.OTHER -> Bucket.GAME
-        }
-    }
-
-    private fun keyFor(bucket: Bucket): String {
-        return when (bucket) {
-            Bucket.GAME -> KEY_GAMES
-            Bucket.DLC -> KEY_DLCS
-            Bucket.UPDATE -> KEY_UPDATES
-        }
-    }
-
-    private fun maxFor(bucket: Bucket): Int {
-        return when (bucket) {
-            Bucket.GAME -> BuildConfig.BETA_MAX_GAMES
-            Bucket.DLC -> BuildConfig.BETA_MAX_DLCS
-            Bucket.UPDATE -> BuildConfig.BETA_MAX_UPDATES
-        }
-    }
-
-    private fun clamp(counts: Counts): Counts {
-        return Counts(
-            games = counts.games.coerceIn(0, BuildConfig.BETA_MAX_GAMES),
-            dlcs = counts.dlcs.coerceIn(0, BuildConfig.BETA_MAX_DLCS),
-            updates = counts.updates.coerceIn(0, BuildConfig.BETA_MAX_UPDATES)
-        )
-    }
-
-    private fun localCounts(context: Context): Counts {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return clamp(
-            Counts(
-                games = prefs.getInt(KEY_GAMES, 0),
-                dlcs = prefs.getInt(KEY_DLCS, 0),
-                updates = prefs.getInt(KEY_UPDATES, 0)
-            )
-        )
-    }
-
-    private fun saveLocal(context: Context, counts: Counts) {
-        val safe = clamp(counts)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_GAMES, safe.games)
-            .putInt(KEY_DLCS, safe.dlcs)
-            .putInt(KEY_UPDATES, safe.updates)
-            .commit()
-    }
-
-    private fun androidId(context: Context): String {
-        return Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ANDROID_ID
-        ).orEmpty()
-    }
-
-    private fun digest(context: Context, body: String): String {
-        val source = "$body|${androidId(context)}|$SIGNING_SALT"
-        return MessageDigest
-            .getInstance("SHA-256")
-            .digest(source.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
-            .take(32)
-    }
-
-    private fun encode(context: Context, counts: Counts): String {
-        val safe = clamp(counts)
-        val body =
-            "$FORMAT_VERSION|${safe.games}|${safe.dlcs}|${safe.updates}"
-        return "$body|${digest(context, body)}"
-    }
-
-    private fun decode(context: Context, text: String): Counts? {
-        val parts = text.trim().split('|')
-        if (parts.size != 5) return null
-
-        val version = parts[0].toIntOrNull() ?: return null
-        val games = parts[1].toIntOrNull() ?: return null
-        val dlcs = parts[2].toIntOrNull() ?: return null
-        val updates = parts[3].toIntOrNull() ?: return null
-        val signature = parts[4]
-
-        if (version != FORMAT_VERSION) return null
-
-        val body = "$version|$games|$dlcs|$updates"
-        if (signature != digest(context, body)) return null
-
-        return clamp(Counts(games, dlcs, updates))
-    }
-
-    private fun backupRelativePath(): String =
-        "${Environment.DIRECTORY_DOWNLOADS}/$BACKUP_DIR/"
-
-    private fun findMediaStoreBackup(context: Context): android.net.Uri? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-
-        val projection = arrayOf(MediaStore.MediaColumns._ID)
-        val selection =
-            "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND " +
-            "${MediaStore.MediaColumns.RELATIVE_PATH}=?"
-        val args = arrayOf(BACKUP_NAME, backupRelativePath())
-
-        context.contentResolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            args,
-            null
-        )?.use { cursor ->
-            if (!cursor.moveToFirst()) return null
-
-            val id = cursor.getLong(
-                cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-            )
-
-            return android.content.ContentUris.withAppendedId(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                id
-            )
-        }
-
-        return null
-    }
-
-    private fun readBackup(context: Context): Counts? {
-        return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val uri = findMediaStoreBackup(context) ?: return@runCatching null
-
-                context.contentResolver.openInputStream(uri)
-                    ?.bufferedReader()
-                    ?.use { decode(context, it.readText()) }
-            } else {
-                val file = File(
-                    Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS
-                    ),
-                    "$BACKUP_DIR/$BACKUP_NAME"
-                )
-
-                if (!file.exists()) null
-                else decode(context, file.readText())
-            }
-        }.getOrNull()
-    }
-
-    private fun writeBackup(context: Context, counts: Counts) {
-        val payload = encode(context, counts)
-
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val resolver = context.contentResolver
-
-                val uri = findMediaStoreBackup(context) ?: run {
-                    val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, BACKUP_NAME)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
-                        put(
-                            MediaStore.MediaColumns.RELATIVE_PATH,
-                            backupRelativePath()
-                        )
-                    }
-
-                    resolver.insert(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                        values
-                    )
-                } ?: return@runCatching
-
-                resolver.openOutputStream(uri, "wt")
-                    ?.bufferedWriter()
-                    ?.use { it.write(payload) }
-            } else {
-                val dir = File(
-                    Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS
-                    ),
-                    BACKUP_DIR
-                )
-
-                if (!dir.exists()) dir.mkdirs()
-
-                File(dir, BACKUP_NAME).writeText(payload)
-            }
-        }
-    }
-
-    private fun mergedCounts(context: Context): Counts {
-        val local = localCounts(context)
-        val backup = readBackup(context)
-
-        if (backup == null) {
-            // Primeira execução: cria a cópia persistente com o estado atual.
-            writeBackup(context, local)
-            return local
-        }
-
-        // Nunca diminui uma cota consumida.
-        val merged = clamp(
-            Counts(
-                games = maxOf(local.games, backup.games),
-                dlcs = maxOf(local.dlcs, backup.dlcs),
-                updates = maxOf(local.updates, backup.updates)
-            )
-        )
-
-        if (merged != local) saveLocal(context, merged)
-        if (merged != backup) writeBackup(context, merged)
-
-        return merged
-    }
-
-    fun used(context: Context, bucket: Bucket): Int {
-        if (!BuildConfig.PUBLIC_BETA) return 0
-
-        val counts = mergedCounts(context)
-
-        return when (bucket) {
-            Bucket.GAME -> counts.games
-            Bucket.DLC -> counts.dlcs
-            Bucket.UPDATE -> counts.updates
-        }
-    }
-
-    fun remaining(context: Context, bucket: Bucket): Int {
-        if (!BuildConfig.PUBLIC_BETA) return Int.MAX_VALUE
-        return (maxFor(bucket) - used(context, bucket)).coerceAtLeast(0)
-    }
-
-    fun usedGames(context: Context): Int = used(context, Bucket.GAME)
-    fun usedDlcs(context: Context): Int = used(context, Bucket.DLC)
-    fun usedUpdates(context: Context): Int = used(context, Bucket.UPDATE)
-
-    fun remainingGames(context: Context): Int = remaining(context, Bucket.GAME)
-    fun remainingDlcs(context: Context): Int = remaining(context, Bucket.DLC)
-    fun remainingUpdates(context: Context): Int = remaining(context, Bucket.UPDATE)
-
-    fun fullyExhausted(context: Context): Boolean {
-        return BuildConfig.PUBLIC_BETA &&
-            remainingGames(context) <= 0 &&
-            remainingDlcs(context) <= 0 &&
-            remainingUpdates(context) <= 0
-    }
-
-    fun requestedGames(items: List<PkgItem>): Int {
-        return items.count { bucketFor(it.kind) == Bucket.GAME }
-    }
-
-    fun requestedDlcs(items: List<PkgItem>): Int {
-        return items.count { bucketFor(it.kind) == Bucket.DLC }
-    }
-
-    fun requestedUpdates(items: List<PkgItem>): Int {
-        return items.count { bucketFor(it.kind) == Bucket.UPDATE }
-    }
-
-    fun canFit(context: Context, items: List<PkgItem>): Boolean {
-        if (!BuildConfig.PUBLIC_BETA) return true
-
-        return requestedGames(items) <= remainingGames(context) &&
-            requestedDlcs(items) <= remainingDlcs(context) &&
-            requestedUpdates(items) <= remainingUpdates(context)
-    }
-
-    @Synchronized
-    fun recordCompleted(context: Context, kind: PkgKind) {
-        if (!BuildConfig.PUBLIC_BETA) return
-
-        val current = mergedCounts(context)
-
-        val next = when (bucketFor(kind)) {
-            Bucket.GAME -> current.copy(
-                games = (current.games + 1)
-                    .coerceAtMost(BuildConfig.BETA_MAX_GAMES)
-            )
-
-            Bucket.DLC -> current.copy(
-                dlcs = (current.dlcs + 1)
-                    .coerceAtMost(BuildConfig.BETA_MAX_DLCS)
-            )
-
-            Bucket.UPDATE -> current.copy(
-                updates = (current.updates + 1)
-                    .coerceAtMost(BuildConfig.BETA_MAX_UPDATES)
-            )
-        }
-
-        saveLocal(context, next)
-        writeBackup(context, next)
-    }
+ private const val P="pkg_pocket_public_beta";private const val G="completed_game_uses";private const val D="completed_dlc_uses";private const val U="completed_update_uses"
+ enum class Bucket{GAME,DLC,UPDATE};private data class C(val g:Int,val d:Int,val u:Int)
+ @Volatile private var mem:C?=null;@Volatile private var at=0L
+ private fun b(k:PkgKind)=when(k){PkgKind.GAME->Bucket.GAME;PkgKind.DLC->Bucket.DLC;PkgKind.UPDATE->Bucket.UPDATE;PkgKind.OTHER->Bucket.GAME}
+ private fun mx(x:Bucket)=when(x){Bucket.GAME->BuildConfig.BETA_MAX_GAMES;Bucket.DLC->BuildConfig.BETA_MAX_DLCS;Bucket.UPDATE->BuildConfig.BETA_MAX_UPDATES}
+ private fun clamp(x:C)=C(x.g.coerceIn(0,5),x.d.coerceIn(0,5),x.u.coerceIn(0,5))
+ private fun local(c:Context):C{val p=c.getSharedPreferences(P,0);return clamp(C(p.getInt(G,0),p.getInt(D,0),p.getInt(U,0)))}
+ private fun save(c:Context,x:C){val v=clamp(x);c.getSharedPreferences(P,0).edit().putInt(G,v.g).putInt(D,v.d).putInt(U,v.u).commit();mem=v;at=System.currentTimeMillis()}
+ private fun dev(c:Context):String{val raw=Settings.Secure.getString(c.contentResolver,Settings.Secure.ANDROID_ID).orEmpty()+"|pkg-pocket-beta-device-v1";return MessageDigest.getInstance("SHA-256").digest(raw.toByteArray()).joinToString(""){"%02x".format(it)}}
+ private fun parse(s:String):C{val j=JSONObject(s);return clamp(C(j.optInt("games"),j.optInt("dlcs"),j.optInt("updates")))}
+ private fun req(m:String,p:String,body:String?=null):String{val base=BuildConfig.BETA_API_URL.trim().trimEnd('/');check(base.startsWith("https://"))
+  val h=(URL(base+p).openConnection() as HttpURLConnection).apply{requestMethod=m;connectTimeout=6000;readTimeout=6000;setRequestProperty("Accept","application/json");if(body!=null){doOutput=true;setRequestProperty("Content-Type","application/json");outputStream.use{it.write(body.toByteArray())}}}
+  return try{val n=h.responseCode;val st=if(n in 200..299)h.inputStream else h.errorStream;val t=st?.bufferedReader()?.use{it.readText()}.orEmpty();check(n in 200..299);t}finally{h.disconnect()}}
+ private fun remote(c:Context):C{val now=System.currentTimeMillis();mem?.let{if(now-at<5000)return it};val k=URLEncoder.encode(dev(c),"UTF-8");val v=runBlocking{withContext(Dispatchers.IO){parse(req("GET","/v1/usage?device=$k"))}};save(c,v);return v}
+ fun used(c:Context,x:Bucket):Int{if(!BuildConfig.PUBLIC_BETA)return 0;val v=try{remote(c)}catch(_:Throwable){local(c)};return when(x){Bucket.GAME->v.g;Bucket.DLC->v.d;Bucket.UPDATE->v.u}}
+ fun remaining(c:Context,x:Bucket)=if(!BuildConfig.PUBLIC_BETA)Int.MAX_VALUE else (mx(x)-used(c,x)).coerceAtLeast(0)
+ fun usedGames(c:Context)=used(c,Bucket.GAME);fun usedDlcs(c:Context)=used(c,Bucket.DLC);fun usedUpdates(c:Context)=used(c,Bucket.UPDATE)
+ fun remainingGames(c:Context)=remaining(c,Bucket.GAME);fun remainingDlcs(c:Context)=remaining(c,Bucket.DLC);fun remainingUpdates(c:Context)=remaining(c,Bucket.UPDATE)
+ fun fullyExhausted(c:Context)=BuildConfig.PUBLIC_BETA&&remainingGames(c)<=0&&remainingDlcs(c)<=0&&remainingUpdates(c)<=0
+ fun requestedGames(x:List<PkgItem>)=x.count{b(it.kind)==Bucket.GAME};fun requestedDlcs(x:List<PkgItem>)=x.count{b(it.kind)==Bucket.DLC};fun requestedUpdates(x:List<PkgItem>)=x.count{b(it.kind)==Bucket.UPDATE}
+ fun canFit(c:Context,x:List<PkgItem>)=!BuildConfig.PUBLIC_BETA||(requestedGames(x)<=remainingGames(c)&&requestedDlcs(x)<=remainingDlcs(c)&&requestedUpdates(x)<=remainingUpdates(c))
+ @Synchronized fun recordCompleted(c:Context,k:PkgKind){if(!BuildConfig.PUBLIC_BETA)return;val q=when(b(k)){Bucket.GAME->"game";Bucket.DLC->"dlc";Bucket.UPDATE->"update"};val body=JSONObject().put("device",dev(c)).put("bucket",q).toString();val v=runBlocking{withContext(Dispatchers.IO){parse(req("POST","/v1/usage",body))}};save(c,v)}
 }

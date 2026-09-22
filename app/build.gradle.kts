@@ -7,6 +7,8 @@ val signingStorePath = System.getenv("PKGPOCKET_KEYSTORE_PATH")
 val signingStorePassword = System.getenv("PKGPOCKET_KEYSTORE_PASSWORD")
 val signingKeyAlias = System.getenv("PKGPOCKET_KEY_ALIAS")
 val signingKeyPassword = System.getenv("PKGPOCKET_KEY_PASSWORD")
+val betaApiUrl = System.getenv("PKGPOCKET_BETA_API_URL") ?: ""
+
 val stableSigningReady =
     !signingStorePath.isNullOrBlank() &&
     !signingStorePassword.isNullOrBlank() &&
