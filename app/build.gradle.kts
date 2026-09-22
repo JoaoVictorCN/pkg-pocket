@@ -29,6 +29,7 @@ android {
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
+        buildConfigField("String", "BETA_API_URL", "\"${betaApiUrl}\"")
     }
 
     signingConfigs {
