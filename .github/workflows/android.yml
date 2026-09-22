@@ -45,7 +45,22 @@ jobs:
           URL="$(printf '%s\n' "$OUT"|grep -Eo 'https://[^ ]+\.workers\.dev'|tail -n1)"
           test -n "$URL"
           echo "PKGPOCKET_BETA_API_URL=$URL" >> "$GITHUB_ENV"
-          curl -fsS "$URL/health"
+          echo "Aguardando propagacao do Worker..."
+          OK=0
+          for TRY in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS --connect-timeout 5 --max-time 10 "$URL/health"; then
+              echo
+              echo "Backend respondeu com sucesso na tentativa $TRY."
+              OK=1
+              break
+            fi
+            echo "Health check $TRY/10 ainda indisponivel; tentando novamente em 3s..."
+            sleep 3
+          done
+          if [ "$OK" -ne 1 ]; then
+            echo "ERRO: /health nao respondeu apos 10 tentativas."
+            exit 1
+          fi
       - name: Restore stable signing key
         if: env.PKGPOCKET_KEYSTORE_B64 != ''
         run: printf '%s' "$PKGPOCKET_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pkgpocket-signing.jks"
