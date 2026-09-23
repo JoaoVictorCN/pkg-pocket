@@ -4,8 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="14dp"
-    app:cardCornerRadius="18dp"
-    app:cardElevation="1dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="0dp"
     app:cardUseCompatPadding="false"
     app:strokeWidth="1dp">
 
@@ -33,8 +33,8 @@
                 android:visibility="gone" />
 
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="104dp"
-                android:layout_height="104dp"
+                android:layout_width="88dp"
+                android:layout_height="88dp"
                 app:cardCornerRadius="14dp"
                 app:cardElevation="0dp">
 
@@ -91,7 +91,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:maxLines="3"
-                    android:textSize="19sp"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView

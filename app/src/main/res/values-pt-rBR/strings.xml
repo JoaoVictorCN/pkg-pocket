@@ -55,7 +55,7 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="log_rpi_reconnected">RPI respondeu novamente. Retomando a fila.</string>
     <string name="log_rpi_task_recovered_after_restart">Task %1$d recuperada após reabrir o RPI. Retomando a fila.</string>
     <string name="log_rpi_http_complete">O RPI não informa mais a task, mas o PKG foi servido por completo ao PS4. Considerando o envio concluído e continuando a fila.</string>
-    <string name="error_rpi_recovery_failed">O RPI respondeu novamente, mas a task atual não foi encontrada e o PKG não foi servido por completo. Tente novamente este PKG.</string>
+    <string name="error_rpi_recovery_failed">O RPI respondeu novamente, mas perdeu o status da task. Não foi possível confirmar o resultado pelo app; verifique a instalação diretamente no PS4 antes de tentar novamente.</string>
     <string name="select_pkg_prompt">Selecione um ou mais arquivos .pkg</string>
     <string name="view_log">Ver log</string>
     <string name="hide_log">Ocultar log</string>
@@ -164,7 +164,7 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="install_cancelled_no_pkgs">Instalação cancelada: nenhum PKG selecionado.</string>
     <string name="install_cancelled_no_ip">Instalação cancelada: IP do PS4 não informado.</string>
     <string name="preparing_transfer">Preparando envio…</string>
-    <string name="keep_rpi_open_single">Mantenha o Remote Package Installer aberto no PS4 até o envio começar.</string>
+    <string name="keep_rpi_open_single">Mantenha o Remote Package Installer aberto no PS4 até a transferência terminar.</string>
     <string name="keep_rpi_open_queue">Vários PKGs selecionados: mantenha o Remote Package Installer aberto no PS4 durante toda a fila.</string>
     <string name="press_back_again_to_exit">Pressione voltar mais uma vez para sair</string>
     <string name="press_back_again_active">Transferência em andamento. Pressione voltar novamente para fechar o PKG Pocket por completo e interromper o envio.</string>

@@ -23,6 +23,8 @@ import kotlin.math.roundToLong
 
 class InstallerService : Service() {
     companion object {
+        @Volatile var isRunning: Boolean = false
+            private set
         const val ACTION_INSTALL_ALL = "com.pkgpocket.INSTALL_ALL"
         const val ACTION_CANCEL = "com.pkgpocket.CANCEL"
         const val ACTION_RETRY_RPI = "com.pkgpocket.RETRY_RPI"
@@ -71,6 +73,7 @@ class InstallerService : Service() {
     @Volatile private var retryRpiRequested = false
 
     override fun onCreate() {
+        isRunning = true
         super.onCreate()
 
         val nm = getSystemService(NotificationManager::class.java)
@@ -1151,6 +1154,7 @@ class InstallerService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         server?.stop()
         installJob?.cancel()
         scope.coroutineContext[Job]?.cancel()

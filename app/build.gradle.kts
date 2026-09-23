@@ -24,8 +24,8 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.0.0-beta.1"
+        versionCode = 30
+        versionName = "1.0.0-rc.1"
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
@@ -55,7 +55,7 @@ android {
 
         getByName("release") {
             buildConfigField("boolean", "ENABLE_DEMO", "false")
-            buildConfigField("boolean", "PUBLIC_BETA", "true")
+            buildConfigField("boolean", "PUBLIC_BETA", "false")
             isMinifyEnabled = false
             if (stableSigningReady) {
                 signingConfig = signingConfigs.getByName("stable")

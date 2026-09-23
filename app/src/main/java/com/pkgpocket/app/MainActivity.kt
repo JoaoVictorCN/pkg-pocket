@@ -33,7 +33,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.color.DynamicColors
 import com.google.android.material.snackbar.Snackbar
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
@@ -250,7 +249,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DynamicColors.applyToActivityIfAvailable(this)
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         setupHelpBubble()
@@ -430,7 +428,7 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
 
-        if (savedInstanceState == null) {
+        if (savedInstanceState == null && !InstallerService.isRunning) {
             resetTransientInstallerSession()
         }
 
@@ -528,7 +526,7 @@ class MainActivity : AppCompatActivity() {
                     startActivity(
                         Intent(
                             Intent.ACTION_VIEW,
-                            Uri.parse("https://github.com/VkctorC/pkg-pocket/releases")
+                            Uri.parse("https://github.com/JoaoVictorCN/pkg-pocket/releases")
                         )
                     )
                 }
@@ -2022,7 +2020,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val uri = Uri.parse(
-            "https://github.com/VkctorC/pkg-pocket/issues/new"
+            "https://github.com/JoaoVictorCN/pkg-pocket/issues/new"
         ).buildUpon()
             .appendQueryParameter("title", "[Feedback] ")
             .appendQueryParameter("body", body)

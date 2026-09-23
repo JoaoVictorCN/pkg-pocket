@@ -1,0 +1,7 @@
+<resources>
+<color name="pp_primary">#B8A7E8</color><color name="pp_on_primary">#241B36</color>
+<color name="pp_primary_container">#302944</color><color name="pp_on_primary_container">#E8DFFF</color>
+<color name="pp_secondary">#C8BCE8</color><color name="pp_secondary_container">#292536</color>
+<color name="pp_on_secondary_container">#E8E0F4</color><color name="pp_surface">#0E1116</color>
+<color name="pp_on_surface">#E7E9EF</color><color name="pp_on_surface_variant">#B8BDC8</color>
+<color name="pp_outline">#454B58</color></resources>

@@ -14,14 +14,17 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:paddingStart="18dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="96dp">
 
         <TextView
             android:id="@+id/appTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/app_name"
-            android:textSize="30sp"
+            android:textSize="24sp"
             android:textStyle="bold" />
 
         <TextView
@@ -38,7 +41,7 @@
             android:layout_marginTop="12dp"
             android:visibility="gone"
             app:cardBackgroundColor="?attr/colorSecondaryContainer"
-            app:cardCornerRadius="14dp"
+            app:cardCornerRadius="20dp"
             app:cardElevation="0dp">
 
             <TextView
