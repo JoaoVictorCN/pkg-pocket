@@ -1,0 +1,78 @@
+name: PKG Pocket Beta Stats
+on:
+  workflow_dispatch:
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Beta usage stats
+        env:
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.parse
+
+          account=os.environ["CF_ACCOUNT"]
+          token=os.environ["CF_TOKEN"]
+          base=f"https://api.cloudflare.com/client/v4/accounts/{account}/storage/kv/namespaces"
+          headers={"Authorization":f"Bearer {token}"}
+
+          def get(url):
+              r=urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(r) as f:
+                  return json.load(f)
+
+          ns=get(base)
+          target=next((x for x in ns["result"] if x["title"]=="pkg-pocket-beta-usage"), None)
+          if not target:
+              raise SystemExit("Namespace pkg-pocket-beta-usage nao encontrado")
+          nid=target["id"]
+
+          keys=[]
+          cursor=None
+          while True:
+              url=f"{base}/{nid}/keys?limit=1000"
+              if cursor:
+                  url += "&cursor="+urllib.parse.quote(cursor)
+              data=get(url)
+              keys += [x["name"] for x in data.get("result",[])]
+              cursor=(data.get("result_info") or {}).get("cursor")
+              if not cursor:
+                  break
+
+          games=dlcs=updates=0
+          active=0
+          exhausted=0
+          invalid=0
+
+          for key in keys:
+              url=f"{base}/{nid}/values/{urllib.parse.quote(key, safe='')}"
+              req=urllib.request.Request(url, headers=headers)
+              try:
+                  with urllib.request.urlopen(req) as f:
+                      raw=f.read().decode()
+                  v=json.loads(raw)
+                  g=int(v.get("games",0))
+                  d=int(v.get("dlcs",0))
+                  u=int(v.get("updates",0))
+                  games+=g; dlcs+=d; updates+=u
+                  if g+d+u>0: active+=1
+                  if g>=5 and d>=5 and u>=5: exhausted+=1
+              except Exception:
+                  invalid+=1
+
+          print("")
+          print("========== PKG POCKET BETA ==========")
+          print(f"Dispositivos registrados : {len(keys)}")
+          print(f"Dispositivos com uso      : {active}")
+          print(f"Jogos instalados          : {games}")
+          print(f"DLCs instaladas           : {dlcs}")
+          print(f"Updates instalados        : {updates}")
+          print(f"PKGs concluidos (total)   : {games+dlcs+updates}")
+          print(f"Cota totalmente esgotada  : {exhausted}")
+          if invalid:
+              print(f"Registros invalidos        : {invalid}")
+          print("=====================================")
+          PY
