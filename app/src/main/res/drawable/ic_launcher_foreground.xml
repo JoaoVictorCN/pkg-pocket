@@ -1,13 +1,11 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#C7B5FF" android:strokeLineCap="round" android:strokeWidth="5" android:pathData="M34,31 C45,22 63,22 74,31" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#B79BFF" android:strokeLineCap="round" android:strokeWidth="5" android:pathData="M41,40 C49,34 59,34 67,40" />
-    <path android:fillColor="@android:color/transparent" android:strokeColor="#A884FF" android:strokeLineCap="round" android:strokeWidth="5" android:pathData="M49,49 C52,47 56,47 59,49" />
-    <path android:fillColor="#EEE7FF" android:pathData="M54,59 L37,51 L24,59 L41,67 Z" />
-    <path android:fillColor="#D6C7FF" android:pathData="M54,59 L71,51 L84,59 L67,67 Z" />
-    <path android:fillColor="#B89BFF" android:pathData="M41,67 L54,73 L54,89 L37,81 L37,65 Z" />
-    <path android:fillColor="#8E6BE8" android:pathData="M67,67 L54,73 L54,89 L71,81 L71,65 Z" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="13dp"
+        android:top="13dp"
+        android:right="13dp"
+        android:bottom="13dp">
+        <bitmap
+            android:src="@drawable/pkg_pocket_splash_clean"
+            android:gravity="fill" />
+    </item>
+</layer-list>
