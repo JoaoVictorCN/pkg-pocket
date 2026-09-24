@@ -254,4 +254,22 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="cancelled_by_user">Transfer cancelled by user</string>
     <string name="installation_completed_summary">Installation completed • %1$s • %2$s</string>
     <string name="queue_completed_summary">Queue completed • %1$d PKGs • %2$s • %3$s</string>
+
+    <string name="pro_title">PKG Pocket Pro</string>
+    <string name="pro_subtitle">Support the project and unlock Pro status</string>
+    <string name="pro_price">R$ 9,99</string>
+    <string name="pro_status_free">Free • Pro not active</string>
+    <string name="pro_status_active">Pro active • Thank you for supporting PKG Pocket ❤️</string>
+    <string name="pro_status_checking">Checking Pro status…</string>
+    <string name="pro_status_checkout">Opening secure Mercado Pago checkout…</string>
+    <string name="pro_status_pending">Payment found • waiting for confirmation…</string>
+    <string name="pro_status_failed">Payment was not confirmed.</string>
+    <string name="pro_email_hint">Email for your Pro license</string>
+    <string name="pro_buy">Buy Pro</string>
+    <string name="pro_check">Check license</string>
+    <string name="pro_invalid_email">Enter a valid email address.</string>
+    <string name="pro_checkout_error">Could not open Pro checkout: %1$s</string>
+    <string name="pro_check_error">Could not check Pro status: %1$s</string>
+    <string name="pro_test_note">RC payment integration • Mercado Pago sandbox while testing</string>
+
 </resources>

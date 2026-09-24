@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -28,6 +29,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -51,6 +53,8 @@ class MainActivity : AppCompatActivity() {
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
+    private var proSyncJob: Job? = null
+    private var lastProSyncElapsed = 0L
     private var betaLimitDialogShown = false
     private var helpHideJob: Job? = null
     private var helpBubbleCollapsed = false
@@ -253,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(b.root)
         setupHelpBubble()
         setupPublicBeta()
+        setupProUi()
         playLaunchAnimation()
         setupExitGuard()
 
@@ -2501,4 +2506,185 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(statusReceiver)
         super.onDestroy()
     }
+
+    private fun setupProUi() {
+        val savedEmail = ProManager.savedEmail(this)
+        if (savedEmail.isNotBlank()) b.proEmail.setText(savedEmail)
+
+        renderProState(ProManager.isProCached(this), null)
+
+        b.proBuyButton.setOnClickListener { startProCheckout() }
+        b.proRefreshButton.setOnClickListener { refreshProStatus(true) }
+
+        handleCheckoutIntent(intent)
+
+        if (savedEmail.isNotBlank()) {
+            refreshProStatus(false)
+        }
+    }
+
+    private fun startProCheckout() {
+        val email = b.proEmail.text?.toString()?.trim().orEmpty()
+
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            b.proEmailLayout.error = getString(R.string.pro_invalid_email)
+            return
+        }
+
+        b.proEmailLayout.error = null
+        b.proBuyButton.isEnabled = false
+        b.proRefreshButton.isEnabled = false
+        b.proStatusText.text = getString(R.string.pro_status_checkout)
+
+        proSyncJob?.cancel()
+        proSyncJob = lifecycleScope.launch {
+            try {
+                val checkout = ProManager.createCheckout(this@MainActivity, email)
+                CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build()
+                    .launchUrl(this@MainActivity, Uri.parse(checkout.checkoutUrl))
+            } catch (e: Exception) {
+                renderProState(
+                    ProManager.isProCached(this@MainActivity),
+                    getString(
+                        R.string.pro_checkout_error,
+                        e.message ?: getString(R.string.unknown_error)
+                    )
+                )
+            } finally {
+                b.proBuyButton.isEnabled = true
+                b.proRefreshButton.isEnabled = true
+            }
+        }
+    }
+
+    private fun handleCheckoutIntent(sourceIntent: Intent?) {
+        val data = sourceIntent?.data ?: return
+
+        if (
+            !data.scheme.equals("pkgpocket", true) ||
+            !data.host.equals("checkout", true)
+        ) return
+
+        val purchaseId = data.getQueryParameter("purchase_id")
+            ?.takeIf { it.startsWith("pp_") }
+            ?: ProManager.savedPurchaseId(this)
+
+        sourceIntent.data = null
+
+        if (purchaseId.isNotBlank()) {
+            ProManager.savePurchaseId(this, purchaseId)
+            reconcilePendingPurchase(purchaseId, true)
+        } else {
+            refreshProStatus(true)
+        }
+    }
+
+    private fun reconcilePendingPurchase(
+        purchaseId: String,
+        showFeedback: Boolean
+    ) {
+        if (purchaseId.isBlank()) return
+
+        proSyncJob?.cancel()
+        proSyncJob = lifecycleScope.launch {
+            b.proStatusText.text = getString(R.string.pro_status_checking)
+
+            try {
+                val result = ProManager.reconcile(this@MainActivity, purchaseId)
+
+                if (result.activated) {
+                    refreshProStatus(showFeedback)
+                } else {
+                    val msg = when (result.status.lowercase()) {
+                        "pending", "in_process", "in_mediation", "waiting_payment" ->
+                            getString(R.string.pro_status_pending)
+                        else ->
+                            getString(R.string.pro_status_failed)
+                    }
+                    renderProState(false, msg)
+                }
+            } catch (e: Exception) {
+                renderProState(
+                    ProManager.isProCached(this@MainActivity),
+                    if (showFeedback) {
+                        getString(
+                            R.string.pro_check_error,
+                            e.message ?: getString(R.string.unknown_error)
+                        )
+                    } else null
+                )
+            }
+        }
+    }
+
+    private fun refreshProStatus(showFeedback: Boolean) {
+        val email = b.proEmail.text?.toString()?.trim().orEmpty()
+            .ifBlank { ProManager.savedEmail(this) }
+
+        if (email.isBlank()) {
+            renderProState(ProManager.isProCached(this), null)
+            return
+        }
+
+        if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            if (showFeedback) b.proEmailLayout.error = getString(R.string.pro_invalid_email)
+            return
+        }
+
+        b.proEmailLayout.error = null
+        proSyncJob?.cancel()
+
+        proSyncJob = lifecycleScope.launch {
+            b.proStatusText.text = getString(R.string.pro_status_checking)
+            try {
+                val status = ProManager.refreshStatus(this@MainActivity, email)
+                renderProState(status.active, null)
+            } catch (e: Exception) {
+                renderProState(
+                    ProManager.isProCached(this@MainActivity),
+                    if (showFeedback) {
+                        getString(
+                            R.string.pro_check_error,
+                            e.message ?: getString(R.string.unknown_error)
+                        )
+                    } else null
+                )
+            }
+        }
+    }
+
+    private fun renderProState(active: Boolean, message: String?) {
+        b.proStatusText.text = message ?: getString(
+            if (active) R.string.pro_status_active else R.string.pro_status_free
+        )
+        b.proBuyButton.visibility = if (active) View.GONE else View.VISIBLE
+        b.proEmailLayout.isEnabled = !active
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (::b.isInitialized) handleCheckoutIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        if (!::b.isInitialized) return
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastProSyncElapsed < 2_500L) return
+        lastProSyncElapsed = now
+
+        val pending = ProManager.savedPurchaseId(this)
+
+        if (pending.isNotBlank()) {
+            reconcilePendingPurchase(pending, false)
+        } else if (ProManager.savedEmail(this).isNotBlank()) {
+            refreshProStatus(false)
+        }
+    }
+
 }

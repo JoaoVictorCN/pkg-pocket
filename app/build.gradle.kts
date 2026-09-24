@@ -8,6 +8,7 @@ val signingStorePassword = System.getenv("PKGPOCKET_KEYSTORE_PASSWORD")
 val signingKeyAlias = System.getenv("PKGPOCKET_KEY_ALIAS")
 val signingKeyPassword = System.getenv("PKGPOCKET_KEY_PASSWORD")
 val betaApiUrl = System.getenv("PKGPOCKET_BETA_API_URL") ?: ""
+val proApiUrl = System.getenv("PKGPOCKET_PRO_API_URL") ?: "https://pkg-pocket-api.wbjoaovictor.workers.dev"
 
 val stableSigningReady =
     !signingStorePath.isNullOrBlank() &&
@@ -24,12 +25,13 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 30
-        versionName = "1.0.0-rc.1"
+        versionCode = 31
+        versionName = "1.0.0-rc.2"
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
         buildConfigField("String", "BETA_API_URL", "\"${betaApiUrl}\"")
+        buildConfigField("String", "PRO_API_URL", "\"${proApiUrl}\"")
     }
 
     signingConfigs {
@@ -78,6 +80,7 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.browser:browser:1.8.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
