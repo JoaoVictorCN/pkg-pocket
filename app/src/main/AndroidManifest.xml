@@ -37,6 +37,10 @@
         </activity>
 
         <activity
+            android:name=".Ps4DetailsActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".LibraryActivity"
             android:exported="false" />
 

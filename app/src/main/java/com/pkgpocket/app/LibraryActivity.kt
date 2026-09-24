@@ -551,6 +551,21 @@ class LibraryActivity : AppCompatActivity() {
             isAllCaps = false
             icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_home_24)
             iconGravity = MaterialButton.ICON_GRAVITY_TOP
+            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    Color.LTGRAY
+                )
+            )
+            iconTint = ColorStateList.valueOf(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    Color.LTGRAY
+                )
+            )
             setOnClickListener { finish() }
         }
 
@@ -561,13 +576,19 @@ class LibraryActivity : AppCompatActivity() {
             icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_library_24)
             iconGravity = MaterialButton.ICON_GRAVITY_TOP
             cornerRadius = dp(16)
-            backgroundTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorPrimaryContainer,
-                    Color.DKGRAY
-                )
+            val activeBg = MaterialColors.getColor(
+                this@LibraryActivity,
+                com.google.android.material.R.attr.colorPrimaryContainer,
+                Color.DKGRAY
             )
+            val activeFg = MaterialColors.getColor(
+                this@LibraryActivity,
+                com.google.android.material.R.attr.colorOnPrimaryContainer,
+                Color.WHITE
+            )
+            backgroundTintList = ColorStateList.valueOf(activeBg)
+            setTextColor(activeFg)
+            iconTint = ColorStateList.valueOf(activeFg)
         }
 
         row.addView(home, LinearLayout.LayoutParams(0, dp(58), 1f))

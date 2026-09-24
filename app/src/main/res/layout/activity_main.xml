@@ -100,9 +100,14 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/ps4Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="@string/ps4_card_open"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardBackgroundColor="#151A23"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
@@ -121,18 +126,9 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <ImageView
-                            android:id="@+id/ps4ModelIcon"
-                            android:layout_width="104dp"
-                            android:layout_height="70dp"
-                            android:contentDescription="@string/ps4_console_icon"
-                            android:scaleType="centerInside"
-                            android:src="@drawable/ic_ps4_generic" />
-
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
@@ -164,7 +160,7 @@
                                 android:id="@+id/ps4ModelName"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
+                                android:layout_marginTop="3dp"
                                 android:text="@string/ps4_model_generic"
                                 android:textColor="?attr/colorOnSurfaceVariant"
                                 android:textSize="13sp" />
@@ -173,45 +169,53 @@
                                 android:id="@+id/ps4InfoMeta"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
+                                android:layout_marginTop="3dp"
                                 android:text="@string/ps4_firmware_unknown"
                                 android:textColor="?attr/colorOnSurfaceVariant"
                                 android:textSize="12sp" />
                         </LinearLayout>
+
+                        <ImageView
+                            android:id="@+id/ps4ModelIcon"
+                            android:layout_width="112dp"
+                            android:layout_height="76dp"
+                            android:layout_marginStart="8dp"
+                            android:contentDescription="@string/ps4_console_icon"
+                            android:scaleType="centerInside"
+                            android:src="@drawable/ps4_generic_real" />
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="3dp"
+                            android:contentDescription="@string/ps4_card_open"
+                            android:src="@drawable/ic_chevron_right_24"
+                            app:tint="?attr/colorPrimary" />
                     </LinearLayout>
 
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:visibility="gone">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/ps4Ip"
+                            android:layout_width="1dp"
+                            android:layout_height="1dp"
+                            android:inputType="text" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/detectPs4"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="48dp"
                         android:layout_marginTop="10dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="@string/ps4_ip_hint"
-                            android:visibility="gone">
-
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/ps4Ip"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="text" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/detectPs4"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:text="@string/home_detect_ps4"
-                            android:textAllCaps="false"
-                            app:cornerRadius="15dp"
-                            app:icon="@drawable/ic_analyze_24"
-                            app:iconGravity="textStart" />
-                    </LinearLayout>
+                        android:text="@string/home_detect_ps4"
+                        android:textAllCaps="false"
+                        app:cornerRadius="15dp"
+                        app:icon="@drawable/ic_search_24"
+                        app:iconGravity="textStart" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

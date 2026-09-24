@@ -360,6 +360,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
+        b.ps4Card.setOnClickListener {
+            startActivity(Intent(this, Ps4DetailsActivity::class.java))
+        }
+
         b.smartLibraryButton.setOnClickListener {
             showSmartLibrary()
         }

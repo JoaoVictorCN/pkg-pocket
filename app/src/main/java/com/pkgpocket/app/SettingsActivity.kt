@@ -1,8 +1,12 @@
 package com.pkgpocket.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Patterns
 import android.view.View
@@ -10,15 +14,13 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivitySettingsBinding
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var b: ActivitySettingsBinding
@@ -42,16 +44,31 @@ class SettingsActivity : AppCompatActivity() {
 
         b.settingsBack.setOnClickListener { finish() }
 
-        val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
-        b.settingsIp.setText(prefs.getString("last_ps4_ip", "").orEmpty())
-        b.settingsIp.doAfterTextChanged {
-            prefs.edit()
-                .putString("last_ps4_ip", it?.toString()?.trim().orEmpty())
-                .apply()
+        b.settingsUpdate.setOnClickListener {
+            startActivity(
+                Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/JoaoVictorCN/pkg-pocket/releases")
+                )
+            )
         }
 
-        b.settingsDetectPs4.setOnClickListener { detectPs4() }
-        b.settingsDiagnostics.setOnClickListener { runDiagnostics() }
+        b.settingsClearCache.setOnClickListener {
+            runCatching { cacheDir.deleteRecursively() }
+            runCatching { LibraryCoverStore.clear(this) }
+            Toast.makeText(
+                this,
+                R.string.settings_cache_cleared,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        b.settingsDiagnostics.setOnClickListener {
+            showAppDiagnostics()
+        }
+
+        val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+
         b.settingsFaq.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle(R.string.faq_title)
@@ -59,6 +76,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setPositiveButton(R.string.close, null)
                 .show()
         }
+
         b.settingsLogs.setOnClickListener {
             val logs = prefs.getString("last_log", "").orEmpty()
             AlertDialog.Builder(this)
@@ -81,77 +99,53 @@ class SettingsActivity : AppCompatActivity() {
         handleCheckoutIntent(intent)
     }
 
-    private fun detectPs4() {
-        b.settingsDetectPs4.isEnabled = false
-        b.settingsDetectStatus.text = getString(R.string.searching_rpi)
-
-        lifecycleScope.launch {
-            val ip = withContext(Dispatchers.IO) {
-                NetworkUtils.findRpi()
-            }
-
-            if (ip != null) {
-                b.settingsIp.setText(ip)
-                val info = withContext(Dispatchers.IO) {
-                    Ps4Discovery.query(ip)
-                }
-
-                b.settingsDetectStatus.text = buildString {
-                    append(getString(R.string.settings_ps4_found, ip))
-                    info?.firmware?.let {
-                        append(" • ")
-                        append("Firmware ")
-                        append(it)
-                    }
-                }
-
-                Toast.makeText(
-                    this@SettingsActivity,
-                    getString(R.string.rpi_found, ip),
-                    Toast.LENGTH_SHORT
-                ).show()
+    private fun showAppDiagnostics() {
+        val notificationsAllowed =
+            if (Build.VERSION.SDK_INT < 33) {
+                true
             } else {
-                b.settingsDetectStatus.text =
-                    getString(R.string.settings_ps4_not_found)
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
             }
 
-            b.settingsDetectPs4.isEnabled = true
-        }
-    }
+        val pm = getSystemService(PowerManager::class.java)
+        val unrestricted =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                pm.isIgnoringBatteryOptimizations(packageName)
 
-    private fun runDiagnostics() {
-        val ip = b.settingsIp.text?.toString()?.trim().orEmpty()
+        val message = getString(
+            R.string.settings_app_diag_body,
+            BuildConfig.VERSION_NAME,
+            getString(
+                if (notificationsAllowed) {
+                    R.string.settings_allowed
+                } else {
+                    R.string.settings_blocked
+                }
+            ),
+            getString(
+                if (unrestricted) {
+                    R.string.settings_unrestricted
+                } else {
+                    R.string.settings_optimized
+                }
+            ),
+            getString(
+                if (ProManager.isProCached(this)) {
+                    R.string.pro_status_active
+                } else {
+                    R.string.pro_status_free
+                }
+            )
+        )
 
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                val local = NetworkUtils.localIpv4()
-                val reachable =
-                    if (ip.isBlank()) false else NetworkUtils.canConnect(ip)
-                val info =
-                    if (ip.isBlank()) null else Ps4Discovery.query(ip)
-
-                Triple(local, reachable, info)
-            }
-
-            AlertDialog.Builder(this@SettingsActivity)
-                .setTitle(R.string.diagnostics)
-                .setMessage(
-                    getString(
-                        R.string.settings_diag_result,
-                        result.first ?: getString(R.string.diag_unavailable),
-                        ip.ifBlank { getString(R.string.diag_not_set) },
-                        if (result.second) {
-                            getString(R.string.diag_ok)
-                        } else {
-                            getString(R.string.diag_failed)
-                        },
-                        result.third?.firmware
-                            ?: getString(R.string.diag_unavailable)
-                    )
-                )
-                .setPositiveButton(R.string.close, null)
-                .show()
-        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_app_diagnostics)
+            .setMessage(message)
+            .setPositiveButton(R.string.close, null)
+            .show()
     }
 
     private fun setupPro() {
@@ -170,7 +164,8 @@ class SettingsActivity : AppCompatActivity() {
         val email = b.settingsProEmail.text?.toString()?.trim().orEmpty()
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            b.settingsProEmailLayout.error = getString(R.string.pro_invalid_email)
+            b.settingsProEmailLayout.error =
+                getString(R.string.pro_invalid_email)
             return
         }
 
@@ -222,7 +217,8 @@ class SettingsActivity : AppCompatActivity() {
         b.settingsProEmailLayout.error = null
         proJob?.cancel()
         proJob = lifecycleScope.launch {
-            b.settingsProStatus.text = getString(R.string.pro_status_checking)
+            b.settingsProStatus.text =
+                getString(R.string.pro_status_checking)
             b.settingsProCheck.isEnabled = false
 
             try {

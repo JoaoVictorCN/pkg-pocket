@@ -338,4 +338,36 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="library_card_update">UPDATE</string>
     <string name="library_card_dlc">DLC</string>
     <string name="library_card_pkg">PKG</string>
+    <string name="ps4_card_open">Abrir detalhes do PS4</string>
+    <string name="ps4_details_title">PS4</string>
+    <string name="ps4_details_detect">Detectar PS4</string>
+    <string name="ps4_details_detect_sub">Buscar automaticamente na rede local</string>
+    <string name="ps4_details_edit_ip">Editar IP do PS4</string>
+    <string name="ps4_details_forget">Remover PS4 salvo</string>
+    <string name="ps4_details_forget_sub">Esquecer o console salvo no PKG Pocket</string>
+    <string name="ps4_details_forget_confirm_title">Remover PS4 salvo?</string>
+    <string name="ps4_details_forget_confirm_body">O IP salvo será removido. Você pode detectar o console novamente quando quiser.</string>
+    <string name="ps4_details_model">Modelo detectado</string>
+    <string name="ps4_details_firmware">Firmware</string>
+    <string name="ps4_details_storage">Armazenamento do console</string>
+    <string name="ps4_details_storage_unavailable">Não exposto pelo Remote Package Installer</string>
+    <string name="ps4_details_no_saved">Nenhum PS4 salvo</string>
+    <string name="ps4_details_ip_saved">IP salvo: %1$s</string>
+    <string name="ps4_details_ip_hint">IP do PS4</string>
+    <string name="ps4_details_save">Salvar</string>
+    <string name="ps4_details_removed">PS4 salvo removido</string>
+    <string name="settings_update_title">Verificar atualizações</string>
+    <string name="settings_update_subtitle">Abrir releases do PKG Pocket</string>
+    <string name="settings_clear_cache">Limpar cache</string>
+    <string name="settings_clear_cache_subtitle">Remover arquivos temporários e capas em cache</string>
+    <string name="settings_cache_cleared">Cache limpo.</string>
+    <string name="settings_app_diagnostics">Diagnóstico do aplicativo</string>
+    <string name="settings_app_diag_body">Versão: %1$s
+Notificações: %2$s
+Otimização em segundo plano: %3$s
+Pro: %4$s</string>
+    <string name="settings_allowed">permitidas</string>
+    <string name="settings_blocked">bloqueadas</string>
+    <string name="settings_optimized">ativa</string>
+    <string name="settings_unrestricted">sem restrição</string>
 </resources>

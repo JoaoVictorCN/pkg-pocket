@@ -8,8 +8,8 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:id="@+id/settingsRoot"
@@ -51,8 +51,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="@string/settings_ps4_section"
+                android:layout_marginTop="12dp"
+                android:text="@string/settings_app_section"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -74,62 +74,41 @@
                     android:padding="4dp">
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/settingsDetectPs4"
+                        android:id="@+id/settingsUpdate"
                         style="@style/Widget.Material3.Button.TextButton"
-                        android:visibility="gone"
                         android:layout_width="match_parent"
                         android:layout_height="58dp"
                         android:gravity="start|center_vertical"
-                        android:text="@string/settings_detect_title"
-                        android:textSize="14sp"
-                        app:icon="@drawable/ic_analyze_24"
+                        android:text="@string/settings_update_title"
+                        app:icon="@drawable/ic_refresh_24"
                         app:iconGravity="textStart" />
 
-                    <TextView
-                        android:id="@+id/settingsDetectStatus"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/settingsClearCache"
+                        style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
-                        android:visibility="gone"
-                        android:layout_height="wrap_content"
-                        android:paddingStart="54dp"
-                        android:paddingEnd="12dp"
-                        android:paddingBottom="8dp"
-                        android:text="@string/settings_detect_subtitle"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="11sp" />
+                        android:layout_height="58dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/settings_clear_cache"
+                        app:icon="@drawable/ic_delete_24"
+                        app:iconGravity="textStart" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/settingsIpLayout"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/settingsDiagnostics"
+                        style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_marginTop="2dp"
-                        android:layout_marginEnd="10dp"
-                        android:layout_marginBottom="10dp"
-                        android:hint="@string/settings_ip_title">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/settingsIp"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_height="58dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/settings_app_diagnostics"
+                        app:icon="@drawable/ic_analyze_24"
+                        app:iconGravity="textStart" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="@string/settings_app_section"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="13sp"
-                android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="7dp"
+                android:layout_marginTop="14dp"
                 app:cardBackgroundColor="?attr/colorSecondaryContainer"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
@@ -256,16 +235,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="4dp">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/settingsDiagnostics"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:gravity="start|center_vertical"
-                        android:text="@string/diagnostics"
-                        app:icon="@drawable/ic_analyze_24"
-                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/settingsFaq"

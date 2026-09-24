@@ -339,4 +339,36 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="library_card_update">UPDATE</string>
     <string name="library_card_dlc">DLC</string>
     <string name="library_card_pkg">PKG</string>
+    <string name="ps4_card_open">Open PS4 details</string>
+    <string name="ps4_details_title">PS4</string>
+    <string name="ps4_details_detect">Detect PS4</string>
+    <string name="ps4_details_detect_sub">Search automatically on the local network</string>
+    <string name="ps4_details_edit_ip">Edit PS4 IP</string>
+    <string name="ps4_details_forget">Remove saved PS4</string>
+    <string name="ps4_details_forget_sub">Forget the console saved in PKG Pocket</string>
+    <string name="ps4_details_forget_confirm_title">Remove saved PS4?</string>
+    <string name="ps4_details_forget_confirm_body">The saved IP will be removed. You can detect the console again at any time.</string>
+    <string name="ps4_details_model">Detected model</string>
+    <string name="ps4_details_firmware">Firmware</string>
+    <string name="ps4_details_storage">Console storage</string>
+    <string name="ps4_details_storage_unavailable">Not exposed by Remote Package Installer</string>
+    <string name="ps4_details_no_saved">No PS4 saved</string>
+    <string name="ps4_details_ip_saved">Saved IP: %1$s</string>
+    <string name="ps4_details_ip_hint">PS4 IP</string>
+    <string name="ps4_details_save">Save</string>
+    <string name="ps4_details_removed">Saved PS4 removed</string>
+    <string name="settings_update_title">Check for updates</string>
+    <string name="settings_update_subtitle">Open PKG Pocket releases</string>
+    <string name="settings_clear_cache">Clear cache</string>
+    <string name="settings_clear_cache_subtitle">Remove temporary files and cached covers</string>
+    <string name="settings_cache_cleared">Cache cleared.</string>
+    <string name="settings_app_diagnostics">App diagnostics</string>
+    <string name="settings_app_diag_body">Version: %1$s
+Notifications: %2$s
+Background optimization: %3$s
+Pro: %4$s</string>
+    <string name="settings_allowed">allowed</string>
+    <string name="settings_blocked">blocked</string>
+    <string name="settings_optimized">active</string>
+    <string name="settings_unrestricted">unrestricted</string>
 </resources>
