@@ -3,9 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
+    android:layout_marginBottom="8dp"
     app:cardBackgroundColor="#151A23"
-    app:cardCornerRadius="18dp"
+    app:cardCornerRadius="14dp"
     app:cardElevation="0dp"
     app:strokeColor="#2D3441"
     app:strokeWidth="1dp">
@@ -15,20 +15,20 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:padding="9dp">
 
         <CheckBox
             android:id="@+id/selectionCheck"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:buttonTint="?attr/colorPrimary"
             android:visibility="gone" />
 
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="76dp"
-            android:layout_height="86dp"
-            app:cardCornerRadius="12dp"
+            android:layout_width="70dp"
+            android:layout_height="88dp"
+            app:cardCornerRadius="10dp"
             app:cardElevation="0dp">
 
             <ImageView
@@ -42,7 +42,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="10dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -53,47 +53,50 @@
                 android:ellipsize="end"
                 android:maxLines="2"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/kindBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="4dp"
                 android:background="?attr/colorPrimaryContainer"
-                android:paddingStart="8dp"
-                android:paddingTop="3dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="3dp"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
                 android:textColor="?attr/colorOnPrimaryContainer"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/details"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="5dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="13sp" />
+                android:textSize="11sp" />
 
             <TextView
                 android:id="@+id/progressStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="4dp"
                 android:text="@string/state_waiting"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <ProgressBar
                 android:id="@+id/itemProgress"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="3dp"
                 android:max="100"
                 android:progress="0"
                 android:visibility="gone" />
@@ -102,9 +105,9 @@
                 android:id="@+id/progressMeta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="2dp"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:visibility="gone" />
 
             <TextView
@@ -128,9 +131,9 @@
 
         <CheckBox
             android:id="@+id/installCheck"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="6dp"
             android:buttonTint="?attr/colorPrimary"
             android:contentDescription="@string/install_this_pkg" />
     </LinearLayout>

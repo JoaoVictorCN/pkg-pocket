@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">PKG Pocket</string>
-    <string name="app_subtitle">PS4 PKG installer from your phone — no Termux</string>
+    <string name="app_subtitle">Install your PKGs on PS4</string>
     <string name="public_beta_banner_initial">PUBLIC BETA • 5 GAMES • 5 DLCs • 5 UPDATES</string>
     <string name="public_beta_banner">PUBLIC BETA • Games %1$d/%2$d • DLCs %3$d/%4$d • Updates %5$d/%6$d</string>
     <string name="public_beta_not_enough_uses_title">Beta quota reached</string>
@@ -306,4 +306,23 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="pro_status_not_found">No active Pro license was found for this email.</string>
     <string name="pro_status_revoked">This Pro license is no longer active.</string>
     <string name="ps4_status_identifying">Identifying PS4…</string>
+    <string name="home_add_pkgs_full">Add PKGs\nSelect .pkg files from your storage</string>
+    <string name="home_selected_count">%1$d selected</string>
+    <string name="home_install_summary">Install %1$d PKGs • %2$s</string>
+    <string name="settings_ps4_section">PS4</string>
+    <string name="settings_app_section">App</string>
+    <string name="settings_support_section">Support</string>
+    <string name="settings_about_section">About</string>
+    <string name="settings_detect_title">Detect PS4</string>
+    <string name="settings_detect_subtitle">Search automatically on the local network</string>
+    <string name="settings_ip_title">PS4 IP</string>
+    <string name="settings_pro_title">PKG Pocket Pro</string>
+    <string name="settings_diagnostics_subtitle">Check connection and permissions</string>
+    <string name="settings_faq_subtitle">Frequently asked questions</string>
+    <string name="settings_logs_subtitle">View recent app events</string>
+    <string name="settings_about_version">PKG Pocket • %1$s</string>
+    <string name="settings_log_empty">No events recorded yet.</string>
+    <string name="settings_ps4_found">PS4 found at %1$s</string>
+    <string name="settings_ps4_not_found">PS4 not found. Open Remote Package Installer and try again.</string>
+    <string name="settings_diag_result">Phone: %1$s\nPS4: %2$s\nRPI :12800: %3$s\nFirmware: %4$s</string>
 </resources>

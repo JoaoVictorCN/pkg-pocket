@@ -357,9 +357,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.settingsGear.setOnClickListener {
-            b.settingsSection.post {
-                b.mainContent.smoothScrollTo(0, b.settingsSection.top)
-            }
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         b.smartLibraryButton.setOnClickListener {
@@ -678,8 +676,9 @@ class MainActivity : AppCompatActivity() {
         b.selectionActions.visibility = View.GONE
         b.clearSelection.visibility = View.GONE
         b.retryRpi.visibility = View.GONE
-        b.status.visibility = View.VISIBLE
+        b.status.visibility = View.GONE
         b.status.text = getString(R.string.select_pkg_prompt)
+        updateInstallActionLabel()
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
         b.progress.progress = 0
@@ -713,25 +712,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateSelectionSummary(items: List<PkgItem>) {
         if (items.isEmpty()) {
-            b.status.text = getString(R.string.select_pkg_prompt)
+            b.status.visibility = View.GONE
             b.clearSelection.visibility = View.GONE
+            updateInstallActionLabel()
             return
         }
 
-        val totalSize = items.sumOf { it.size.coerceAtLeast(0L) }
-        val kinds = items
-            .map { it.kind }
-            .distinct()
-            .sortedBy { it.order }
-            .joinToString(" + ") { kindLabel(it) }
-
-        b.status.text = getString(
-            R.string.selection_summary,
-            items.size,
-            humanSize(totalSize),
-            kinds
-        )
+        b.status.visibility = View.GONE
+        b.clearSelection.text = getString(R.string.home_selected_count, items.size)
         b.clearSelection.visibility = View.VISIBLE
+        updateInstallActionLabel()
+    }
+
+    private fun updateInstallActionLabel() {
+        val selected = PkgRepository.items.filter { it.token in installSelectedTokens }
+        if (selected.isEmpty()) {
+            b.installAll.text = getString(R.string.install_all)
+            return
+        }
+
+        val total = selected.sumOf { it.size.coerceAtLeast(0L) }
+        b.installAll.text = getString(
+            R.string.home_install_summary,
+            selected.size,
+            humanSize(total)
+        )
     }
 
     private fun clearSelection() {
@@ -753,6 +758,7 @@ class MainActivity : AppCompatActivity() {
         b.progress.progress = 0
         b.clearSelection.visibility = View.GONE
         b.liveLog.text = getString(R.string.no_active_transfer)
+        updateInstallActionLabel()
 
         setDemoControlsEnabled(true)
         addLog(getString(R.string.selection_cleared))
@@ -2311,7 +2317,12 @@ class MainActivity : AppCompatActivity() {
 
         logLines += "[${clock.format(Date())}] $clean"
         while (logLines.size > 80) logLines.removeAt(0)
-        b.logText.text = logLines.joinToString("\n")
+        val renderedLog = logLines.joinToString("\n")
+        b.logText.text = renderedLog
+        getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .edit()
+            .putString("last_log", renderedLog)
+            .apply()
     }
 
     private fun ensureService(action: String, ip: String? = null) {
@@ -2335,7 +2346,18 @@ class MainActivity : AppCompatActivity() {
             val row = LayoutInflater.from(this).inflate(R.layout.item_pkg, b.pkgList, false)
 
             row.findViewById<TextView>(R.id.title).text = item.title
-            row.findViewById<TextView>(R.id.kindBadge).text = kindLabel(item.kind)
+            val badge = row.findViewById<TextView>(R.id.kindBadge)
+            badge.text = kindLabel(item.kind)
+            badge.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor(
+                    when (item.kind) {
+                        PkgKind.DLC -> "#8A5B20"
+                        PkgKind.UPDATE -> "#59408C"
+                        PkgKind.GAME -> "#563B8A"
+                        PkgKind.OTHER -> "#3E4655"
+                    }
+                )
+            )
 
             val details = if (item.version.isNotBlank()) {
                 getString(R.string.pkg_details_version, item.version, humanSize(item.size))
@@ -2418,6 +2440,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     installSelectedTokens -= item.token
                 }
+                updateInstallActionLabel()
             }
 
             val completedDetail = completedCards[itemStableKey(item)]
@@ -2427,15 +2450,18 @@ class MainActivity : AppCompatActivity() {
                 progress.progress = 100
                 progress.visibility = View.VISIBLE
                 status.text = getString(R.string.state_completed)
+                status.visibility = View.VISIBLE
                 meta.text = completedDetail
                 meta.visibility = if (completedDetail.isBlank()) View.GONE else View.VISIBLE
             } else {
                 progress.progress = 0
                 progress.visibility = View.GONE
-                status.text = if (InstallHistoryStore.contains(this, item)) {
-                    getString(R.string.state_installed_before)
+                if (InstallHistoryStore.contains(this, item)) {
+                    status.text = getString(R.string.state_installed_before)
+                    status.visibility = View.VISIBLE
                 } else {
-                    getString(R.string.state_waiting)
+                    status.text = getString(R.string.state_waiting)
+                    status.visibility = View.GONE
                 }
                 meta.text = ""
                 meta.visibility = View.GONE
@@ -2638,7 +2664,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (statusText.isNotBlank()) refs.status.text = statusText
+        if (statusText.isNotBlank()) {
+            refs.status.text = statusText
+            refs.status.visibility = View.VISIBLE
+        }
 
         val terminalState =
             statusText == getString(R.string.state_completed) ||
@@ -2897,6 +2926,19 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
 
         if (!::b.isInitialized) return
+
+        val latestSavedIp = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+            .getString("last_ps4_ip", "")
+            .orEmpty()
+
+        if (latestSavedIp != b.ps4Ip.text?.toString()?.trim().orEmpty()) {
+            b.ps4Ip.setText(latestSavedIp)
+            if (latestSavedIp.isBlank()) {
+                updatePs4InfoUi("", null, false)
+            } else {
+                refreshPs4Info(latestSavedIp)
+            }
+        }
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastProSyncElapsed < 2_500L) return

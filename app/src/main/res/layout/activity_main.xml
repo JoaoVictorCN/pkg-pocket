@@ -28,8 +28,8 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:contentDescription="@string/app_name"
                     android:scaleType="centerInside"
                     android:src="@drawable/pkg_pocket_splash_clean" />
@@ -48,7 +48,7 @@
                         android:text="@string/app_name"
                         android:textAllCaps="true"
                         android:textColor="?attr/colorOnSurface"
-                        android:textSize="22sp"
+                        android:textSize="19sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -57,7 +57,7 @@
                         android:layout_marginTop="2dp"
                         android:text="@string/app_subtitle"
                         android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="12sp" />
+                        android:textSize="11sp" />
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -99,19 +99,10 @@
                     android:textStyle="bold" />
             </com.google.android.material.card.MaterialCardView>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
-                android:text="@string/home_ps4"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="16dp"
                 app:cardBackgroundColor="#151A23"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
@@ -132,8 +123,8 @@
 
                         <ImageView
                             android:id="@+id/ps4ModelIcon"
-                            android:layout_width="96dp"
-                            android:layout_height="64dp"
+                            android:layout_width="104dp"
+                            android:layout_height="70dp"
                             android:contentDescription="@string/ps4_console_icon"
                             android:scaleType="centerInside"
                             android:src="@drawable/ic_ps4_generic" />
@@ -194,7 +185,8 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
                         android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:visibility="gone">
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="0dp"
@@ -272,7 +264,9 @@
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:minHeight="36dp"
                     android:text="@string/clear_selection"
+                    android:textSize="12sp"
                     android:visibility="gone" />
             </LinearLayout>
 
@@ -318,9 +312,12 @@
                 android:id="@+id/selectPkgs"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="68dp"
                 android:layout_marginTop="4dp"
-                android:text="@string/home_add_pkgs"
+                android:gravity="center"
+                android:text="@string/home_add_pkgs_full"
+                android:textAllCaps="false"
+                android:textSize="13sp"
                 app:cornerRadius="18dp"
                 app:icon="@drawable/ic_add_24"
                 app:iconGravity="textStart" />
@@ -331,6 +328,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginTop="10dp"
+                android:visibility="gone"
                 android:text="@string/smart_library"
                 app:cornerRadius="18dp"
                 app:icon="@drawable/ic_analyze_24"
@@ -339,7 +337,7 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/installAll"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="58dp"
                 android:layout_marginTop="10dp"
                 android:text="@string/install_all"
                 android:textSize="16sp"
@@ -371,6 +369,7 @@
                 android:id="@+id/settingsSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:layout_marginTop="28dp"
                 app:cardBackgroundColor="#11151D"
                 app:cardCornerRadius="22dp"
@@ -600,7 +599,7 @@
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="78dp"
+        android:layout_height="70dp"
         android:layout_gravity="bottom"
         android:visibility="gone"
         android:layout_marginStart="12dp"
