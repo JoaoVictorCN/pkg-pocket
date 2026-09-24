@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [ main ]
+    branches: [ main, release/v1.0 ]
   workflow_dispatch:
 jobs:
   build:
@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: '22'
       - name: Create or reuse beta KV
+        if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces"
@@ -38,6 +39,7 @@ jobs:
           test -n "$ID"
           sed "s/__KV_ID__/${ID}/" cloudflare/wrangler.template.toml > cloudflare/wrangler.toml
       - name: Deploy beta backend
+        if: github.ref == 'refs/heads/main'
         working-directory: cloudflare
         run: |
           set -euo pipefail
@@ -70,5 +72,5 @@ jobs:
         run: gradle :app:assembleRelease --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: pkg-pocket-release-apk
+          name: ${{ github.ref == 'refs/heads/release/v1.0' && 'pkg-pocket-rc-release-apk' || 'pkg-pocket-release-apk' }}
           path: app/build/outputs/apk/release/app-release.apk
