@@ -779,7 +779,6 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = false
             b.detectPs4.isEnabled = false
             b.clearSelection.isEnabled = false
-            b.historyButton.isEnabled = false
             b.helpButton.isEnabled = false
             b.smartLibraryButton.isEnabled = false
         }
@@ -802,7 +801,6 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = true
             b.detectPs4.isEnabled = true
             b.clearSelection.isEnabled = PkgRepository.items.isNotEmpty()
-            b.historyButton.isEnabled = true
             b.helpButton.isEnabled = true
             b.smartLibraryButton.isEnabled = true
         }
@@ -1126,7 +1124,6 @@ class MainActivity : AppCompatActivity() {
         b.installAll.isEnabled = enabled
         b.detectPs4.isEnabled = enabled
         b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
-        b.historyButton.isEnabled = enabled
         b.helpButton.isEnabled = enabled
         b.smartLibraryButton.isEnabled = enabled
         b.diagnosticsButton.isEnabled = enabled
