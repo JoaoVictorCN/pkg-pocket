@@ -59,6 +59,21 @@
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="12sp" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/settingsGear"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@string/nav_settings"
+                    android:minWidth="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/ic_settings_24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:iconTint="?attr/colorOnSurface" />
             </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
@@ -626,17 +641,6 @@
                 android:text="@string/nav_library"
                 android:textSize="11sp"
                 app:icon="@drawable/ic_library_24"
-                app:iconGravity="top" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/navSettings"
-                style="@style/Widget.Material3.Button.TextButton"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="@string/nav_settings"
-                android:textSize="11sp"
-                app:icon="@drawable/ic_settings_24"
                 app:iconGravity="top" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

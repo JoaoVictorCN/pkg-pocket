@@ -356,7 +356,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, LibraryActivity::class.java))
         }
 
-        b.navSettings.setOnClickListener {
+        b.settingsGear.setOnClickListener {
             b.settingsSection.post {
                 b.mainContent.smoothScrollTo(0, b.settingsSection.top)
             }
