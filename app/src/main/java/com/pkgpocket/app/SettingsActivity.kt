@@ -100,7 +100,8 @@ class SettingsActivity : AppCompatActivity() {
                     append(getString(R.string.settings_ps4_found, ip))
                     info?.firmware?.let {
                         append(" • ")
-                        append("Firmware ")\n                        append(it)
+                        append("Firmware ")
+                        append(it)
                     }
                 }
 
