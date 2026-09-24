@@ -76,6 +76,7 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/settingsDetectPs4"
                         style="@style/Widget.Material3.Button.TextButton"
+                        android:visibility="gone"
                         android:layout_width="match_parent"
                         android:layout_height="58dp"
                         android:gravity="start|center_vertical"
@@ -87,6 +88,7 @@
                     <TextView
                         android:id="@+id/settingsDetectStatus"
                         android:layout_width="match_parent"
+                        android:visibility="gone"
                         android:layout_height="wrap_content"
                         android:paddingStart="54dp"
                         android:paddingEnd="12dp"

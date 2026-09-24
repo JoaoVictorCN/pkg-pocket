@@ -324,4 +324,18 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="settings_ps4_found">PS4 encontrado em %1$s</string>
     <string name="settings_ps4_not_found">PS4 não encontrado. Abra o Remote Package Installer e tente novamente.</string>
     <string name="settings_diag_result">Celular: %1$s\nPS4: %2$s\nRPI :12800: %3$s\nFirmware: %4$s</string>
+    <string name="home_detect_ps4">Detectar PS4</string>
+    <string name="library_all">Todos</string>
+    <string name="library_games_filter">Jogos</string>
+    <string name="library_updates_filter">Updates</string>
+    <string name="library_dlcs_filter">DLCs</string>
+    <string name="library_search_title">Buscar na biblioteca</string>
+    <string name="library_search_hint">Nome do jogo</string>
+    <string name="library_no_results">Nenhum item encontrado com esse filtro.</string>
+    <string name="library_filter_title">Filtrar biblioteca</string>
+    <string name="library_clear_history_action">Limpar histórico local</string>
+    <string name="library_card_game">JOGO</string>
+    <string name="library_card_update">UPDATE</string>
+    <string name="library_card_dlc">DLC</string>
+    <string name="library_card_pkg">PKG</string>
 </resources>

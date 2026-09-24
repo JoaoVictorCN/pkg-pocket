@@ -3,17 +3,22 @@ package com.pkgpocket.app
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -23,136 +28,80 @@ import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class LibraryActivity : AppCompatActivity() {
-    private lateinit var root: LinearLayout
+    private enum class Filter { ALL, GAMES, UPDATES, DLCS }
+
+    private lateinit var root: FrameLayout
+    private lateinit var content: LinearLayout
     private lateinit var grid: GridLayout
+    private lateinit var allChip: MaterialButton
+    private lateinit var gamesChip: MaterialButton
+    private lateinit var updatesChip: MaterialButton
+    private lateinit var dlcsChip: MaterialButton
+
+    private var currentFilter = Filter.ALL
+    private var searchQuery = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+
+        root = FrameLayout(this).apply {
             setBackgroundColor(
                 MaterialColors.getColor(
                     this@LibraryActivity,
                     com.google.android.material.R.attr.colorSurface,
-                    0
+                    Color.BLACK
                 )
             )
         }
-
-        val basePadding = dp(16)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val safe = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            view.setPadding(
-                basePadding + safe.left,
-                basePadding + safe.top,
-                basePadding + safe.right,
-                basePadding + safe.bottom
-            )
-            insets
-        }
-
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
-        val back = MaterialButton(this).apply {
-            text = "‹"
-            textSize = 26f
-            minWidth = dp(48)
-            cornerRadius = dp(18)
-            backgroundTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorPrimaryContainer,
-                    0
-                )
-            )
-            setTextColor(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorOnPrimaryContainer,
-                    0
-                )
-            )
-            setOnClickListener { finish() }
-        }
-
-        val title = TextView(this).apply {
-            text = getString(R.string.library_title)
-            textSize = 28f
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(dp(12), 0, 0, 0)
-        }
-
-        val clear = MaterialButton(this).apply {
-            text = getString(R.string.clear_history_short)
-            cornerRadius = dp(18)
-            backgroundTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorPrimaryContainer,
-                    0
-                )
-            )
-            setTextColor(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorOnPrimaryContainer,
-                    0
-                )
-            )
-            setOnClickListener { confirmClearHistory() }
-        }
-
-        header.addView(back)
-        header.addView(
-            title,
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        )
-        header.addView(clear)
-        root.addView(header)
-
-        val note = TextView(this).apply {
-            text = getString(R.string.library_local_note)
-            textSize = 12f
-            alpha = 0.72f
-            setPadding(0, dp(2), 0, dp(10))
-        }
-        root.addView(note)
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
         }
 
+        content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(104))
+        }
+
+        buildHeader()
+        buildFilterChips()
+
         grid = GridLayout(this).apply {
-            columnCount = 3
+            columnCount = 2
             alignmentMode = GridLayout.ALIGN_BOUNDS
             useDefaultMargins = false
         }
 
-        scroll.addView(
+        content.addView(
             grid,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            }
-        )
-
-        root.addView(
-            scroll,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(14) }
+        )
+
+        scroll.addView(content)
+        root.addView(
+            scroll,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
             )
         )
+        root.addView(buildBottomNav())
+
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val safe = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout()
+            )
+            scroll.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            insets
+        }
 
         setContentView(root)
         renderLibrary()
@@ -163,22 +112,173 @@ class LibraryActivity : AppCompatActivity() {
         if (::grid.isInitialized) renderLibrary()
     }
 
+    private fun buildHeader() {
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val title = TextView(this).apply {
+            text = getString(R.string.library_title)
+            textSize = 28f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurface,
+                    Color.WHITE
+                )
+            )
+        }
+
+        val search = iconButton(R.drawable.ic_search_24).apply {
+            contentDescription = getString(R.string.library_search_title)
+            setOnClickListener { showSearchDialog() }
+        }
+
+        val filter = iconButton(R.drawable.ic_filter_24).apply {
+            contentDescription = getString(R.string.library_filter_title)
+            setOnClickListener { showFilterDialog() }
+        }
+
+        header.addView(
+            title,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+        header.addView(search)
+        header.addView(filter)
+        content.addView(header)
+
+        val note = TextView(this).apply {
+            text = getString(R.string.library_local_note)
+            textSize = 11f
+            alpha = 0.68f
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    Color.LTGRAY
+                )
+            )
+        }
+
+        content.addView(
+            note,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(4) }
+        )
+    }
+
+    private fun buildFilterChips() {
+        val scroller = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        allChip = filterChip(getString(R.string.library_all), Filter.ALL)
+        gamesChip = filterChip(getString(R.string.library_games_filter), Filter.GAMES)
+        updatesChip = filterChip(getString(R.string.library_updates_filter), Filter.UPDATES)
+        dlcsChip = filterChip(getString(R.string.library_dlcs_filter), Filter.DLCS)
+
+        listOf(allChip, gamesChip, updatesChip, dlcsChip).forEach(row::addView)
+        scroller.addView(row)
+
+        content.addView(
+            scroller,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(14) }
+        )
+
+        updateChipStyles()
+    }
+
+    private fun filterChip(label: String, filter: Filter): MaterialButton {
+        return MaterialButton(this).apply {
+            text = label
+            textSize = 11f
+            isAllCaps = false
+            minHeight = dp(38)
+            minimumHeight = dp(38)
+            cornerRadius = dp(18)
+            setPadding(dp(16), 0, dp(16), 0)
+            setOnClickListener {
+                currentFilter = filter
+                updateChipStyles()
+                renderLibrary()
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dp(40)
+            ).apply { marginEnd = dp(7) }
+        }
+    }
+
+    private fun updateChipStyles() {
+        val activeBg = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorPrimary,
+            Color.WHITE
+        )
+        val activeFg = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorOnPrimary,
+            Color.BLACK
+        )
+        val inactiveFg = MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorOnSurfaceVariant,
+            Color.LTGRAY
+        )
+
+        listOf(
+            allChip to Filter.ALL,
+            gamesChip to Filter.GAMES,
+            updatesChip to Filter.UPDATES,
+            dlcsChip to Filter.DLCS
+        ).forEach { (button, filter) ->
+            val active = currentFilter == filter
+            button.backgroundTintList = ColorStateList.valueOf(
+                if (active) activeBg else Color.parseColor("#151A23")
+            )
+            button.setTextColor(if (active) activeFg else inactiveFg)
+            button.strokeWidth = if (active) 0 else dp(1)
+            button.strokeColor = ColorStateList.valueOf(Color.parseColor("#2D3441"))
+        }
+    }
+
     private fun renderLibrary() {
         grid.removeAllViews()
-        val groups = LibraryHistory.groups(InstallHistoryStore.all(this))
+
+        val allGroups = LibraryHistory.groups(InstallHistoryStore.all(this))
+        val groups = allGroups.filter { matchesFilter(it) && matchesSearch(it) }
 
         if (groups.isEmpty()) {
             val empty = TextView(this).apply {
-                text = getString(R.string.library_empty)
-                textSize = 16f
+                text = if (allGroups.isEmpty()) {
+                    getString(R.string.library_empty)
+                } else {
+                    getString(R.string.library_no_results)
+                }
+                textSize = 15f
                 gravity = Gravity.CENTER
-                setPadding(dp(20), dp(80), dp(20), dp(80))
+                alpha = 0.72f
+                setPadding(dp(12), dp(70), dp(12), dp(70))
             }
-
             grid.addView(
                 empty,
                 GridLayout.LayoutParams().apply {
-                    width = GridLayout.LayoutParams.MATCH_PARENT
+                    width = resources.displayMetrics.widthPixels - dp(36)
                     height = GridLayout.LayoutParams.WRAP_CONTENT
                     columnSpec = GridLayout.spec(0, 2)
                 }
@@ -186,49 +286,327 @@ class LibraryActivity : AppCompatActivity() {
             return
         }
 
-        // Mesmo tamanho das capas exibidas nos cards do instalador.
-        val cardWidth = dp(104)
-        val coverHeight = dp(104)
+        val screenWidth = resources.displayMetrics.widthPixels
+        val cardWidth = ((screenWidth - dp(46)) / 2).coerceAtLeast(dp(145))
 
-        groups.forEach { group ->
-            val card = MaterialCardView(this).apply {
-                radius = dp(14).toFloat()
-                cardElevation = dp(2).toFloat()
-                isClickable = true
-                isFocusable = true
-                contentDescription = group.title
-                setOnClickListener {
-                    startActivity(
-                        Intent(this@LibraryActivity, GameDetailActivity::class.java)
-                            .putExtra(GameDetailActivity.EXTRA_GROUP_KEY, group.key)
-                    )
-                }
-            }
-
-            val cover = ImageView(this).apply {
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setImageResource(R.drawable.pkg_pocket_logo)
-                contentDescription = group.title
-            }
-
-            card.addView(
-                cover,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    coverHeight
-                )
-            )
-
+        groups.forEachIndexed { index, group ->
             grid.addView(
-                card,
+                buildLibraryCard(group, cardWidth),
                 GridLayout.LayoutParams().apply {
                     width = cardWidth
-                    height = coverHeight
-                    setMargins(dp(2), dp(6), dp(2), dp(6))
+                    height = GridLayout.LayoutParams.WRAP_CONTENT
+                    rowSpec = GridLayout.spec(index / 2)
+                    columnSpec = GridLayout.spec(index % 2)
+                    setMargins(
+                        if (index % 2 == 0) 0 else dp(5),
+                        dp(5),
+                        if (index % 2 == 0) dp(5) else 0,
+                        dp(7)
+                    )
                 }
             )
+        }
+    }
 
-            loadCover(group, cover)
+    private fun buildLibraryCard(
+        group: LibraryGameGroup,
+        cardWidth: Int
+    ): MaterialCardView {
+        val card = MaterialCardView(this).apply {
+            radius = dp(14).toFloat()
+            cardElevation = 0f
+            strokeWidth = dp(1)
+            strokeColor = Color.parseColor("#2D3441")
+            setCardBackgroundColor(Color.parseColor("#151A23"))
+            isClickable = true
+            isFocusable = true
+            contentDescription = group.title
+            setOnClickListener {
+                startActivity(
+                    Intent(this@LibraryActivity, GameDetailActivity::class.java)
+                        .putExtra(GameDetailActivity.EXTRA_GROUP_KEY, group.key)
+                )
+            }
+        }
+
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        val cover = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setImageResource(R.drawable.pkg_pocket_logo)
+            contentDescription = group.title
+        }
+
+        body.addView(
+            cover,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (cardWidth * 0.72f).toInt().coerceAtLeast(dp(105))
+            )
+        )
+
+        val info = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(9), dp(8), dp(9), dp(10))
+        }
+
+        info.addView(TextView(this).apply {
+            text = group.title
+            textSize = 12f
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurface,
+                    Color.WHITE
+                )
+            )
+        })
+
+        val badge = TextView(this).apply {
+            text = badgeText(group)
+            textSize = 9f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            setPadding(dp(7), dp(2), dp(7), dp(2))
+            background = ContextCompat.getDrawable(
+                this@LibraryActivity,
+                R.drawable.library_badge_bg
+            )
+            backgroundTintList = ColorStateList.valueOf(badgeColor(group))
+        }
+
+        info.addView(
+            badge,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(5) }
+        )
+
+        info.addView(
+            TextView(this).apply {
+                text = metaText(group)
+                textSize = 10f
+                alpha = 0.74f
+                maxLines = 2
+                setTextColor(
+                    MaterialColors.getColor(
+                        this@LibraryActivity,
+                        com.google.android.material.R.attr.colorOnSurfaceVariant,
+                        Color.LTGRAY
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(5) }
+        )
+
+        body.addView(info)
+        card.addView(body)
+        loadCover(group, cover)
+        return card
+    }
+
+    private fun badgeText(group: LibraryGameGroup): String {
+        return when (currentFilter) {
+            Filter.GAMES -> getString(R.string.library_card_game)
+            Filter.UPDATES -> getString(R.string.library_card_update)
+            Filter.DLCS -> getString(R.string.library_card_dlc)
+            Filter.ALL -> when {
+                group.games.isNotEmpty() -> getString(R.string.library_card_game)
+                group.updates.isNotEmpty() -> getString(R.string.library_card_update)
+                group.dlcs.isNotEmpty() -> getString(R.string.library_card_dlc)
+                else -> getString(R.string.library_card_pkg)
+            }
+        }
+    }
+
+    private fun badgeColor(group: LibraryGameGroup): Int {
+        return when (badgeText(group)) {
+            getString(R.string.library_card_dlc) -> Color.parseColor("#8A5B20")
+            getString(R.string.library_card_update) -> Color.parseColor("#59408C")
+            getString(R.string.library_card_game) -> Color.parseColor("#563B8A")
+            else -> Color.parseColor("#3E4655")
+        }
+    }
+
+    private fun metaText(group: LibraryGameGroup): String {
+        return when (currentFilter) {
+            Filter.UPDATES -> {
+                val version = group.latestUpdate?.version.orEmpty()
+                if (version.isNotBlank()) "v$version" else group.titleId
+            }
+            Filter.DLCS -> {
+                "${group.dlcs.size} DLC" + if (group.dlcs.size == 1) "" else "s"
+            }
+            else -> {
+                val version = group.latestUpdate?.version
+                    ?: group.games.firstOrNull()?.version
+                    ?: ""
+                buildString {
+                    if (version.isNotBlank()) append("v$version")
+                    if (group.titleId.isNotBlank()) {
+                        if (isNotEmpty()) append(" • ")
+                        append(group.titleId)
+                    }
+                }.ifBlank {
+                    "${group.records.size} PKG" +
+                        if (group.records.size == 1) "" else "s"
+                }
+            }
+        }
+    }
+
+    private fun matchesFilter(group: LibraryGameGroup): Boolean {
+        return when (currentFilter) {
+            Filter.ALL -> true
+            Filter.GAMES -> group.games.isNotEmpty()
+            Filter.UPDATES -> group.updates.isNotEmpty()
+            Filter.DLCS -> group.dlcs.isNotEmpty()
+        }
+    }
+
+    private fun matchesSearch(group: LibraryGameGroup): Boolean {
+        val q = searchQuery.trim().lowercase(Locale.ROOT)
+        if (q.isBlank()) return true
+        return group.title.lowercase(Locale.ROOT).contains(q) ||
+            group.titleId.lowercase(Locale.ROOT).contains(q)
+    }
+
+    private fun showSearchDialog() {
+        val input = EditText(this).apply {
+            hint = getString(R.string.library_search_hint)
+            setText(searchQuery)
+            setSelection(text.length)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.library_search_title)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.clear_selection) { _, _ ->
+                searchQuery = ""
+                renderLibrary()
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                searchQuery = input.text?.toString().orEmpty()
+                renderLibrary()
+            }
+            .show()
+    }
+
+    private fun showFilterDialog() {
+        val labels = arrayOf(
+            getString(R.string.library_all),
+            getString(R.string.library_games_filter),
+            getString(R.string.library_updates_filter),
+            getString(R.string.library_dlcs_filter),
+            getString(R.string.library_clear_history_action)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.library_filter_title)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> currentFilter = Filter.ALL
+                    1 -> currentFilter = Filter.GAMES
+                    2 -> currentFilter = Filter.UPDATES
+                    3 -> currentFilter = Filter.DLCS
+                    4 -> {
+                        confirmClearHistory()
+                        return@setItems
+                    }
+                }
+                updateChipStyles()
+                renderLibrary()
+            }
+            .show()
+    }
+
+    private fun buildBottomNav(): MaterialCardView {
+        val bar = MaterialCardView(this).apply {
+            radius = dp(22).toFloat()
+            cardElevation = dp(8).toFloat()
+            strokeWidth = dp(1)
+            strokeColor = Color.parseColor("#262D38")
+            setCardBackgroundColor(Color.parseColor("#11151D"))
+        }
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+
+        val home = MaterialButton(this).apply {
+            text = getString(R.string.nav_home)
+            textSize = 11f
+            isAllCaps = false
+            icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_home_24)
+            iconGravity = MaterialButton.ICON_GRAVITY_TOP
+            setOnClickListener { finish() }
+        }
+
+        val library = MaterialButton(this).apply {
+            text = getString(R.string.nav_library)
+            textSize = 11f
+            isAllCaps = false
+            icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_library_24)
+            iconGravity = MaterialButton.ICON_GRAVITY_TOP
+            cornerRadius = dp(16)
+            backgroundTintList = ColorStateList.valueOf(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorPrimaryContainer,
+                    Color.DKGRAY
+                )
+            )
+        }
+
+        row.addView(home, LinearLayout.LayoutParams(0, dp(58), 1f))
+        row.addView(library, LinearLayout.LayoutParams(0, dp(58), 1f))
+        bar.addView(row)
+
+        bar.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            dp(70),
+            Gravity.BOTTOM
+        ).apply {
+            leftMargin = dp(12)
+            rightMargin = dp(12)
+            bottomMargin = dp(8)
+        }
+
+        return bar
+    }
+
+    private fun iconButton(iconRes: Int): MaterialButton {
+        return MaterialButton(this).apply {
+            text = ""
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = dp(44)
+            minimumHeight = dp(44)
+            setPadding(0, 0, 0, 0)
+            icon = ContextCompat.getDrawable(this@LibraryActivity, iconRes)
+            iconTint = ColorStateList.valueOf(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurface,
+                    Color.WHITE
+                )
+            )
+            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+            iconPadding = 0
+            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
         }
     }
 
@@ -281,12 +659,7 @@ class LibraryActivity : AppCompatActivity() {
             icon = null
         )
 
-        val bytes = CoverResolver.resolve(
-            this,
-            item,
-            allowTitleFallback = true
-        )
-
+        val bytes = CoverResolver.resolve(this, item, allowTitleFallback = true)
         LibraryCoverStore.save(this, group.titleId, bytes)
         return bytes
     }
