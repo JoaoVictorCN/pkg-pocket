@@ -280,4 +280,26 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="pro_check_error">Não foi possível verificar a licença: %1$s</string>
     <string name="pro_test_note">Ambiente de testes • nenhum valor real será cobrado</string>
 
+
+    <string name="ps4_console_icon">Console PS4</string>
+    <string name="ps4_status_unknown">PS4 não identificado</string>
+    <string name="ps4_status_detected">● PS4 detectado</string>
+    <string name="ps4_status_connected">● PS4 conectado</string>
+    <string name="ps4_model_generic">PlayStation 4</string>
+    <string name="ps4_model_fat">PlayStation 4 Fat</string>
+    <string name="ps4_model_slim">PlayStation 4 Slim</string>
+    <string name="ps4_model_pro">PlayStation 4 Pro</string>
+    <string name="ps4_firmware_unknown">Firmware indisponível</string>
+    <string name="ps4_info_meta">%1$s • Firmware %2$s</string>
+    <string name="ps4_info_ip_only">%1$s • Firmware indisponível</string>
+    <string name="ps4_model_setting_auto">Modelo do PS4: Automático</string>
+    <string name="ps4_model_setting_fat">Modelo do PS4: Fat</string>
+    <string name="ps4_model_setting_slim">Modelo do PS4: Slim</string>
+    <string name="ps4_model_setting_pro">Modelo do PS4: Pro</string>
+    <string name="ps4_model_dialog_title">Modelo do PS4</string>
+    <string name="ps4_model_auto">Automático</string>
+    <string name="ps4_model_auto_note">A detecção automática usa os dados de descoberta do console quando disponíveis. Se a revisão de hardware não for exposta, escolha o modelo manualmente.</string>
+    <string name="ps4_info_log">Info do PS4: %1$s • firmware %2$s • host %3$s</string>
+    <string name="diag_ps4_firmware">Firmware: %1$s</string>
+
 </resources>

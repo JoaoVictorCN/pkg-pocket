@@ -32,7 +32,7 @@
                     android:layout_height="48dp"
                     android:contentDescription="@string/app_name"
                     android:scaleType="centerInside"
-                    android:src="@drawable/pkg_pocket_mark" />
+                    android:src="@drawable/pkg_pocket_splash_clean" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -106,31 +106,88 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
+                    android:orientation="vertical"
                     android:padding="12dp">
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="@string/ps4_ip_hint">
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/ps4Ip"
-                            android:layout_width="match_parent"
+                        <ImageView
+                            android:id="@+id/ps4ModelIcon"
+                            android:layout_width="82dp"
+                            android:layout_height="54dp"
+                            android:contentDescription="@string/ps4_console_icon"
+                            android:scaleType="centerInside"
+                            android:src="@drawable/ic_ps4_generic" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:inputType="text" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/detectPs4"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="56dp"
-                        android:layout_marginStart="8dp"
-                        android:text="@string/detect"
-                        app:cornerRadius="16dp" />
+                            <TextView
+                                android:id="@+id/ps4ConnectionStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="@string/ps4_status_unknown"
+                                android:textColor="?attr/colorOnSurface"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/ps4ModelName"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/ps4_model_generic"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/ps4InfoMeta"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="@string/ps4_firmware_unknown"
+                                android:textColor="?attr/colorOnSurfaceVariant"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:hint="@string/ps4_ip_hint">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/ps4Ip"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/detectPs4"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="56dp"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/detect"
+                            app:cornerRadius="16dp" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -419,6 +476,16 @@
                                 android:textSize="10sp" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/ps4ModelButton"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/ps4_model_setting_auto"
+                        app:icon="@drawable/ic_ps4_generic"
+                        app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/diagnosticsButton"

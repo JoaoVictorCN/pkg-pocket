@@ -64,6 +64,8 @@ class MainActivity : AppCompatActivity() {
     private val selectedTokens = linkedSetOf<String>()
     private val installSelectedTokens = linkedSetOf<String>()
     private val completedCards = mutableMapOf<String, String>()
+    private var lastPs4Info: Ps4Discovery.Info? = null
+    private var lastPs4RpiReachable: Boolean = false
 
     private data class PkgCardViews(
         val progress: ProgressBar,
@@ -281,11 +283,26 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
         val savedIp = prefs.getString("last_ps4_ip", "").orEmpty()
-        if (savedIp.isNotBlank()) b.ps4Ip.setText(savedIp)
+        if (savedIp.isNotBlank()) {
+            b.ps4Ip.setText(savedIp)
+            refreshPs4Info(savedIp)
+        } else {
+            updatePs4InfoUi("", null, false)
+        }
+
         b.ps4Ip.doAfterTextChanged { editable ->
+            val value = editable?.toString()?.trim().orEmpty()
             prefs.edit()
-                .putString("last_ps4_ip", editable?.toString()?.trim().orEmpty())
+                .putString("last_ps4_ip", value)
                 .apply()
+
+            if (value.isBlank()) {
+                lastPs4Info = null
+                lastPs4RpiReachable = false
+                updatePs4InfoUi("", null, false)
+            } else if (value != savedIp) {
+                b.ps4InfoMeta.text = getString(R.string.ps4_info_ip_only, value)
+            }
         }
 
         if (BuildConfig.ENABLE_DEMO) {
@@ -349,6 +366,10 @@ class MainActivity : AppCompatActivity() {
             showSmartLibrary()
         }
 
+        b.ps4ModelButton.setOnClickListener {
+            showPs4ModelDialog()
+        }
+
         b.diagnosticsButton.setOnClickListener {
             runDiagnostics()
         }
@@ -361,6 +382,7 @@ class MainActivity : AppCompatActivity() {
                 val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
                 if (ip != null) {
                     b.ps4Ip.setText(ip)
+                    refreshPs4Info(ip, knownRpiReachable = true)
                     val found = getString(R.string.rpi_found, ip)
                     addLog(found)
                     Toast.makeText(
@@ -1588,6 +1610,156 @@ class MainActivity : AppCompatActivity() {
         ).show()
     }
 
+    private enum class Ps4ModelChoice {
+        AUTO,
+        FAT,
+        SLIM,
+        PRO
+    }
+
+    private fun ps4ModelPrefs() =
+        getSharedPreferences("pkg_pocket_ps4", MODE_PRIVATE)
+
+    private fun selectedPs4ModelChoice(): Ps4ModelChoice {
+        val raw = ps4ModelPrefs().getString("model", Ps4ModelChoice.AUTO.name)
+            ?: Ps4ModelChoice.AUTO.name
+
+        return runCatching { Ps4ModelChoice.valueOf(raw) }
+            .getOrDefault(Ps4ModelChoice.AUTO)
+    }
+
+    private fun inferredPs4Model(info: Ps4Discovery.Info?): Ps4ModelChoice {
+        val configured = selectedPs4ModelChoice()
+        if (configured != Ps4ModelChoice.AUTO) return configured
+
+        val name = info?.hostName.orEmpty().lowercase(Locale.ROOT)
+        return when {
+            "pro" in name -> Ps4ModelChoice.PRO
+            "slim" in name -> Ps4ModelChoice.SLIM
+            "fat" in name || "phat" in name -> Ps4ModelChoice.FAT
+            else -> Ps4ModelChoice.AUTO
+        }
+    }
+
+    private fun ps4ModelLabel(model: Ps4ModelChoice): Int = when (model) {
+        Ps4ModelChoice.FAT -> R.string.ps4_model_fat
+        Ps4ModelChoice.SLIM -> R.string.ps4_model_slim
+        Ps4ModelChoice.PRO -> R.string.ps4_model_pro
+        Ps4ModelChoice.AUTO -> R.string.ps4_model_generic
+    }
+
+    private fun ps4ModelIcon(model: Ps4ModelChoice): Int = when (model) {
+        Ps4ModelChoice.FAT -> R.drawable.ic_ps4_fat
+        Ps4ModelChoice.SLIM -> R.drawable.ic_ps4_slim
+        Ps4ModelChoice.PRO -> R.drawable.ic_ps4_pro
+        Ps4ModelChoice.AUTO -> R.drawable.ic_ps4_generic
+    }
+
+    private fun updatePs4ModelSettingLabel() {
+        b.ps4ModelButton.text = getString(
+            when (selectedPs4ModelChoice()) {
+                Ps4ModelChoice.AUTO -> R.string.ps4_model_setting_auto
+                Ps4ModelChoice.FAT -> R.string.ps4_model_setting_fat
+                Ps4ModelChoice.SLIM -> R.string.ps4_model_setting_slim
+                Ps4ModelChoice.PRO -> R.string.ps4_model_setting_pro
+            }
+        )
+    }
+
+    private fun showPs4ModelDialog() {
+        val choices = arrayOf(
+            getString(R.string.ps4_model_auto),
+            getString(R.string.ps4_model_fat),
+            getString(R.string.ps4_model_slim),
+            getString(R.string.ps4_model_pro)
+        )
+        val models = arrayOf(
+            Ps4ModelChoice.AUTO,
+            Ps4ModelChoice.FAT,
+            Ps4ModelChoice.SLIM,
+            Ps4ModelChoice.PRO
+        )
+
+        val current = models.indexOf(selectedPs4ModelChoice()).coerceAtLeast(0)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ps4_model_dialog_title)
+            .setSingleChoiceItems(choices, current) { dialog, which ->
+                val selected = models[which]
+                ps4ModelPrefs().edit().putString("model", selected.name).apply()
+                updatePs4ModelSettingLabel()
+                updatePs4InfoUi(
+                    b.ps4Ip.text?.toString()?.trim().orEmpty(),
+                    lastPs4Info,
+                    lastPs4RpiReachable
+                )
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.close, null)
+            .show()
+    }
+
+    private fun refreshPs4Info(
+        ip: String,
+        knownRpiReachable: Boolean? = null
+    ) {
+        if (ip.isBlank()) {
+            lastPs4Info = null
+            lastPs4RpiReachable = false
+            updatePs4InfoUi("", null, false)
+            return
+        }
+
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val info = Ps4Discovery.query(ip)
+                val rpi = knownRpiReachable ?: NetworkUtils.canConnect(ip)
+                info to rpi
+            }
+
+            lastPs4Info = result.first
+            lastPs4RpiReachable = result.second
+            updatePs4InfoUi(ip, result.first, result.second)
+
+            result.first?.let { info ->
+                addLog(
+                    getString(
+                        R.string.ps4_info_log,
+                        getString(ps4ModelLabel(inferredPs4Model(info))),
+                        info.firmware ?: getString(R.string.diag_unavailable),
+                        info.hostName.ifBlank { "PS4" }
+                    )
+                )
+            }
+        }
+    }
+
+    private fun updatePs4InfoUi(
+        ip: String,
+        info: Ps4Discovery.Info?,
+        rpiReachable: Boolean
+    ) {
+        updatePs4ModelSettingLabel()
+
+        val model = inferredPs4Model(info)
+        b.ps4ModelIcon.setImageResource(ps4ModelIcon(model))
+        b.ps4ModelName.text = getString(ps4ModelLabel(model))
+
+        b.ps4ConnectionStatus.text = when {
+            rpiReachable -> getString(R.string.ps4_status_connected)
+            info != null -> getString(R.string.ps4_status_detected)
+            else -> getString(R.string.ps4_status_unknown)
+        }
+
+        b.ps4InfoMeta.text = when {
+            ip.isBlank() -> getString(R.string.ps4_firmware_unknown)
+            info?.firmware != null ->
+                getString(R.string.ps4_info_meta, ip, info.firmware)
+            else ->
+                getString(R.string.ps4_info_ip_only, ip)
+        }
+    }
+
     private fun runDiagnostics() {
         lifecycleScope.launch {
             val ip = b.ps4Ip.text?.toString()?.trim().orEmpty()
@@ -1632,6 +1804,13 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             getString(R.string.diag_failed)
                         }
+                    )
+                )
+                append("\n")
+                append(
+                    getString(
+                        R.string.diag_ps4_firmware,
+                        lastPs4Info?.firmware ?: getString(R.string.diag_unavailable)
                     )
                 )
                 append("\n")
