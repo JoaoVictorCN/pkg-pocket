@@ -282,10 +282,10 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
 
 
     <string name="ps4_console_icon">Console PS4</string>
-    <string name="ps4_status_unknown">PS4 não identificado</string>
-    <string name="ps4_status_detected">● PS4 detectado</string>
-    <string name="ps4_status_connected">● PS4 conectado</string>
-    <string name="ps4_model_generic">PlayStation 4</string>
+    <string name="ps4_status_unknown">PS4 desconectado</string>
+    <string name="ps4_status_detected">PS4 detectado</string>
+    <string name="ps4_status_connected">PS4 conectado</string>
+    <string name="ps4_model_generic">PlayStation 4 • modelo não identificado</string>
     <string name="ps4_model_fat">PlayStation 4 Fat</string>
     <string name="ps4_model_slim">PlayStation 4 Slim</string>
     <string name="ps4_model_pro">PlayStation 4 Pro</string>
@@ -304,4 +304,5 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
 
     <string name="pro_status_not_found">Nenhuma licença Pro ativa foi encontrada para este e-mail.</string>
     <string name="pro_status_revoked">Esta licença Pro não está mais ativa.</string>
+    <string name="ps4_status_identifying">Identificando PS4…</string>
 </resources>

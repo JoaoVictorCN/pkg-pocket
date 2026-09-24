@@ -14,7 +14,8 @@ object Ps4Discovery {
         val hostType: String,
         val hostId: String,
         val systemVersionRaw: String,
-        val firmware: String?
+        val firmware: String?,
+        val modelHint: String?
     )
 
     private const val PS4_DISCOVERY_PORT = 987
@@ -114,14 +115,53 @@ object Ps4Discovery {
 
         val rawVersion = headers["system-version"].orEmpty()
 
+        val modelHint = findModelHint(headers)
+
         return Info(
             statusCode = statusCode,
             hostName = headers["host-name"].orEmpty(),
             hostType = headers["host-type"].orEmpty(),
             hostId = headers["host-id"].orEmpty(),
             systemVersionRaw = rawVersion,
-            firmware = firmwareFromSystemVersion(rawVersion)
+            firmware = firmwareFromSystemVersion(rawVersion),
+            modelHint = modelHint
         )
+    }
+
+    private fun findModelHint(headers: Map<String, String>): String? {
+        val preferredKeys = listOf(
+            "model",
+            "model-name",
+            "host-model",
+            "device-model",
+            "system-model",
+            "hardware-model",
+            "product-model",
+            "product-code",
+            "cuh"
+        )
+
+        preferredKeys.forEach { key ->
+            headers[key]?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
+        }
+
+        val all = headers.values.joinToString(" ")
+        Regex("CUH[-_ ]?\\d{4}[A-Z]?", RegexOption.IGNORE_CASE)
+            .find(all)
+            ?.value
+            ?.let { return it }
+
+        val descriptive = listOf(
+            headers["host-name"].orEmpty(),
+            headers["host-type"].orEmpty()
+        ).joinToString(" ")
+
+        return descriptive.takeIf {
+            it.contains("slim", ignoreCase = true) ||
+                it.contains("pro", ignoreCase = true) ||
+                it.contains("fat", ignoreCase = true) ||
+                it.contains("phat", ignoreCase = true)
+        }
     }
 
     fun firmwareFromSystemVersion(raw: String): String? {

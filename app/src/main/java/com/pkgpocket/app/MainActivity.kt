@@ -366,10 +366,6 @@ class MainActivity : AppCompatActivity() {
             showSmartLibrary()
         }
 
-        b.ps4ModelButton.setOnClickListener {
-            showPs4ModelDialog()
-        }
-
         b.diagnosticsButton.setOnClickListener {
             runDiagnostics()
         }
@@ -378,6 +374,7 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val searching = getString(R.string.searching_rpi)
                 addLog(searching)
+                showPs4IdentifyingState()
 
                 val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
                 if (ip != null) {
@@ -391,6 +388,11 @@ class MainActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
+                    updatePs4InfoUi(
+                        b.ps4Ip.text?.toString()?.trim().orEmpty(),
+                        null,
+                        false
+                    )
                     val notFound = getString(R.string.rpi_not_found)
                     addLog(notFound)
                     Toast.makeText(
@@ -1611,33 +1613,57 @@ class MainActivity : AppCompatActivity() {
     }
 
     private enum class Ps4ModelChoice {
-        AUTO,
+        UNKNOWN,
         FAT,
         SLIM,
         PRO
     }
 
-    private fun ps4ModelPrefs() =
-        getSharedPreferences("pkg_pocket_ps4", MODE_PRIVATE)
-
-    private fun selectedPs4ModelChoice(): Ps4ModelChoice {
-        val raw = ps4ModelPrefs().getString("model", Ps4ModelChoice.AUTO.name)
-            ?: Ps4ModelChoice.AUTO.name
-
-        return runCatching { Ps4ModelChoice.valueOf(raw) }
-            .getOrDefault(Ps4ModelChoice.AUTO)
-    }
-
     private fun inferredPs4Model(info: Ps4Discovery.Info?): Ps4ModelChoice {
-        val configured = selectedPs4ModelChoice()
-        if (configured != Ps4ModelChoice.AUTO) return configured
+        if (info == null) return Ps4ModelChoice.UNKNOWN
 
-        val name = info?.hostName.orEmpty().lowercase(Locale.ROOT)
+        val source = listOf(
+            info.modelHint.orEmpty(),
+            info.hostName,
+            info.hostType
+        ).joinToString(" ").lowercase(Locale.ROOT)
+
+        val cuh = Regex("cuh[-_ ]?(\\d{4})", RegexOption.IGNORE_CASE)
+            .find(source)
+            ?.groupValues
+            ?.getOrNull(1)
+
+        if (cuh != null) {
+            return when {
+                cuh.startsWith("10") ||
+                    cuh.startsWith("11") ||
+                    cuh.startsWith("12") -> Ps4ModelChoice.FAT
+
+                cuh.startsWith("20") ||
+                    cuh.startsWith("21") ||
+                    cuh.startsWith("22") -> Ps4ModelChoice.SLIM
+
+                cuh.startsWith("70") ||
+                    cuh.startsWith("71") ||
+                    cuh.startsWith("72") -> Ps4ModelChoice.PRO
+
+                else -> Ps4ModelChoice.UNKNOWN
+            }
+        }
+
         return when {
-            "pro" in name -> Ps4ModelChoice.PRO
-            "slim" in name -> Ps4ModelChoice.SLIM
-            "fat" in name || "phat" in name -> Ps4ModelChoice.FAT
-            else -> Ps4ModelChoice.AUTO
+            "ps4 pro" in source || Regex("\\bpro\\b").containsMatchIn(source) ->
+                Ps4ModelChoice.PRO
+
+            "ps4 slim" in source || Regex("\\bslim\\b").containsMatchIn(source) ->
+                Ps4ModelChoice.SLIM
+
+            "ps4 fat" in source ||
+                Regex("\\bfat\\b").containsMatchIn(source) ||
+                Regex("\\bphat\\b").containsMatchIn(source) ->
+                Ps4ModelChoice.FAT
+
+            else -> Ps4ModelChoice.UNKNOWN
         }
     }
 
@@ -1645,58 +1671,26 @@ class MainActivity : AppCompatActivity() {
         Ps4ModelChoice.FAT -> R.string.ps4_model_fat
         Ps4ModelChoice.SLIM -> R.string.ps4_model_slim
         Ps4ModelChoice.PRO -> R.string.ps4_model_pro
-        Ps4ModelChoice.AUTO -> R.string.ps4_model_generic
+        Ps4ModelChoice.UNKNOWN -> R.string.ps4_model_generic
     }
 
     private fun ps4ModelIcon(model: Ps4ModelChoice): Int = when (model) {
-        Ps4ModelChoice.FAT -> R.drawable.ic_ps4_fat
-        Ps4ModelChoice.SLIM -> R.drawable.ic_ps4_slim
-        Ps4ModelChoice.PRO -> R.drawable.ic_ps4_pro
-        Ps4ModelChoice.AUTO -> R.drawable.ic_ps4_generic
+        Ps4ModelChoice.FAT -> R.drawable.ps4_fat_real
+        Ps4ModelChoice.SLIM -> R.drawable.ps4_slim_real
+        Ps4ModelChoice.PRO -> R.drawable.ps4_pro_real
+        Ps4ModelChoice.UNKNOWN -> R.drawable.ps4_generic_real
     }
 
-    private fun updatePs4ModelSettingLabel() {
-        b.ps4ModelButton.text = getString(
-            when (selectedPs4ModelChoice()) {
-                Ps4ModelChoice.AUTO -> R.string.ps4_model_setting_auto
-                Ps4ModelChoice.FAT -> R.string.ps4_model_setting_fat
-                Ps4ModelChoice.SLIM -> R.string.ps4_model_setting_slim
-                Ps4ModelChoice.PRO -> R.string.ps4_model_setting_pro
-            }
-        )
+    private fun setPs4StatusDot(color: String) {
+        b.ps4StatusDot.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor(color)
+            )
     }
 
-    private fun showPs4ModelDialog() {
-        val choices = arrayOf(
-            getString(R.string.ps4_model_auto),
-            getString(R.string.ps4_model_fat),
-            getString(R.string.ps4_model_slim),
-            getString(R.string.ps4_model_pro)
-        )
-        val models = arrayOf(
-            Ps4ModelChoice.AUTO,
-            Ps4ModelChoice.FAT,
-            Ps4ModelChoice.SLIM,
-            Ps4ModelChoice.PRO
-        )
-
-        val current = models.indexOf(selectedPs4ModelChoice()).coerceAtLeast(0)
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.ps4_model_dialog_title)
-            .setSingleChoiceItems(choices, current) { dialog, which ->
-                val selected = models[which]
-                ps4ModelPrefs().edit().putString("model", selected.name).apply()
-                updatePs4ModelSettingLabel()
-                updatePs4InfoUi(
-                    b.ps4Ip.text?.toString()?.trim().orEmpty(),
-                    lastPs4Info,
-                    lastPs4RpiReachable
-                )
-                dialog.dismiss()
-            }
-            .setNegativeButton(R.string.close, null)
-            .show()
+    private fun showPs4IdentifyingState() {
+        b.ps4ConnectionStatus.text = getString(R.string.ps4_status_identifying)
+        setPs4StatusDot("#FBBF24")
     }
 
     private fun refreshPs4Info(
@@ -1739,16 +1733,26 @@ class MainActivity : AppCompatActivity() {
         info: Ps4Discovery.Info?,
         rpiReachable: Boolean
     ) {
-        updatePs4ModelSettingLabel()
-
         val model = inferredPs4Model(info)
+
         b.ps4ModelIcon.setImageResource(ps4ModelIcon(model))
         b.ps4ModelName.text = getString(ps4ModelLabel(model))
 
-        b.ps4ConnectionStatus.text = when {
-            rpiReachable -> getString(R.string.ps4_status_connected)
-            info != null -> getString(R.string.ps4_status_detected)
-            else -> getString(R.string.ps4_status_unknown)
+        when {
+            rpiReachable -> {
+                b.ps4ConnectionStatus.text = getString(R.string.ps4_status_connected)
+                setPs4StatusDot("#4ADE80")
+            }
+
+            info != null -> {
+                b.ps4ConnectionStatus.text = getString(R.string.ps4_status_detected)
+                setPs4StatusDot("#FBBF24")
+            }
+
+            else -> {
+                b.ps4ConnectionStatus.text = getString(R.string.ps4_status_unknown)
+                setPs4StatusDot("#6B7280")
+            }
         }
 
         b.ps4InfoMeta.text = when {
