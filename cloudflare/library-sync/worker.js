@@ -56,17 +56,35 @@ const sanitizeRecords = (records) => {
   return out;
 };
 
-const verifyPro = async (email) => {
-  const url =
-    `${PRO_STATUS_BASE}/v1/pro/status?email=` +
-    encodeURIComponent(email);
+const verifyPro = async (env, email) => {
+  const query = encodeURIComponent(email);
 
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "pkg-pocket-library-sync/1",
-    },
-  });
+  let response;
+
+  if (env.PRO_API && typeof env.PRO_API.fetch === "function") {
+    response = await env.PRO_API.fetch(
+      new Request(
+        `https://pkg-pocket-api.internal/v1/pro/status?email=${query}`,
+        {
+          method: "GET",
+          headers: {
+            accept: "application/json",
+            "user-agent": "pkg-pocket-library-sync/2",
+          },
+        }
+      )
+    );
+  } else {
+    response = await fetch(
+      `${PRO_STATUS_BASE}/v1/pro/status?email=${query}`,
+      {
+        headers: {
+          accept: "application/json",
+          "user-agent": "pkg-pocket-library-sync/2",
+        },
+      }
+    );
+  }
 
   if (!response.ok) return false;
 
@@ -90,7 +108,7 @@ export default {
       return json({
         ok: true,
         service: "pkg-pocket-library",
-        version: 1,
+        version: 2,
       });
     }
 
@@ -115,7 +133,7 @@ export default {
       return json({ error: "invalid_email" }, 400);
     }
 
-    const active = await verifyPro(email);
+    const active = await verifyPro(env, email);
     if (!active) {
       return json(
         {

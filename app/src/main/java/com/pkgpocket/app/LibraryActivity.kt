@@ -43,6 +43,7 @@ class LibraryActivity : AppCompatActivity() {
 
     private var currentFilter = Filter.ALL
     private var searchQuery = ""
+    private var librarySyncJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,7 +120,28 @@ class LibraryActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::grid.isInitialized) renderLibrary()
+
+        if (::grid.isInitialized) {
+            renderLibrary()
+        }
+
+        if (
+            ProManager.isProCached(this) &&
+            ProManager.savedEmail(this).isNotBlank()
+        ) {
+            librarySyncJob?.cancel()
+            librarySyncJob = lifecycleScope.launch {
+                runCatching {
+                    LibrarySyncManager.restoreAndMerge(
+                        this@LibraryActivity
+                    )
+                }
+
+                if (::grid.isInitialized) {
+                    renderLibrary()
+                }
+            }
+        }
     }
 
     private fun buildHeader() {

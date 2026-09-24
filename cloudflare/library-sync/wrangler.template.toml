@@ -7,3 +7,7 @@ account_id = "__ACCOUNT_ID__"
 [[kv_namespaces]]
 binding = "LIBRARY"
 id = "__KV_ID__"
+
+[[services]]
+binding = "PRO_API"
+service = "pkg-pocket-api"

@@ -1,9 +1,34 @@
-<resources><style name="Theme.PkgPocket" parent="Theme.Material3.DayNight.NoActionBar">
-<item name="android:fontFamily">sans</item><item name="colorPrimary">@color/pp_primary</item><item name="colorOnPrimary">@color/pp_on_primary</item>
-<item name="colorPrimaryContainer">@color/pp_primary_container</item><item name="colorOnPrimaryContainer">@color/pp_on_primary_container</item>
-<item name="colorSecondary">@color/pp_secondary</item><item name="colorSecondaryContainer">@color/pp_secondary_container</item>
-<item name="colorOnSecondaryContainer">@color/pp_on_secondary_container</item><item name="colorSurface">@color/pp_surface</item>
-<item name="colorOnSurface">@color/pp_on_surface</item><item name="colorOnSurfaceVariant">@color/pp_on_surface_variant</item>
-<item name="colorOutline">@color/pp_outline</item><item name="android:windowLightStatusBar">false</item>
-<item name="android:navigationBarColor">@color/pp_surface</item><item name="android:statusBarColor">@color/pp_surface</item>
-</style></resources>
+<resources>
+
+    <style name="Theme.PkgPocket" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+
+        <item name="colorPrimary">@color/pp_primary</item>
+        <item name="colorOnPrimary">@color/pp_on_primary</item>
+        <item name="colorPrimaryContainer">@color/pp_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/pp_on_primary_container</item>
+
+        <item name="colorSecondary">@color/pp_secondary</item>
+        <item name="colorSecondaryContainer">@color/pp_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/pp_on_secondary_container</item>
+
+        <item name="colorSurface">@color/pp_surface</item>
+        <item name="colorOnSurface">@color/pp_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/pp_on_surface_variant</item>
+        <item name="colorOutline">@color/pp_outline</item>
+
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/pp_surface</item>
+        <item name="android:statusBarColor">@color/pp_surface</item>
+
+        <item name="android:windowAnimationStyle">@style/PkgPocket.WindowAnimation</item>
+    </style>
+
+    <style name="PkgPocket.WindowAnimation">
+        <item name="android:activityOpenEnterAnimation">@anim/pp_activity_fade_in</item>
+        <item name="android:activityOpenExitAnimation">@anim/pp_activity_fade_out_soft</item>
+        <item name="android:activityCloseEnterAnimation">@anim/pp_activity_fade_in_soft</item>
+        <item name="android:activityCloseExitAnimation">@anim/pp_activity_fade_out</item>
+    </style>
+
+</resources>
