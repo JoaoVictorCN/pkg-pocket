@@ -392,8 +392,11 @@ class LibraryActivity : AppCompatActivity() {
         val titleView = TextView(this).apply {
             text = group.title
             textSize = 12f
+            minLines = 2
             maxLines = 2
+            includeFontPadding = false
             ellipsize = android.text.TextUtils.TruncateAt.END
+            setLineSpacing(0f, 1.04f)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(
                 MaterialColors.getColor(
@@ -489,6 +492,7 @@ class LibraryActivity : AppCompatActivity() {
                 textSize = 10f
                 alpha = 0.74f
                 maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 setTextColor(
                     MaterialColors.getColor(
                         this@LibraryActivity,
@@ -719,17 +723,44 @@ class LibraryActivity : AppCompatActivity() {
         val titleId = group.titleId.trim()
         if (titleId.isBlank()) return
 
+        // Se a capa já foi carregada nesta sessão, aplica na mesma hora.
+        // Assim não há flash do logo ao sair e voltar para a Biblioteca.
+        LibraryCoverStore.peekBitmap(titleId)?.let {
+            target.setImageBitmap(it)
+            return
+        }
+
         lifecycleScope.launch {
-            val bytes = withContext(Dispatchers.IO) {
-                LibraryCoverStore.load(this@LibraryActivity, titleId)
-                    ?: currentSelectionCover(titleId)
-                    ?: fetchGameCover(group)
+            val bitmap = withContext(Dispatchers.IO) {
+                LibraryCoverStore.loadBitmap(
+                    this@LibraryActivity,
+                    titleId
+                ) ?: run {
+                    val bytes =
+                        currentSelectionCover(titleId)
+                            ?: fetchGameCover(group)
+
+                    if (bytes != null) {
+                        LibraryCoverStore.loadBitmap(
+                            this@LibraryActivity,
+                            titleId
+                        ) ?: BitmapFactory.decodeByteArray(
+                            bytes,
+                            0,
+                            bytes.size
+                        )
+                    } else {
+                        null
+                    }
+                }
             }
 
-            if (bytes != null && !isFinishing) {
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let {
-                    target.setImageBitmap(it)
-                }
+            if (
+                bitmap != null &&
+                !isFinishing &&
+                !isDestroyed
+            ) {
+                target.setImageBitmap(bitmap)
             }
         }
     }
