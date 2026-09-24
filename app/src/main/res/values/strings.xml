@@ -272,4 +272,13 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="pro_check_error">Could not check Pro status: %1$s</string>
     <string name="pro_test_note">RC payment integration • Mercado Pago sandbox while testing</string>
 
+
+    <string name="home_your_pkgs">Your PKGs</string>
+    <string name="home_ps4">PS4</string>
+    <string name="home_add_pkgs">Add PKGs</string>
+    <string name="settings_title">Settings</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_settings">Settings</string>
+
 </resources>

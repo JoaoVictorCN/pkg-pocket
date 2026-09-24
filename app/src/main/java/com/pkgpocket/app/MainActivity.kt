@@ -335,6 +335,20 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, LibraryActivity::class.java))
         }
 
+        b.navHome.setOnClickListener {
+            b.mainContent.smoothScrollTo(0, 0)
+        }
+
+        b.navLibrary.setOnClickListener {
+            startActivity(Intent(this, LibraryActivity::class.java))
+        }
+
+        b.navSettings.setOnClickListener {
+            b.settingsSection.post {
+                b.mainContent.smoothScrollTo(0, b.settingsSection.top)
+            }
+        }
+
         b.smartLibraryButton.setOnClickListener {
             showSmartLibrary()
         }

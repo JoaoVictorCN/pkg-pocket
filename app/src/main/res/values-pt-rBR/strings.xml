@@ -254,4 +254,30 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="cancelled_by_user">Envio cancelado pelo usuário</string>
     <string name="installation_completed_summary">Instalação concluída • %1$s • %2$s</string>
     <string name="queue_completed_summary">Fila concluída • %1$d PKGs • %2$s • %3$s</string>
+
+    <string name="home_your_pkgs">Seus PKGs</string>
+    <string name="home_ps4">PS4</string>
+    <string name="home_add_pkgs">Adicionar PKGs</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="nav_home">Início</string>
+    <string name="nav_library">Biblioteca</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <string name="pro_title">PKG Pocket Pro</string>
+    <string name="pro_subtitle">Apoie o projeto e remova anúncios</string>
+    <string name="pro_price">R$ 9,99</string>
+    <string name="pro_status_free">Plano Free • Pro não ativo</string>
+    <string name="pro_status_active">Pro ativo • Obrigado por apoiar o PKG Pocket ❤️</string>
+    <string name="pro_status_checking">Verificando licença Pro…</string>
+    <string name="pro_status_checkout">Abrindo pagamento seguro do Mercado Pago…</string>
+    <string name="pro_status_pending">Pagamento encontrado • aguardando confirmação…</string>
+    <string name="pro_status_failed">O pagamento não foi confirmado.</string>
+    <string name="pro_email_hint">E-mail da sua licença Pro</string>
+    <string name="pro_buy">Comprar Pro</string>
+    <string name="pro_check">Verificar licença</string>
+    <string name="pro_invalid_email">Digite um e-mail válido.</string>
+    <string name="pro_checkout_error">Não foi possível abrir o pagamento: %1$s</string>
+    <string name="pro_check_error">Não foi possível verificar a licença: %1$s</string>
+    <string name="pro_test_note">Ambiente de testes • nenhum valor real será cobrado</string>
+
 </resources>
