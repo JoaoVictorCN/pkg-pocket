@@ -32,7 +32,7 @@
                     android:layout_height="48dp"
                     android:contentDescription="@string/app_name"
                     android:scaleType="centerInside"
-                    android:src="@drawable/pkg_pocket_logo" />
+                    android:src="@drawable/pkg_pocket_mark" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -240,19 +240,20 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/smartLibraryButton"
-                style="@style/Widget.Material3.Button.TextButton"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="4dp"
+                android:layout_height="56dp"
+                android:layout_marginTop="10dp"
                 android:text="@string/smart_library"
+                app:cornerRadius="18dp"
                 app:icon="@drawable/ic_analyze_24"
                 app:iconGravity="textStart" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/installAll"
                 android:layout_width="match_parent"
-                android:layout_height="58dp"
-                android:layout_marginTop="8dp"
+                android:layout_height="56dp"
+                android:layout_marginTop="10dp"
                 android:text="@string/install_all"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -420,17 +421,6 @@
                     </com.google.android.material.card.MaterialCardView>
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/historyButton"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="8dp"
-                        android:gravity="start|center_vertical"
-                        android:text="@string/install_history"
-                        app:icon="@drawable/ic_library_24"
-                        app:iconGravity="textStart" />
-
-                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/diagnosticsButton"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
@@ -521,9 +511,11 @@
     </ScrollView>
 
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="78dp"
         android:layout_gravity="bottom"
+        android:visibility="gone"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="8dp"
@@ -608,6 +600,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="?attr/colorSurface"
+        android:elevation="32dp"
+        android:translationZ="32dp"
         android:clickable="true"
         android:focusable="true">
 

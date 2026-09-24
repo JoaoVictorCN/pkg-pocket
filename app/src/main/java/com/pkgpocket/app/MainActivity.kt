@@ -179,7 +179,6 @@ class MainActivity : AppCompatActivity() {
             b.installAll.isEnabled = !active
             b.selectPkgs.isEnabled = !active
             b.clearSelection.isEnabled = !active && demoJob?.isActive != true
-            b.historyButton.isEnabled = !active && demoJob?.isActive != true
             b.helpButton.isEnabled = !active && demoJob?.isActive != true
             b.smartLibraryButton.isEnabled = !active && demoJob?.isActive != true
             b.diagnosticsButton.isEnabled = demoJob?.isActive != true
@@ -331,9 +330,6 @@ class MainActivity : AppCompatActivity() {
             clearVisibleLog()
         }
 
-        b.historyButton.setOnClickListener {
-            startActivity(Intent(this, LibraryActivity::class.java))
-        }
 
         b.navHome.setOnClickListener {
             b.mainContent.smoothScrollTo(0, 0)
@@ -1676,6 +1672,7 @@ class MainActivity : AppCompatActivity() {
         val enter = android.view.animation.DecelerateInterpolator(1.6f)
         val exit = android.view.animation.AccelerateDecelerateInterpolator()
 
+        b.bottomNav.visibility = View.GONE
         overlay.visibility = View.VISIBLE
         overlay.alpha = 1f
 
@@ -1724,6 +1721,7 @@ class MainActivity : AppCompatActivity() {
                 .withEndAction {
                     overlay.visibility = View.GONE
                     overlay.alpha = 1f
+                    b.bottomNav.visibility = View.VISIBLE
                     showHelpBubbleAfterSplash()
                 }
                 .start()
