@@ -405,4 +405,6 @@ Pro: %4$s</string>
     <string name="library_sync_seeded">Backup da Biblioteca ativado.</string>
     <string name="library_sync_merged">Biblioteca sincronizada: %1$d registro(s) de PKG.</string>
     <string name="home_selected_count_one">1 selecionado</string>
+    <string name="library_sync_retry">Pro ativo. A sincronização da Biblioteca será tentada novamente automaticamente.</string>
+    <string name="library_sync_failed">Pro ativo, mas a Biblioteca ainda não conseguiu sincronizar.</string>
 </resources>

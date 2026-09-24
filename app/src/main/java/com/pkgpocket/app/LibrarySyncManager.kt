@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -31,8 +32,13 @@ object LibrarySyncManager {
         if (ProManager.savedEmail(context).isBlank()) return
 
         val app = context.applicationContext
+
         scope.launch {
-            runCatching { syncSnapshot(app) }
+            runCatching {
+                retryProPropagation {
+                    syncSnapshot(app)
+                }
+            }
         }
     }
 
@@ -41,19 +47,31 @@ object LibrarySyncManager {
         if (ProManager.savedEmail(context).isBlank()) return
 
         val app = context.applicationContext
+
         scope.launch {
-            runCatching { restoreAndMerge(app) }
+            runCatching {
+                restoreAndMerge(app)
+            }
         }
     }
 
     suspend fun restoreAndMerge(
         context: Context
     ): RestoreResult = withContext(Dispatchers.IO) {
+        retryProPropagation {
+            restoreAndMergeOnce(context)
+        }
+    }
+
+    private fun restoreAndMergeOnce(
+        context: Context
+    ): RestoreResult {
         if (!ProManager.isProCached(context)) {
-            return@withContext RestoreResult(
+            return RestoreResult(
                 changedLocal = false,
                 seededCloud = false,
-                totalRecords = InstallHistoryStore.all(context).size
+                totalRecords =
+                    InstallHistoryStore.all(context).size
             )
         }
 
@@ -62,10 +80,11 @@ object LibrarySyncManager {
             .lowercase(Locale.ROOT)
 
         if (email.isBlank()) {
-            return@withContext RestoreResult(
+            return RestoreResult(
                 changedLocal = false,
                 seededCloud = false,
-                totalRecords = InstallHistoryStore.all(context).size
+                totalRecords =
+                    InstallHistoryStore.all(context).size
             )
         }
 
@@ -75,14 +94,15 @@ object LibrarySyncManager {
         if (cloud.isEmpty()) {
             if (local.isNotEmpty()) {
                 sync(email, local)
-                return@withContext RestoreResult(
+
+                return RestoreResult(
                     changedLocal = false,
                     seededCloud = true,
                     totalRecords = local.size
                 )
             }
 
-            return@withContext RestoreResult(
+            return RestoreResult(
                 changedLocal = false,
                 seededCloud = false,
                 totalRecords = 0
@@ -90,7 +110,8 @@ object LibrarySyncManager {
         }
 
         val merged = merge(local, cloud)
-        val changed = fingerprint(merged) != fingerprint(local)
+        val changed =
+            fingerprint(merged) != fingerprint(local)
 
         if (changed) {
             InstallHistoryStore.replaceFromCloud(
@@ -103,14 +124,14 @@ object LibrarySyncManager {
             sync(email, merged)
         }
 
-        RestoreResult(
+        return RestoreResult(
             changedLocal = changed,
             seededCloud = false,
             totalRecords = merged.size
         )
     }
 
-    private suspend fun syncSnapshot(context: Context) {
+    private fun syncSnapshot(context: Context) {
         val email = ProManager.savedEmail(context)
             .trim()
             .lowercase(Locale.ROOT)
@@ -121,6 +142,55 @@ object LibrarySyncManager {
             email,
             InstallHistoryStore.all(context)
         )
+    }
+
+    private suspend fun <T> retryProPropagation(
+        block: () -> T
+    ): T {
+        var lastError: IOException? = null
+
+        // A licença e a Biblioteca podem cair em colos diferentes
+        // do Cloudflare/KV. Depois de ativar/restaurar, damos tempo
+        // para a informação ficar visível antes de considerar falha.
+        repeat(6) { attempt ->
+            try {
+                return block()
+            } catch (e: IOException) {
+                if (!isProPropagationError(e)) {
+                    throw e
+                }
+
+                lastError = e
+
+                if (attempt < 5) {
+                    delay(
+                        when (attempt) {
+                            0 -> 750L
+                            1 -> 1_250L
+                            2 -> 2_000L
+                            3 -> 3_000L
+                            else -> 4_000L
+                        }
+                    )
+                }
+            }
+        }
+
+        throw lastError
+            ?: IOException("Library sync failed")
+    }
+
+    private fun isProPropagationError(
+        error: IOException
+    ): Boolean {
+        val text = error.message.orEmpty()
+            .lowercase(Locale.ROOT)
+
+        return (
+            "active pro license required" in text ||
+                "pro_required" in text ||
+                "license required" in text
+            )
     }
 
     private fun sync(
@@ -151,7 +221,8 @@ object LibrarySyncManager {
         )
 
         return decode(
-            response.optJSONArray("records") ?: JSONArray()
+            response.optJSONArray("records")
+                ?: JSONArray()
         )
     }
 
@@ -170,7 +241,10 @@ object LibrarySyncManager {
                     .put("version", record.version)
                     .put("kind", record.kind)
                     .put("fileName", record.fileName)
-                    .put("installedAt", record.installedAt)
+                    .put(
+                        "installedAt",
+                        record.installedAt
+                    )
             )
         }
 
@@ -180,12 +254,16 @@ object LibrarySyncManager {
     private fun decode(
         array: JSONArray
     ): List<InstalledPkgRecord> {
-        val out = mutableListOf<InstalledPkgRecord>()
+        val out =
+            mutableListOf<InstalledPkgRecord>()
 
         for (index in 0 until array.length()) {
-            val obj = array.optJSONObject(index) ?: continue
+            val obj =
+                array.optJSONObject(index) ?: continue
 
-            val key = obj.optString("key").trim()
+            val key =
+                obj.optString("key").trim()
+
             if (key.isBlank()) continue
 
             out += InstalledPkgRecord(
@@ -213,7 +291,8 @@ object LibrarySyncManager {
         local: List<InstalledPkgRecord>,
         cloud: List<InstalledPkgRecord>
     ): List<InstalledPkgRecord> {
-        val byKey = linkedMapOf<String, InstalledPkgRecord>()
+        val byKey =
+            linkedMapOf<String, InstalledPkgRecord>()
 
         (cloud + local).forEach { record ->
             val current = byKey[record.key]
@@ -247,13 +326,15 @@ object LibrarySyncManager {
         body: String
     ): JSONObject {
         val connection =
-            URL(url).openConnection() as HttpURLConnection
+            URL(url).openConnection()
+                as HttpURLConnection
 
         try {
             connection.requestMethod = method
             connection.connectTimeout = 15_000
             connection.readTimeout = 25_000
             connection.doOutput = true
+
             connection.setRequestProperty(
                 "Accept",
                 "application/json"
@@ -267,13 +348,19 @@ object LibrarySyncManager {
                 "PKG-Pocket/${BuildConfig.VERSION_NAME}"
             )
 
-            val bytes = body.toByteArray(Charsets.UTF_8)
-            connection.setFixedLengthStreamingMode(bytes.size)
+            val bytes =
+                body.toByteArray(Charsets.UTF_8)
+
+            connection.setFixedLengthStreamingMode(
+                bytes.size
+            )
+
             connection.outputStream.use {
                 it.write(bytes)
             }
 
             val code = connection.responseCode
+
             val stream =
                 if (code in 200..299) {
                     connection.inputStream
@@ -287,7 +374,11 @@ object LibrarySyncManager {
                 .orEmpty()
 
             val obj = runCatching {
-                if (raw.isBlank()) JSONObject() else JSONObject(raw)
+                if (raw.isBlank()) {
+                    JSONObject()
+                } else {
+                    JSONObject(raw)
+                }
             }.getOrElse {
                 JSONObject().put("raw", raw)
             }
@@ -295,8 +386,12 @@ object LibrarySyncManager {
             if (code !in 200..299) {
                 throw IOException(
                     obj.optString("message")
-                        .ifBlank { obj.optString("error") }
-                        .ifBlank { "HTTP $code" }
+                        .ifBlank {
+                            obj.optString("error")
+                        }
+                        .ifBlank {
+                            "HTTP $code"
+                        }
                 )
             }
 

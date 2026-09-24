@@ -99,7 +99,17 @@ class LibraryActivity : AppCompatActivity() {
                 WindowInsetsCompat.Type.systemBars() or
                     WindowInsetsCompat.Type.displayCutout()
             )
-            scroll.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+
+            // Mesmo comportamento visual da Home:
+            // root absorve laterais + barra inferior;
+            // conteúdo recebe apenas o inset superior.
+            root.setPadding(
+                safe.left,
+                0,
+                safe.right,
+                safe.bottom
+            )
+            scroll.setPadding(0, safe.top, 0, 0)
             insets
         }
 
@@ -611,51 +621,33 @@ class LibraryActivity : AppCompatActivity() {
         val home = MaterialButton(this).apply {
             text = getString(R.string.nav_home)
             textSize = 11f
-            isAllCaps = false
-            icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_home_24)
+            icon = ContextCompat.getDrawable(
+                this@LibraryActivity,
+                R.drawable.ic_home_24
+            )
             iconGravity = MaterialButton.ICON_GRAVITY_TOP
-            backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
-            setTextColor(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorOnSurfaceVariant,
-                    Color.LTGRAY
-                )
-            )
-            iconTint = ColorStateList.valueOf(
-                MaterialColors.getColor(
-                    this@LibraryActivity,
-                    com.google.android.material.R.attr.colorOnSurfaceVariant,
-                    Color.LTGRAY
-                )
-            )
             setOnClickListener { finish() }
         }
 
         val library = MaterialButton(this).apply {
             text = getString(R.string.nav_library)
             textSize = 11f
-            isAllCaps = false
-            icon = ContextCompat.getDrawable(this@LibraryActivity, R.drawable.ic_library_24)
+            icon = ContextCompat.getDrawable(
+                this@LibraryActivity,
+                R.drawable.ic_library_24
+            )
             iconGravity = MaterialButton.ICON_GRAVITY_TOP
-            cornerRadius = dp(16)
-            val activeBg = MaterialColors.getColor(
-                this@LibraryActivity,
-                com.google.android.material.R.attr.colorPrimaryContainer,
-                Color.DKGRAY
-            )
-            val activeFg = MaterialColors.getColor(
-                this@LibraryActivity,
-                com.google.android.material.R.attr.colorOnPrimaryContainer,
-                Color.WHITE
-            )
-            backgroundTintList = ColorStateList.valueOf(activeBg)
-            setTextColor(activeFg)
-            iconTint = ColorStateList.valueOf(activeFg)
         }
 
-        row.addView(home, LinearLayout.LayoutParams(0, dp(58), 1f))
-        row.addView(library, LinearLayout.LayoutParams(0, dp(58), 1f))
+        row.addView(
+            home,
+            LinearLayout.LayoutParams(0, dp(58), 1f)
+        )
+        row.addView(
+            library,
+            LinearLayout.LayoutParams(0, dp(58), 1f)
+        )
+
         bar.addView(row)
 
         bar.layoutParams = FrameLayout.LayoutParams(
@@ -667,6 +659,13 @@ class LibraryActivity : AppCompatActivity() {
             rightMargin = dp(12)
             bottomMargin = dp(8)
         }
+
+        BottomNavStyler.apply(
+            this,
+            home,
+            library,
+            BottomNavStyler.Tab.LIBRARY
+        )
 
         return bar
     }

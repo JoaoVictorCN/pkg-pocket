@@ -406,4 +406,6 @@ Pro: %4$s</string>
     <string name="library_sync_seeded">Library backup enabled.</string>
     <string name="library_sync_merged">Library synced: %1$d PKG record(s).</string>
     <string name="home_selected_count_one">1 selected</string>
+    <string name="library_sync_retry">Pro is active. Library sync will retry automatically.</string>
+    <string name="library_sync_failed">Pro is active, but the library could not sync yet.</string>
 </resources>

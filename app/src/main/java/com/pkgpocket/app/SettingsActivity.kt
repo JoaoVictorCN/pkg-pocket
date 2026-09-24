@@ -305,7 +305,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun refreshPro(showFeedback: Boolean) {
-        val email = b.settingsProEmail.text?.toString()?.trim().orEmpty()
+        val email = b.settingsProEmail.text
+            ?.toString()
+            ?.trim()
+            .orEmpty()
             .ifBlank { ProManager.savedEmail(this) }
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
@@ -318,16 +321,20 @@ class SettingsActivity : AppCompatActivity() {
 
         b.settingsProEmailLayout.error = null
         proJob?.cancel()
+
         proJob = lifecycleScope.launch {
             b.settingsProStatus.text =
                 getString(R.string.pro_status_checking)
             b.settingsProCheck.isEnabled = false
 
             try {
-                val status =
-                    ProManager.refreshStatus(this@SettingsActivity, email)
+                // 1) PRIMEIRO valida exclusivamente a licença.
+                val status = ProManager.refreshStatus(
+                    this@SettingsActivity,
+                    email
+                )
 
-                val message =
+                val licenseMessage =
                     if (showFeedback && !status.active) {
                         when (status.status.lowercase()) {
                             "pending",
@@ -350,12 +357,24 @@ class SettingsActivity : AppCompatActivity() {
                         null
                     }
 
-                renderProState(status.active, message)
+                // A partir daqui, se active=true, a UI fica Pro ativa
+                // independentemente de qualquer falha de nuvem.
+                renderProState(
+                    status.active,
+                    licenseMessage
+                )
 
-                if (status.active) {
-                    val sync = LibrarySyncManager.restoreAndMerge(
-                        this@SettingsActivity
-                    )
+                if (!status.active) {
+                    return@launch
+                }
+
+                // 2) Backup/restauração é secundário.
+                // Nunca altera o estado da licença em caso de falha.
+                try {
+                    val sync =
+                        LibrarySyncManager.restoreAndMerge(
+                            this@SettingsActivity
+                        )
 
                     if (showFeedback && sync.changedLocal) {
                         Toast.makeText(
@@ -366,21 +385,44 @@ class SettingsActivity : AppCompatActivity() {
                             ),
                             Toast.LENGTH_LONG
                         ).show()
-                    } else if (showFeedback && sync.seededCloud) {
+                    } else if (
+                        showFeedback &&
+                        sync.seededCloud
+                    ) {
                         Toast.makeText(
                             this@SettingsActivity,
                             R.string.library_sync_seeded,
                             Toast.LENGTH_SHORT
                         ).show()
                     }
+                } catch (_: Exception) {
+                    // Mantém "Pro ativo" e agenda novas tentativas.
+                    renderProState(true, null)
+                    LibrarySyncManager.enqueueRestore(
+                        this@SettingsActivity
+                    )
+
+                    if (showFeedback) {
+                        Toast.makeText(
+                            this@SettingsActivity,
+                            R.string.library_sync_retry,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             } catch (e: Exception) {
+                // Só erros da própria validação Pro chegam aqui.
                 renderProState(
-                    ProManager.isProCached(this@SettingsActivity),
+                    ProManager.isProCached(
+                        this@SettingsActivity
+                    ),
                     if (showFeedback) {
                         getString(
                             R.string.pro_check_error,
-                            e.message ?: getString(R.string.unknown_error)
+                            e.message
+                                ?: getString(
+                                    R.string.unknown_error
+                                )
                         )
                     } else {
                         null

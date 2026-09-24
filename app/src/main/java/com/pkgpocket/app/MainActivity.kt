@@ -259,6 +259,12 @@ class MainActivity : AppCompatActivity() {
         setupHelpBubble()
         setupPublicBeta()
         setupProUi()
+        BottomNavStyler.apply(
+            this,
+            b.navHome,
+            b.navLibrary,
+            BottomNavStyler.Tab.HOME
+        )
         playLaunchAnimation()
         setupExitGuard()
 
