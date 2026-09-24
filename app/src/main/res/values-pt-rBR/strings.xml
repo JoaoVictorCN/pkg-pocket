@@ -400,4 +400,5 @@ Pro: %4$s</string>
     <string name="update_bad_response">O servidor de atualização respondeu HTTP %1$d.</string>
     <string name="update_bad_checksum">O APK baixado falhou na verificação de integridade.</string>
     <string name="update_network_error">Não foi possível verificar atualizações: %1$s</string>
+    <string name="quick_check_ready_toast">%1$d PKG(s) apto(s) • %2$s</string>
 </resources>

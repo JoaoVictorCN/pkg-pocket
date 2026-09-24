@@ -698,13 +698,6 @@ class InstallerService : Service() {
         )
 
         return when {
-            speed > 1.0 && etaSeconds > 0L -> getString(
-                R.string.transfer_detail_full,
-                amount,
-                humanSpeed(speed),
-                remainingText(etaSeconds)
-            )
-
             speed > 1.0 -> getString(
                 R.string.transfer_detail_speed,
                 amount,

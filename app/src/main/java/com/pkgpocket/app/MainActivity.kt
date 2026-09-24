@@ -1296,8 +1296,6 @@ class MainActivity : AppCompatActivity() {
 
             if (report.issueCount == 0) {
                 val totalSize = items.sumOf { it.size.coerceAtLeast(0L) }
-                val etaSeconds = estimatePreInstallSeconds(items)
-                val etaText = humanEta(etaSeconds)
 
                 val ok = getString(
                     R.string.quick_check_ok,
@@ -1306,22 +1304,17 @@ class MainActivity : AppCompatActivity() {
                 )
                 addLog(ok)
 
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(R.string.quick_check_ready_title)
-                    .setMessage(
-                        getString(
-                            R.string.quick_check_ready_message,
-                            report.okCount,
-                            humanSize(totalSize),
-                            etaText
-                        )
-                    )
-                    .setNegativeButton(R.string.cancel_selection, null)
-                    .setPositiveButton(R.string.install_all) { _, _ ->
-                        preflightInstall(ip, items)
-                    }
-                    .show()
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(
+                        R.string.quick_check_ready_toast,
+                        report.okCount,
+                        humanSize(totalSize)
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
 
+                preflightInstall(ip, items)
                 return@launch
             }
 
