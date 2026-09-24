@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
     private lateinit var b: ActivitySettingsBinding
     private var proJob: Job? = null
+    private var updateJob: Job? = null
     private var lastProSyncElapsed = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,12 +46,7 @@ class SettingsActivity : AppCompatActivity() {
         b.settingsBack.setOnClickListener { finish() }
 
         b.settingsUpdate.setOnClickListener {
-            startActivity(
-                Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/JoaoVictorCN/pkg-pocket/releases")
-                )
-            )
+            checkForAppUpdate()
         }
 
         b.settingsClearCache.setOnClickListener {
@@ -97,6 +93,112 @@ class SettingsActivity : AppCompatActivity() {
 
         setupPro()
         handleCheckoutIntent(intent)
+    }
+
+    private fun checkForAppUpdate() {
+        if (updateJob?.isActive == true) return
+
+        updateJob = lifecycleScope.launch {
+            b.settingsUpdate.isEnabled = false
+            b.settingsUpdate.text = getString(R.string.update_checking)
+
+            try {
+                val release = UpdateManager.findAvailableUpdate(
+                    this@SettingsActivity
+                )
+
+                if (release == null) {
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        R.string.update_latest,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@launch
+                }
+
+                Toast.makeText(
+                    this@SettingsActivity,
+                    getString(R.string.update_found, release.version),
+                    Toast.LENGTH_LONG
+                ).show()
+
+                val progress = android.widget.ProgressBar(
+                    this@SettingsActivity,
+                    null,
+                    android.R.attr.progressBarStyleHorizontal
+                ).apply {
+                    max = 100
+                    progress = 0
+                    isIndeterminate = false
+                    setPadding(28, 20, 28, 20)
+                }
+
+                val progressDialog = AlertDialog.Builder(
+                    this@SettingsActivity
+                )
+                    .setTitle(R.string.update_download_title)
+                    .setMessage(
+                        getString(
+                            R.string.update_downloading,
+                            release.version,
+                            0
+                        )
+                    )
+                    .setView(progress)
+                    .setCancelable(false)
+                    .create()
+
+                progressDialog.show()
+
+                val apk = try {
+                    UpdateManager.download(
+                        this@SettingsActivity,
+                        release
+                    ) { percent ->
+                        runOnUiThread {
+                            progress.progress = percent
+                            progressDialog.setMessage(
+                                getString(
+                                    R.string.update_downloading,
+                                    release.version,
+                                    percent
+                                )
+                            )
+                        }
+                    }
+                } finally {
+                    if (progressDialog.isShowing) {
+                        progressDialog.dismiss()
+                    }
+                }
+
+                Toast.makeText(
+                    this@SettingsActivity,
+                    R.string.update_installing,
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                UpdateManager.requestInstall(
+                    this@SettingsActivity,
+                    apk
+                )
+            } catch (e: Exception) {
+                AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle(R.string.settings_update_title)
+                    .setMessage(
+                        getString(
+                            R.string.update_network_error,
+                            e.message ?: getString(R.string.unknown_error)
+                        )
+                    )
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            } finally {
+                b.settingsUpdate.isEnabled = true
+                b.settingsUpdate.text =
+                    getString(R.string.settings_update_title)
+            }
+        }
     }
 
     private fun showAppDiagnostics() {
@@ -347,6 +449,8 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (!::b.isInitialized) return
+
+        UpdateManager.resumePendingInstall(this)
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastProSyncElapsed < 2_500L) return

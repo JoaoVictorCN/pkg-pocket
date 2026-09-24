@@ -357,7 +357,7 @@ A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o PS4.</string>
     <string name="ps4_details_save">Salvar</string>
     <string name="ps4_details_removed">PS4 salvo removido</string>
     <string name="settings_update_title">Verificar atualizações</string>
-    <string name="settings_update_subtitle">Abrir releases do PKG Pocket</string>
+    <string name="settings_update_subtitle">Verificar, baixar e instalar sem sair do app</string>
     <string name="settings_clear_cache">Limpar cache</string>
     <string name="settings_clear_cache_subtitle">Remover arquivos temporários e capas em cache</string>
     <string name="settings_cache_cleared">Cache limpo.</string>
@@ -389,4 +389,15 @@ Pro: %4$s</string>
     <string name="ps4_details_test_rpi_ok">Remote Package Installer acessível na porta 12800.</string>
     <string name="ps4_details_test_rpi_fail">Não foi possível acessar o Remote Package Installer na porta 12800.</string>
     <string name="ps4_details_rpi_port">Porta do RPI</string>
+    <string name="update_checking">Verificando atualizações…</string>
+    <string name="update_latest">O PKG Pocket já está na versão mais recente.</string>
+    <string name="update_found">Versão %1$s encontrada. O download vai começar automaticamente…</string>
+    <string name="update_downloading">Baixando PKG Pocket %1$s… %2$d%%</string>
+    <string name="update_download_title">Atualizando PKG Pocket</string>
+    <string name="update_download_failed">Não foi possível baixar a atualização: %1$s</string>
+    <string name="update_permission_needed">Permita que o PKG Pocket instale apps desconhecidos e volte para o app. A atualização já está baixada.</string>
+    <string name="update_installing">Download concluído. Abrindo o instalador do Android…</string>
+    <string name="update_bad_response">O servidor de atualização respondeu HTTP %1$d.</string>
+    <string name="update_bad_checksum">O APK baixado falhou na verificação de integridade.</string>
+    <string name="update_network_error">Não foi possível verificar atualizações: %1$s</string>
 </resources>

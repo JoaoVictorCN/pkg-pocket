@@ -358,7 +358,7 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="ps4_details_save">Save</string>
     <string name="ps4_details_removed">Saved PS4 removed</string>
     <string name="settings_update_title">Check for updates</string>
-    <string name="settings_update_subtitle">Open PKG Pocket releases</string>
+    <string name="settings_update_subtitle">Check, download and install without leaving the app</string>
     <string name="settings_clear_cache">Clear cache</string>
     <string name="settings_clear_cache_subtitle">Remove temporary files and cached covers</string>
     <string name="settings_cache_cleared">Cache cleared.</string>
@@ -390,4 +390,15 @@ Pro: %4$s</string>
     <string name="ps4_details_test_rpi_ok">Remote Package Installer is reachable on port 12800.</string>
     <string name="ps4_details_test_rpi_fail">Could not reach Remote Package Installer on port 12800.</string>
     <string name="ps4_details_rpi_port">RPI port</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_latest">PKG Pocket is already up to date.</string>
+    <string name="update_found">Version %1$s found. Download starting automatically…</string>
+    <string name="update_downloading">Downloading PKG Pocket %1$s… %2$d%%</string>
+    <string name="update_download_title">Updating PKG Pocket</string>
+    <string name="update_download_failed">Could not download the update: %1$s</string>
+    <string name="update_permission_needed">Allow PKG Pocket to install unknown apps, then return here. The downloaded update is already saved.</string>
+    <string name="update_installing">Download complete. Opening Android installer…</string>
+    <string name="update_bad_response">Update server returned HTTP %1$d.</string>
+    <string name="update_bad_checksum">Downloaded APK failed integrity verification.</string>
+    <string name="update_network_error">Could not check for updates: %1$s</string>
 </resources>
