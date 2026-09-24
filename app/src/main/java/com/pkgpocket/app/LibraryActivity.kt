@@ -381,6 +381,7 @@ class LibraryActivity : AppCompatActivity() {
 
         val info = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            minimumHeight = dp(100)
             setPadding(dp(9), dp(8), dp(9), dp(10))
         }
 
@@ -451,20 +452,19 @@ class LibraryActivity : AppCompatActivity() {
             }
         }
 
-        titleView.minLines = 2
-        titleView.maxLines = 2
+        titleRow.minimumHeight = dp(42)
 
         titleRow.addView(
             titleView,
             LinearLayout.LayoutParams(
                 0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dp(42),
                 1f
             )
         )
         titleRow.addView(
             overflow,
-            LinearLayout.LayoutParams(dp(28), dp(34))
+            LinearLayout.LayoutParams(dp(28), dp(42))
         )
         info.addView(titleRow)
 
