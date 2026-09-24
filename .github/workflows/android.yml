@@ -84,12 +84,19 @@ jobs:
 
           OK=0
           for TRY in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -fsS \
-              --connect-timeout 5 \
-              --max-time 10 \
-              "$URL/health"; then
-              echo
-              echo "Library backend respondeu na tentativa $TRY."
+            HEALTH="$(
+              curl -fsS \
+                --connect-timeout 5 \
+                --max-time 10 \
+                "$URL/health" \
+                || true
+            )"
+
+            echo "$HEALTH"
+
+            if printf '%s' "$HEALTH" |
+              jq -e '.ok == true and .version == 2' >/dev/null 2>&1; then
+              echo "Library backend v2 respondeu na tentativa $TRY."
               OK=1
               break
             fi

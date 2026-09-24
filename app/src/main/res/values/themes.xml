@@ -21,10 +21,10 @@
         <item name="android:navigationBarColor">@color/pp_surface</item>
         <item name="android:statusBarColor">@color/pp_surface</item>
 
-        <item name="android:windowAnimationStyle">@style/PkgPocket.WindowAnimation</item>
+        <item name="android:windowAnimationStyle">@style/PkgPocketWindowAnimation</item>
     </style>
 
-    <style name="PkgPocket.WindowAnimation">
+    <style name="PkgPocketWindowAnimation">
         <item name="android:activityOpenEnterAnimation">@anim/pp_activity_fade_in</item>
         <item name="android:activityOpenExitAnimation">@anim/pp_activity_fade_out_soft</item>
         <item name="android:activityCloseEnterAnimation">@anim/pp_activity_fade_in_soft</item>
