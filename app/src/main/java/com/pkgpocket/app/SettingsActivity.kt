@@ -351,6 +351,29 @@ class SettingsActivity : AppCompatActivity() {
                     }
 
                 renderProState(status.active, message)
+
+                if (status.active) {
+                    val sync = LibrarySyncManager.restoreAndMerge(
+                        this@SettingsActivity
+                    )
+
+                    if (showFeedback && sync.changedLocal) {
+                        Toast.makeText(
+                            this@SettingsActivity,
+                            getString(
+                                R.string.library_sync_restored,
+                                sync.totalRecords
+                            ),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else if (showFeedback && sync.seededCloud) {
+                        Toast.makeText(
+                            this@SettingsActivity,
+                            R.string.library_sync_seeded,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             } catch (e: Exception) {
                 renderProState(
                     ProManager.isProCached(this@SettingsActivity),

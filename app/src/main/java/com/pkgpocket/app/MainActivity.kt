@@ -483,6 +483,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         addLog(getString(R.string.app_started))
+
+        if (ProManager.isProCached(this)) {
+            LibrarySyncManager.enqueueRestore(this)
+        }
     }
 
     private fun setupPublicBeta() {
@@ -722,8 +726,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val selectedCount = items.count {
+            it.token in installSelectedTokens
+        }
+
         b.status.visibility = View.GONE
-        b.clearSelection.text = getString(R.string.home_selected_count, items.size)
+        b.clearSelection.text = if (selectedCount == 1) {
+            getString(R.string.home_selected_count_one)
+        } else {
+            getString(
+                R.string.home_selected_count,
+                selectedCount
+            )
+        }
         b.clearSelection.visibility = View.VISIBLE
         updateInstallActionLabel()
     }
@@ -2479,7 +2494,10 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     installSelectedTokens -= item.token
                 }
-                updateInstallActionLabel()
+
+                updateSelectionSummary(
+                    PkgRepository.items
+                )
             }
 
             val completedDetail = completedCards[itemStableKey(item)]

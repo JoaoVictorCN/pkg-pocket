@@ -25,6 +25,83 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Create or reuse library KV
+        if: github.ref == 'refs/heads/release/v1.0'
+        run: |
+          set -euo pipefail
+
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces"
+
+          LIST="$(
+            curl -fsS \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "$API?per_page=1000"
+          )"
+
+          ID="$(
+            printf '%s' "$LIST" |
+              jq -r '.result[] | select(.title=="pkg-pocket-library") | .id' |
+              head -n1
+          )"
+
+          if [ -z "$ID" ]; then
+            NEW="$(
+              curl -fsS \
+                -X POST \
+                -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data '{"title":"pkg-pocket-library"}' \
+                "$API"
+            )"
+
+            ID="$(printf '%s' "$NEW" | jq -r '.result.id')"
+          fi
+
+          test -n "$ID"
+
+          sed \
+            -e "s/__KV_ID__/${ID}/g" \
+            -e "s/__ACCOUNT_ID__/${CLOUDFLARE_ACCOUNT_ID}/g" \
+            cloudflare/library-sync/wrangler.template.toml \
+            > cloudflare/library-sync/wrangler.toml
+
+          echo "Library KV: $ID"
+
+      - name: Deploy library sync backend
+        if: github.ref == 'refs/heads/release/v1.0'
+        working-directory: cloudflare/library-sync
+        run: |
+          set -euo pipefail
+
+          npx --yes wrangler@latest deploy --config wrangler.toml
+
+          URL="https://pkg-pocket-library.wbjoaovictor.workers.dev"
+
+          echo "Aguardando propagação de $URL..."
+
+          OK=0
+          for TRY in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS \
+              --connect-timeout 5 \
+              --max-time 10 \
+              "$URL/health"; then
+              echo
+              echo "Library backend respondeu na tentativa $TRY."
+              OK=1
+              break
+            fi
+
+            echo "Health check $TRY/10 ainda indisponível; nova tentativa em 3s..."
+            sleep 3
+          done
+
+          if [ "$OK" -ne 1 ]; then
+            echo "ERRO: backend da Biblioteca não respondeu em /health."
+            exit 1
+          fi
       - name: Create or reuse beta KV
         if: github.ref == 'refs/heads/main'
         run: |

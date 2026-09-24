@@ -1,0 +1,9 @@
+name = "pkg-pocket-library"
+main = "worker.js"
+compatibility_date = "2026-09-24"
+workers_dev = true
+account_id = "__ACCOUNT_ID__"
+
+[[kv_namespaces]]
+binding = "LIBRARY"
+id = "__KV_ID__"

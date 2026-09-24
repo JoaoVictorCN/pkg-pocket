@@ -401,4 +401,8 @@ Pro: %4$s</string>
     <string name="update_bad_checksum">O APK baixado falhou na verificação de integridade.</string>
     <string name="update_network_error">Não foi possível verificar atualizações: %1$s</string>
     <string name="quick_check_ready_toast">%1$d PKG(s) apto(s) • %2$s</string>
+    <string name="library_sync_restored">Biblioteca restaurada: %1$d registro(s) de PKG.</string>
+    <string name="library_sync_seeded">Backup da Biblioteca ativado.</string>
+    <string name="library_sync_merged">Biblioteca sincronizada: %1$d registro(s) de PKG.</string>
+    <string name="home_selected_count_one">1 selecionado</string>
 </resources>

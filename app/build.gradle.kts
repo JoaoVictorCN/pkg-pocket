@@ -9,6 +9,7 @@ val signingKeyAlias = System.getenv("PKGPOCKET_KEY_ALIAS")
 val signingKeyPassword = System.getenv("PKGPOCKET_KEY_PASSWORD")
 val betaApiUrl = System.getenv("PKGPOCKET_BETA_API_URL") ?: ""
 val proApiUrl = System.getenv("PKGPOCKET_PRO_API_URL") ?: "https://pkg-pocket-api.wbjoaovictor.workers.dev"
+val libraryApiUrl = System.getenv("PKGPOCKET_LIBRARY_API_URL") ?: "https://pkg-pocket-library.wbjoaovictor.workers.dev"
 
 val stableSigningReady =
     !signingStorePath.isNullOrBlank() &&
@@ -25,13 +26,14 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "1.0.0-rc.17"
+        versionCode = 47
+        versionName = "1.0.0-rc.18"
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
         buildConfigField("String", "BETA_API_URL", "\"${betaApiUrl}\"")
         buildConfigField("String", "PRO_API_URL", "\"${proApiUrl}\"")
+        buildConfigField("String", "LIBRARY_API_URL", "\"${libraryApiUrl}\"")
     }
 
     signingConfigs {

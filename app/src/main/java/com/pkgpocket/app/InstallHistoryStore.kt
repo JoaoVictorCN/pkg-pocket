@@ -43,7 +43,7 @@ object InstallHistoryStore {
             )
         )
 
-        save(context, records.take(MAX_ITEMS))
+        save(context, records.take(MAX_ITEMS), triggerSync = true)
     }
 
     fun contains(context: Context, item: PkgItem): Boolean {
@@ -82,20 +82,32 @@ object InstallHistoryStore {
         val updated = all(context).filterNot {
             LibraryHistory.groupKey(it) == groupKey
         }
-        save(context, updated)
+        save(context, updated, triggerSync = true)
     }
 
     fun clear(context: Context) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY, "[]")
-            .apply()
-
+        save(context, emptyList(), triggerSync = true)
         LibraryCoverStore.clear(context)
     }
 
-    private fun save(context: Context, records: List<InstalledPkgRecord>) {
+    fun replaceFromCloud(
+        context: Context,
+        records: List<InstalledPkgRecord>
+    ) {
+        save(
+            context,
+            records
+                .sortedByDescending { it.installedAt }
+                .take(MAX_ITEMS),
+            triggerSync = false
+        )
+    }
+
+    private fun save(
+        context: Context,
+        records: List<InstalledPkgRecord>,
+        triggerSync: Boolean
+    ) {
         val array = JSONArray()
 
         records.forEach { record ->
@@ -117,6 +129,10 @@ object InstallHistoryStore {
             .edit()
             .putString(KEY, array.toString())
             .apply()
+
+        if (triggerSync) {
+            LibrarySyncManager.enqueueSync(context.applicationContext)
+        }
     }
 
     private fun keyFor(item: PkgItem): String {
