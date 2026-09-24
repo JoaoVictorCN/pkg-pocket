@@ -455,7 +455,7 @@ class LibraryActivity : AppCompatActivity() {
             titleView,
             LinearLayout.LayoutParams(
                 0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dp(34),
                 1f
             )
         )
