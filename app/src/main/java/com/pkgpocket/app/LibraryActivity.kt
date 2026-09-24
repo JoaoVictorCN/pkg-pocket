@@ -352,7 +352,12 @@ class LibraryActivity : AppCompatActivity() {
             setPadding(dp(9), dp(8), dp(9), dp(10))
         }
 
-        info.addView(TextView(this).apply {
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+        }
+
+        val titleView = TextView(this).apply {
             text = group.title
             textSize = 12f
             maxLines = 2
@@ -365,7 +370,65 @@ class LibraryActivity : AppCompatActivity() {
                     Color.WHITE
                 )
             )
-        })
+        }
+
+        val overflow = TextView(this).apply {
+            text = "⋮"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            contentDescription = getString(R.string.library_filter_title)
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant,
+                    Color.LTGRAY
+                )
+            )
+            setOnClickListener { anchor ->
+                val menu = android.widget.PopupMenu(
+                    this@LibraryActivity,
+                    anchor
+                )
+                menu.menu.add(0, 101, 0, R.string.library_open_details)
+                menu.menu.add(0, 102, 1, R.string.library_remove_history)
+                menu.setOnMenuItemClickListener { item ->
+                    when (item.itemId) {
+                        101 -> {
+                            startActivity(
+                                Intent(
+                                    this@LibraryActivity,
+                                    GameDetailActivity::class.java
+                                ).putExtra(
+                                    GameDetailActivity.EXTRA_GROUP_KEY,
+                                    group.key
+                                )
+                            )
+                            true
+                        }
+                        102 -> {
+                            confirmRemoveGroup(group)
+                            true
+                        }
+                        else -> false
+                    }
+                }
+                menu.show()
+            }
+        }
+
+        titleRow.addView(
+            titleView,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+        titleRow.addView(
+            overflow,
+            LinearLayout.LayoutParams(dp(28), dp(34))
+        )
+        info.addView(titleRow)
 
         val badge = TextView(this).apply {
             text = badgeText(group)
@@ -683,6 +746,23 @@ class LibraryActivity : AppCompatActivity() {
         val bytes = CoverResolver.resolve(this, item, allowTitleFallback = true)
         LibraryCoverStore.save(this, group.titleId, bytes)
         return bytes
+    }
+
+    private fun confirmRemoveGroup(group: LibraryGameGroup) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.library_remove_history_title)
+            .setMessage(R.string.library_remove_history_body)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.library_remove_history) { _, _ ->
+                InstallHistoryStore.removeGroup(this, group.key)
+                android.widget.Toast.makeText(
+                    this,
+                    R.string.library_removed_history,
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                renderLibrary()
+            }
+            .show()
     }
 
     private fun confirmClearHistory() {

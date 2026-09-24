@@ -371,4 +371,23 @@ Pro: %4$s</string>
     <string name="settings_blocked">blocked</string>
     <string name="settings_optimized">active</string>
     <string name="settings_unrestricted">unrestricted</string>
+    <string name="library_open_details">Open details</string>
+    <string name="library_remove_history">Remove from history</string>
+    <string name="library_remove_history_title">Remove from library?</string>
+    <string name="library_remove_history_body">This removes only the local PKG Pocket history. Nothing is deleted from the PS4.</string>
+    <string name="library_removed_history">Removed from local library.</string>
+    <string name="detail_title">PKG details</string>
+    <string name="detail_version">Version</string>
+    <string name="detail_title_id">Title ID</string>
+    <string name="detail_content_id">Content ID</string>
+    <string name="detail_packages">Recorded PKGs</string>
+    <string name="detail_history">Local install history</string>
+    <string name="detail_remove">Remove from library</string>
+    <string name="detail_game_badge">GAME</string>
+    <string name="detail_update_badge">UPDATE</string>
+    <string name="detail_dlc_badge">DLC</string>
+    <string name="ps4_details_test_rpi">Test RPI connection</string>
+    <string name="ps4_details_test_rpi_ok">Remote Package Installer is reachable on port 12800.</string>
+    <string name="ps4_details_test_rpi_fail">Could not reach Remote Package Installer on port 12800.</string>
+    <string name="ps4_details_rpi_port">RPI port</string>
 </resources>

@@ -42,6 +42,7 @@ class Ps4DetailsActivity : AppCompatActivity() {
         b.ps4DetailsBack.setOnClickListener { finish() }
         b.ps4DetailsDetect.setOnClickListener { detect() }
         b.ps4DetailsEditIp.setOnClickListener { editIp() }
+        b.ps4DetailsTestRpi.setOnClickListener { testRpi() }
         b.ps4DetailsForget.setOnClickListener { forget() }
 
         refresh()
@@ -105,6 +106,41 @@ class Ps4DetailsActivity : AppCompatActivity() {
 
             saveIp(ip)
             b.ps4DetailsDetect.isEnabled = true
+            refresh()
+        }
+    }
+
+    private fun testRpi() {
+        val ip = savedIp()
+        if (ip.isBlank()) {
+            Toast.makeText(
+                this,
+                R.string.ps4_details_no_saved,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        b.ps4DetailsTestRpi.isEnabled = false
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                NetworkUtils.canConnect(ip, port = 12800)
+            }
+
+            b.ps4DetailsTestRpi.isEnabled = true
+
+            AlertDialog.Builder(this@Ps4DetailsActivity)
+                .setTitle(R.string.ps4_details_test_rpi)
+                .setMessage(
+                    if (ok) {
+                        R.string.ps4_details_test_rpi_ok
+                    } else {
+                        R.string.ps4_details_test_rpi_fail
+                    }
+                )
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+
             refresh()
         }
     }
@@ -189,6 +225,8 @@ class Ps4DetailsActivity : AppCompatActivity() {
         }
 
         b.ps4DetailsForget.isEnabled = ip.isNotBlank()
+        b.ps4DetailsEditIp.isEnabled = true
+        b.ps4DetailsTestRpi.isEnabled = ip.isNotBlank()
     }
 
     private fun setDot(hex: String) {

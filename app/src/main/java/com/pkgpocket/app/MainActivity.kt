@@ -702,7 +702,6 @@ class MainActivity : AppCompatActivity() {
         b.clearSelection.visibility = View.GONE
         b.cancelInstall.visibility = View.GONE
         b.retryRpi.visibility = View.GONE
-        b.installAll.isEnabled = true
         b.selectPkgs.isEnabled = true
         b.status.visibility = View.VISIBLE
         b.status.text = summary.ifBlank { getString(R.string.select_pkg_prompt) }
@@ -712,6 +711,7 @@ class MainActivity : AppCompatActivity() {
         b.progress.progress = 0
 
         persistSelection(emptyList())
+        updateInstallActionLabel()
     }
 
     private fun updateSelectionSummary(items: List<PkgItem>) {
@@ -729,8 +729,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateInstallActionLabel() {
-        val selected = PkgRepository.items.filter { it.token in installSelectedTokens }
-        if (selected.isEmpty()) {
+        val selected = PkgRepository.items.filter {
+            it.token in installSelectedTokens
+        }
+
+        val hasSelection = selected.isNotEmpty()
+        val busy =
+            multiSelectMode ||
+                demoJob?.isActive == true ||
+                b.cancelInstall.visibility == View.VISIBLE
+
+        val canInstall = hasSelection && !busy
+        b.installAll.isEnabled = canInstall
+
+        val bg = if (canInstall) {
+            androidx.core.content.ContextCompat.getColor(
+                this,
+                R.color.pp_primary
+            )
+        } else {
+            android.graphics.Color.parseColor("#565B66")
+        }
+
+        val fg = if (canInstall) {
+            androidx.core.content.ContextCompat.getColor(
+                this,
+                R.color.pp_on_primary
+            )
+        } else {
+            android.graphics.Color.parseColor("#ECEEF3")
+        }
+
+        b.installAll.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(bg)
+        b.installAll.setTextColor(fg)
+        b.installAll.iconTint =
+            android.content.res.ColorStateList.valueOf(fg)
+        b.installAll.alpha = if (canInstall) 1f else 0.82f
+
+        if (!hasSelection) {
             b.installAll.text = getString(R.string.install_all)
             return
         }
@@ -832,11 +869,11 @@ class MainActivity : AppCompatActivity() {
 
         if (demoJob?.isActive != true) {
             b.selectPkgs.isEnabled = true
-            b.installAll.isEnabled = true
             b.detectPs4.isEnabled = true
             b.clearSelection.isEnabled = PkgRepository.items.isNotEmpty()
             b.helpButton.isEnabled = true
             b.smartLibraryButton.isEnabled = true
+            updateInstallActionLabel()
         }
     }
 
@@ -1155,7 +1192,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.selectPkgs.isEnabled = enabled
-        b.installAll.isEnabled = enabled
         b.detectPs4.isEnabled = enabled
         b.clearSelection.isEnabled = enabled && PkgRepository.items.isNotEmpty()
         b.helpButton.isEnabled = enabled
@@ -1163,6 +1199,12 @@ class MainActivity : AppCompatActivity() {
         b.diagnosticsButton.isEnabled = enabled
         pkgCards.values.forEach { refs ->
             refs.installCheck.isEnabled = enabled
+        }
+
+        if (enabled) {
+            updateInstallActionLabel()
+        } else {
+            b.installAll.isEnabled = false
         }
     }
 
@@ -1244,7 +1286,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
-            b.installAll.isEnabled = true
+            updateInstallActionLabel()
 
             val duration = String.format(
                 Locale.getDefault(),

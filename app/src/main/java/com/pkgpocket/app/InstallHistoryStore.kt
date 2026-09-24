@@ -78,6 +78,13 @@ object InstallHistoryStore {
         return out.sortedByDescending { it.installedAt }
     }
 
+    fun removeGroup(context: Context, groupKey: String) {
+        val updated = all(context).filterNot {
+            LibraryHistory.groupKey(it) == groupKey
+        }
+        save(context, updated)
+    }
+
     fun clear(context: Context) {
         context
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)

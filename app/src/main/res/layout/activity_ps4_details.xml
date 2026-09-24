@@ -162,6 +162,16 @@
                         app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/ps4DetailsTestRpi"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="62dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/ps4_details_test_rpi"
+                        app:icon="@drawable/ic_analyze_24"
+                        app:iconGravity="textStart" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/ps4DetailsForget"
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="match_parent"
@@ -248,6 +258,23 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:text="@string/ps4_details_storage_unavailable"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/ps4_details_rpi_port"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="12800"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         android:textSize="13sp" />
                 </LinearLayout>
