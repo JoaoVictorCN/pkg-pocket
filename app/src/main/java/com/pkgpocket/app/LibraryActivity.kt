@@ -451,11 +451,14 @@ class LibraryActivity : AppCompatActivity() {
             }
         }
 
+        titleView.minLines = 2
+        titleView.maxLines = 2
+
         titleRow.addView(
             titleView,
             LinearLayout.LayoutParams(
                 0,
-                dp(34),
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
             )
         )
