@@ -303,4 +303,6 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="ps4_info_log">PS4 info: %1$s • firmware %2$s • host %3$s</string>
     <string name="diag_ps4_firmware">Firmware: %1$s</string>
 
+    <string name="pro_status_not_found">No active Pro license was found for this email.</string>
+    <string name="pro_status_revoked">This Pro license is no longer active.</string>
 </resources>

@@ -2812,12 +2812,19 @@ class MainActivity : AppCompatActivity() {
             .ifBlank { ProManager.savedEmail(this) }
 
         if (email.isBlank()) {
+            if (showFeedback) {
+                b.proEmailLayout.error = getString(R.string.pro_invalid_email)
+                b.proEmail.requestFocus()
+            }
             renderProState(ProManager.isProCached(this), null)
             return
         }
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            if (showFeedback) b.proEmailLayout.error = getString(R.string.pro_invalid_email)
+            if (showFeedback) {
+                b.proEmailLayout.error = getString(R.string.pro_invalid_email)
+                b.proEmail.requestFocus()
+            }
             return
         }
 
@@ -2826,9 +2833,32 @@ class MainActivity : AppCompatActivity() {
 
         proSyncJob = lifecycleScope.launch {
             b.proStatusText.text = getString(R.string.pro_status_checking)
+            b.proRefreshButton.isEnabled = false
+
             try {
+                /*
+                 * O endpoint /status faz recuperação automática em sandbox:
+                 * se não houver licença local no backend, ele procura uma
+                 * compra aprovada vinculada ao mesmo e-mail e recria a licença.
+                 */
                 val status = ProManager.refreshStatus(this@MainActivity, email)
-                renderProState(status.active, null)
+
+                val message = if (showFeedback && !status.active) {
+                    when (status.status.lowercase()) {
+                        "pending", "in_process", "in_mediation", "waiting_payment" ->
+                            getString(R.string.pro_status_pending)
+
+                        "revoked", "refunded", "charged_back", "cancelled", "canceled" ->
+                            getString(R.string.pro_status_revoked)
+
+                        else ->
+                            getString(R.string.pro_status_not_found)
+                    }
+                } else {
+                    null
+                }
+
+                renderProState(status.active, message)
             } catch (e: Exception) {
                 renderProState(
                     ProManager.isProCached(this@MainActivity),
@@ -2839,6 +2869,8 @@ class MainActivity : AppCompatActivity() {
                         )
                     } else null
                 )
+            } finally {
+                b.proRefreshButton.isEnabled = true
             }
         }
     }

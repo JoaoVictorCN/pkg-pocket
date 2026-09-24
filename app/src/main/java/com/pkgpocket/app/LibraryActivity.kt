@@ -1,6 +1,7 @@
 package com.pkgpocket.app
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -18,7 +19,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.color.DynamicColors
 import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,8 +30,6 @@ class LibraryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DynamicColors.applyToActivityIfAvailable(this)
-
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(
@@ -67,6 +65,20 @@ class LibraryActivity : AppCompatActivity() {
             textSize = 26f
             minWidth = dp(48)
             cornerRadius = dp(18)
+            backgroundTintList = ColorStateList.valueOf(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorPrimaryContainer,
+                    0
+                )
+            )
+            setTextColor(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorOnPrimaryContainer,
+                    0
+                )
+            )
             setOnClickListener { finish() }
         }
 
@@ -80,10 +92,17 @@ class LibraryActivity : AppCompatActivity() {
         val clear = MaterialButton(this).apply {
             text = getString(R.string.clear_history_short)
             cornerRadius = dp(18)
+            backgroundTintList = ColorStateList.valueOf(
+                MaterialColors.getColor(
+                    this@LibraryActivity,
+                    com.google.android.material.R.attr.colorPrimaryContainer,
+                    0
+                )
+            )
             setTextColor(
                 MaterialColors.getColor(
                     this@LibraryActivity,
-                    com.google.android.material.R.attr.colorError,
+                    com.google.android.material.R.attr.colorOnPrimaryContainer,
                     0
                 )
             )
