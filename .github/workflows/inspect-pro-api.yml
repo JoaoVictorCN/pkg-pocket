@@ -59,7 +59,7 @@ jobs:
               -o /tmp/pkg-pocket-api-worker \
               -w '%{http_code}' \
               -H "$AUTH" \
-              "${BASE}/workers/scripts/pkg-pocket-api/content"
+              "${BASE}/workers/scripts/pkg-pocket-api"
           )"
 
           echo "HTTP: $HTTP"
