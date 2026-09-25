@@ -1,0 +1,105 @@
+name: Inspect PKG Pocket Pro API
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect pkg-pocket-api
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+
+          AUTH="Authorization: Bearer ${CLOUDFLARE_API_TOKEN}"
+          BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+
+          echo "=== Worker metadata ==="
+
+          curl -fsS \
+            -H "$AUTH" \
+            "${BASE}/workers/scripts/pkg-pocket-api/settings" \
+            | jq '{
+                success,
+                errors,
+                messages,
+                result: {
+                  compatibility_date: .result.compatibility_date,
+                  compatibility_flags: .result.compatibility_flags,
+                  usage_model: .result.usage_model,
+                  bindings: [
+                    .result.bindings[]? |
+                    {
+                      name,
+                      type,
+                      namespace_id,
+                      service,
+                      environment
+                    }
+                  ]
+                }
+              }'
+
+          echo
+          echo "=== Downloading deployed Worker ==="
+
+          HTTP="$(
+            curl -sS \
+              -o /tmp/pkg-pocket-api-worker \
+              -w '%{http_code}' \
+              -H "$AUTH" \
+              "${BASE}/workers/scripts/pkg-pocket-api/content"
+          )"
+
+          echo "HTTP: $HTTP"
+
+          if [ "$HTTP" != "200" ]; then
+            echo "Não foi possível obter o conteúdo do Worker."
+            exit 1
+          fi
+
+          echo
+          echo "=== Download complete ==="
+          file /tmp/pkg-pocket-api-worker
+          wc -c /tmp/pkg-pocket-api-worker
+
+          mkdir -p recovered-pro-api
+
+          CONTENT_TYPE="$(
+            file --brief --mime-type /tmp/pkg-pocket-api-worker
+          )"
+
+          if grep -q '^--' /tmp/pkg-pocket-api-worker 2>/dev/null; then
+            echo "Worker retornado como multipart."
+          fi
+
+          cp /tmp/pkg-pocket-api-worker \
+             recovered-pro-api/pkg-pocket-api-deployed.txt
+
+          echo
+          echo "=== Secret-safe source preview ==="
+
+          sed -E \
+            -e 's/(Bearer )[A-Za-z0-9._-]+/\1[REDACTED]/g' \
+            -e 's/(access[_-]?token["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?)[^"'\'',[:space:]]+/\1[REDACTED]/Ig' \
+            -e 's/(secret["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?)[^"'\'',[:space:]]+/\1[REDACTED]/Ig' \
+            /tmp/pkg-pocket-api-worker \
+            | head -n 120 || true
+
+      - name: Upload recovered Worker
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-pocket-api-recovered
+          path: recovered-pro-api/
+          retention-days: 1
