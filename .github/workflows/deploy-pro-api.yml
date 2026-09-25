@@ -68,18 +68,6 @@ jobs:
             npx wrangler secret put STRIPE_SECRET_KEY \
               --config wrangler.toml
 
-      - name: Configure Stripe webhook secret
-        if: ${{ secrets.STRIPE_WEBHOOK_SECRET != '' }}
-        shell: bash
-        env:
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-        run: |
-          set -euo pipefail
-
-          printf '%s' "$STRIPE_WEBHOOK_SECRET" |
-            npx wrangler secret put STRIPE_WEBHOOK_SECRET \
-              --config wrangler.toml
-
       - name: Deploy Pro API
         run: |
           set -euo pipefail
