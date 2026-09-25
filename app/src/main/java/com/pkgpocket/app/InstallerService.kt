@@ -1146,6 +1146,25 @@ class InstallerService : Service() {
         return getString(R.string.duration_minutes_seconds, minutes, seconds)
     }
 
+    private fun diagnosticLocalIpv4(): String {
+        return try {
+            val out = mutableListOf<String>()
+            val all = java.net.NetworkInterface.getNetworkInterfaces()
+            while (all.hasMoreElements()) {
+                val ni = all.nextElement()
+                if (!ni.isUp || ni.isLoopback) continue
+                val aa = ni.inetAddresses
+                while (aa.hasMoreElements()) {
+                    val a = aa.nextElement()
+                    if (a is java.net.Inet4Address && !a.isLoopbackAddress) {
+                        out += "${ni.name}=${a.hostAddress}"
+                    }
+                }
+            }
+            if (out.isEmpty()) "none" else out.joinToString(", ")
+        } catch (t: Throwable) { "error:${t.javaClass.simpleName}" }
+    }
+
     override fun onDestroy() {
         isRunning = false
         server?.stop()

@@ -452,13 +452,13 @@ class LibraryActivity : AppCompatActivity() {
             }
         }
 
-        titleRow.minimumHeight = dp(42)
+        titleRow.minimumHeight = dp(48)
 
         titleRow.addView(
             titleView,
             LinearLayout.LayoutParams(
                 0,
-                dp(42),
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
             )
         )

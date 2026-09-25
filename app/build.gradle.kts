@@ -26,8 +26,8 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 53
-        versionName = "1.0.0-rc.24"
+        versionCode = 54
+        versionName = "1.0.0-beta.2"
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
