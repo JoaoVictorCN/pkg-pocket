@@ -1,0 +1,8 @@
+name = "pkg-pocket-api"
+main = "worker.js"
+compatibility_date = "2026-09-23"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "LICENSES"
+id = "a186d23b5942417ca0c916677e5c31c3"

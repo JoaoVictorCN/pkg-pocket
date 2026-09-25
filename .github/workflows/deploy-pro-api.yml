@@ -1,0 +1,159 @@
+name: Deploy PKG Pocket Pro API
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cloudflare/pro-api
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify required GitHub secrets
+        shell: bash
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || {
+            echo "CLOUDFLARE_API_TOKEN ausente"
+            exit 1
+          }
+
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || {
+            echo "CLOUDFLARE_ACCOUNT_ID ausente"
+            exit 1
+          }
+
+          [ -n "$STRIPE_SECRET_KEY" ] || {
+            echo "STRIPE_SECRET_KEY ausente"
+            exit 1
+          }
+
+          echo "Secrets necessários presentes."
+
+      - name: Validate Worker syntax
+        run: node --check worker.js
+
+      - name: Install Wrangler
+        run: npm install --no-save wrangler@latest
+
+      - name: Configure Stripe secret
+        shell: bash
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+
+          printf '%s' "$STRIPE_SECRET_KEY" |
+            npx wrangler secret put STRIPE_SECRET_KEY \
+              --config wrangler.toml
+
+      - name: Configure Stripe webhook secret
+        if: ${{ secrets.STRIPE_WEBHOOK_SECRET != '' }}
+        shell: bash
+        env:
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+
+          printf '%s' "$STRIPE_WEBHOOK_SECRET" |
+            npx wrangler secret put STRIPE_WEBHOOK_SECRET \
+              --config wrangler.toml
+
+      - name: Deploy Pro API
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --config wrangler.toml
+
+      - name: Health check
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Aguardando Worker..."
+          sleep 5
+
+          curl --fail --silent --show-error \
+            https://pkg-pocket-api.wbjoaovictor.workers.dev/health \
+            | tee health.json
+
+          echo
+          echo "Health recebido."
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const h =
+            JSON.parse(
+              fs.readFileSync(
+                "health.json",
+                "utf8"
+              )
+            );
+
+          if (!h.ok)
+            throw new Error(
+              "Health retornou ok=false"
+            );
+
+          if (h.kv !== "connected")
+            throw new Error(
+              "KV não conectado"
+            );
+
+          if (
+            h.mercado_pago !==
+            "configured"
+          )
+            throw new Error(
+              "Mercado Pago não configurado"
+            );
+
+          if (
+            h.stripe !==
+            "configured"
+          )
+            throw new Error(
+              "Stripe não configurada"
+            );
+
+          console.log(
+            "PKG Pocket Pro API OK"
+          );
+
+          console.log(
+            "Stripe:",
+            h.stripe
+          );
+
+          console.log(
+            "Stripe webhook:",
+            h.stripe_webhook
+          );
+
+          console.log(
+            "Mercado Pago:",
+            h.mercado_pago
+          );
+          NODE
