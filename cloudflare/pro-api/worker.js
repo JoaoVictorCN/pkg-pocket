@@ -219,10 +219,42 @@ async function createStripeCheckout(
     purchaseId,
     email,
     emailHash,
+    country,
   }
 ) {
   const now =
     new Date().toISOString();
+
+  const normalizedCountry =
+    String(country || "")
+      .trim()
+      .toUpperCase();
+
+  const euroCountries =
+    new Set([
+      "AT", "BE", "HR", "CY", "EE",
+      "FI", "FR", "DE", "GR", "IE",
+      "IT", "LV", "LT", "LU", "MT",
+      "NL", "PT", "SK", "SI", "ES",
+    ]);
+
+  const checkoutCurrency =
+    normalizedCountry === "US"
+      ? "usd"
+      : normalizedCountry === "GB"
+        ? "gbp"
+        : euroCountries.has(normalizedCountry)
+          ? "eur"
+          : "brl";
+
+  const checkoutAmount =
+    checkoutCurrency === "usd"
+      ? 199
+      : checkoutCurrency === "gbp"
+        ? 149
+        : checkoutCurrency === "eur"
+          ? 179
+          : 999;
 
   const purchase = {
     version: 3,
@@ -231,8 +263,8 @@ async function createStripeCheckout(
     external_reference: purchaseId,
     email_hash: emailHash,
     status: "creating",
-    amount_minor: STRIPE_AMOUNT,
-    currency: STRIPE_CURRENCY.toUpperCase(),
+    amount_minor: checkoutAmount,
+    currency: checkoutCurrency.toUpperCase(),
     sandbox: true,
     created_at: now,
     updated_at: now,
@@ -261,8 +293,8 @@ async function createStripeCheckout(
       "line_items[0][quantity]":
         "1",
 
-      "adaptive_pricing[enabled]":
-        "false",
+      "currency":
+        checkoutCurrency,
 
       "customer_email":
         email,
@@ -1922,6 +1954,13 @@ async function createCheckout(
       .trim()
       .toLowerCase();
 
+  const requestedCountry =
+    String(
+      body.country || ""
+    )
+      .trim()
+      .toUpperCase();
+
 
   if (requestedProvider === "stripe") {
 
@@ -1933,6 +1972,7 @@ async function createCheckout(
           purchaseId,
           email,
           emailHash,
+          country: requestedCountry,
         }
       );
 

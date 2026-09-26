@@ -57,6 +57,7 @@ object ProManager {
                 JSONObject()
                     .put("email", normalized)
                     .put("provider", provider)
+                    .put("country", country)
 
             val response = request(
                 "POST",
