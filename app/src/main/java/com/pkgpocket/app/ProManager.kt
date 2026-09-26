@@ -49,6 +49,13 @@ object ProManager {
         prefs(context).edit().putString(KEY_PURCHASE_ID, purchaseId).apply()
     }
 
+    fun clearPurchaseId(context: Context) {
+        prefs(context)
+            .edit()
+            .remove(KEY_PURCHASE_ID)
+            .apply()
+    }
+
     suspend fun getQuote(): Quote =
         withContext(Dispatchers.IO) {
             val response = request(

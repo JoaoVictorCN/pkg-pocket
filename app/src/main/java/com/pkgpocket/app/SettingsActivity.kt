@@ -611,10 +611,9 @@ class SettingsActivity : AppCompatActivity() {
 
         proJob?.cancel()
         proJob = lifecycleScope.launch {
-            // Existe uma compra salva: não permita criar outra
-            // enquanto o servidor ainda estiver conciliando.
             b.settingsProStatus.text =
                 getString(R.string.pro_status_checking)
+
             b.settingsProBuy.isEnabled = false
             b.settingsProCheck.isEnabled = false
             b.settingsProEmailLayout.isEnabled = false
@@ -628,17 +627,73 @@ class SettingsActivity : AppCompatActivity() {
 
                 if (result.activated) {
                     refreshPro(true)
-                } else {
-                    renderProPendingState()
+                    return@launch
+                }
+
+                when (
+                    result.status
+                        .trim()
+                        .lowercase()
+                ) {
+                    // Pagamento realmente existente,
+                    // mas ainda aguardando conclusão.
+                    "pending",
+                    "in_process",
+                    "in_mediation",
+                    "waiting_payment" -> {
+                        renderProPendingState()
+                    }
+
+                    // Checkout sem pagamento ou encerrado.
+                    // Libera uma nova tentativa.
+                    "not_found",
+                    "unpaid",
+                    "expired",
+                    "cancelled",
+                    "canceled",
+                    "rejected",
+                    "failed",
+                    "refunded",
+                    "charged_back" -> {
+                        ProManager.clearPurchaseId(
+                            this@SettingsActivity
+                        )
+
+                        renderProState(
+                            false,
+                            getString(
+                                R.string.pro_status_failed
+                            )
+                        )
+
+                        b.settingsProBuy.isEnabled = true
+                        b.settingsProCheck.isEnabled = true
+                        b.settingsProEmailLayout.isEnabled = true
+                    }
+
+                    // Estado desconhecido não deve prender
+                    // o usuário eternamente.
+                    else -> {
+                        ProManager.clearPurchaseId(
+                            this@SettingsActivity
+                        )
+
+                        renderProState(
+                            false,
+                            null
+                        )
+
+                        b.settingsProBuy.isEnabled = true
+                        b.settingsProCheck.isEnabled = true
+                        b.settingsProEmailLayout.isEnabled = true
+                    }
                 }
             } catch (e: CancellationException) {
-                // Cancelamento interno de coroutine não é erro
-                // de pagamento/licença.
                 throw e
             } catch (e: Exception) {
-                // Mantém a compra existente bloqueada.
-                // Uma falha de rede não significa que ela deixou
-                // de existir.
+                // Erro de rede é diferente de pagamento recusado.
+                // Mantemos o ID para tentar novamente depois,
+                // sem permitir checkout duplicado nesse instante.
                 renderProPendingState(
                     getString(
                         R.string.pro_check_error,

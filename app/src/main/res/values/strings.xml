@@ -252,7 +252,7 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="pro_status_checking">Checking Pro status…</string>
     <string name="pro_status_checkout">Opening secure Mercado Pago checkout…</string>
     <string name="pro_status_pending">Payment found • waiting for confirmation…</string>
-    <string name="pro_status_failed">Payment was not confirmed.</string>
+    <string name="pro_status_failed">Payment not completed • you can try again.</string>
     <string name="pro_email_hint">Email for your Pro license</string>
     <string name="pro_buy">Buy Pro</string>
     <string name="pro_check">Check license</string>

@@ -105,7 +105,7 @@
     <string name="pro_status_checking">Verificando status Pro…</string>
     <string name="pro_status_checkout">Abrindo checkout seguro…</string>
     <string name="pro_status_pending">Pagamento encontrado • aguardando confirmação…</string>
-    <string name="pro_status_failed">O pagamento não foi confirmado.</string>
+    <string name="pro_status_failed">Pagamento não concluído • você pode tentar novamente.</string>
     <string name="pro_email_hint">E-mail da sua licença Pro</string>
     <string name="pro_buy">Comprar Pro</string>
     <string name="pro_check">Verificar licença</string>
@@ -208,4 +208,5 @@
     <string name="pro_checkout_open_failed">Não foi possível abrir o checkout Pro: %1$s</string>
     <string name="settings_title">Configurações</string>
     <string name="pro_check_error">Não foi possível verificar o status Pro: %1$s</string>
+    <string name="home_your_pkgs">Seus PKGs</string>
 </resources>

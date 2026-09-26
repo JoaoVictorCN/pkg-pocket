@@ -1088,8 +1088,15 @@ async function reconcileStripe(
         : String(session.id),
 
     status:
-      session.payment_status ||
-      "unknown",
+      session.payment_status === "paid"
+        ? "paid"
+        : session.status === "expired"
+          ? "expired"
+          : session.payment_status === "unpaid"
+            ? "unpaid"
+            : session.payment_status ||
+              session.status ||
+              "unknown",
 
     status_detail: null,
 
@@ -2798,7 +2805,7 @@ async function reconcile(
         false,
 
       status:
-        "waiting_payment",
+        "not_found",
     });
   }
 
