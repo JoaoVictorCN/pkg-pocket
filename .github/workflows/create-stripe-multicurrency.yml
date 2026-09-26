@@ -1,0 +1,47 @@
+name: Create Stripe Multi Currency Price
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Price
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESPONSE="$(
+            curl --fail-with-body -sS \
+              https://api.stripe.com/v1/prices \
+              -u "${STRIPE_SECRET_KEY}:" \
+              -d product=prod_VKIAAbCVZqSXQu \
+              -d currency=brl \
+              -d unit_amount=999 \
+              -d "currency_options[usd][unit_amount]=199" \
+              -d "currency_options[eur][unit_amount]=179" \
+              -d "currency_options[gbp][unit_amount]=149" \
+              -d "metadata[app]=pkg_pocket" \
+              -d "metadata[license]=pro" \
+              -d "metadata[type]=multicurrency"
+          )"
+
+          echo "===== PRICE RESULT ====="
+
+          echo "$RESPONSE" |
+            jq '{
+              id,
+              active,
+              currency,
+              unit_amount,
+              currency_options,
+              product
+            }'
+
+          echo "PRICE_ID=$(echo "$RESPONSE" | jq -r '.id')"
+
+          echo "===== END PRICE RESULT ====="
