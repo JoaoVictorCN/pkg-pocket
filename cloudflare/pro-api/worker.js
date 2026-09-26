@@ -261,6 +261,9 @@ async function createStripeCheckout(
       "line_items[0][quantity]":
         "1",
 
+      "adaptive_pricing[enabled]":
+        "true",
+
       "customer_email":
         email,
 
@@ -357,6 +360,69 @@ async function createStripeCheckout(
 }
 
 
+async function validateStripeCheckoutProduct(
+  env,
+  session
+) {
+  if (!session?.id) {
+    throw new Error(
+      "Checkout Session Stripe inválida"
+    );
+  }
+
+  const lineItems =
+    await stripeRequest(
+      env,
+      `/checkout/sessions/${encodeURIComponent(
+        session.id
+      )}/line_items?limit=10`,
+      {
+        method: "GET",
+      }
+    );
+
+  const items =
+    Array.isArray(lineItems?.data)
+      ? lineItems.data
+      : [];
+
+  if (items.length !== 1) {
+    throw new Error(
+      "Quantidade de itens Stripe inválida"
+    );
+  }
+
+  const item = items[0];
+
+  const priceId =
+    typeof item?.price === "string"
+      ? item.price
+      : String(item?.price?.id || "");
+
+  if (priceId !== STRIPE_PRICE_ID) {
+    throw new Error(
+      "Price Stripe inválido"
+    );
+  }
+
+  if (Number(item?.quantity || 0) !== 1) {
+    throw new Error(
+      "Quantidade Stripe inválida"
+    );
+  }
+
+  return {
+    priceId,
+    amountTotal:
+      Number(session.amount_total || 0),
+
+    currency:
+      String(session.currency || "")
+        .toLowerCase(),
+  };
+}
+
+
 async function processStripeSession(
   env,
   session
@@ -405,22 +471,18 @@ async function processStripeSession(
     );
   }
 
-  if (
-    Number(session.amount_total) !==
-      STRIPE_AMOUNT
-  ) {
-    throw new Error(
-      "Valor Stripe inválido"
+  const checkoutProduct =
+    await validateStripeCheckoutProduct(
+      env,
+      session
     );
-  }
 
   if (
-    String(session.currency || "")
-      .toLowerCase() !==
-      STRIPE_CURRENCY
+    !checkoutProduct.amountTotal ||
+    !checkoutProduct.currency
   ) {
     throw new Error(
-      "Moeda Stripe inválida"
+      "Valor/moeda Stripe inválidos"
     );
   }
 
@@ -497,6 +559,16 @@ async function processStripeSession(
     stripe_session_id:
       session.id,
 
+    amount_minor:
+      checkoutProduct.amountTotal,
+
+    currency:
+      checkoutProduct.currency
+        .toUpperCase(),
+
+    stripe_price_id:
+      checkoutProduct.priceId,
+
     provider:
       "stripe",
 
@@ -525,6 +597,17 @@ async function processStripeSession(
       payment_status: "paid",
       stripe_session_id:
         session.id,
+
+      amount_minor:
+        checkoutProduct.amountTotal,
+
+      currency:
+        checkoutProduct.currency
+          .toUpperCase(),
+
+      stripe_price_id:
+        checkoutProduct.priceId,
+
       approved_at:
         purchase.approved_at ||
         now,
@@ -2981,7 +3064,70 @@ function returnPage({
 
   retryUrl = "",
 
+  provider = "mercadopago",
+
+  amountMinor = null,
+
+  currency = null,
+
 }) {
+
+  const paymentProvider =
+    provider === "stripe"
+      ? "stripe"
+      : "mercadopago";
+
+  const providerName =
+    paymentProvider === "stripe"
+      ? "Stripe"
+      : "Mercado Pago";
+
+  const displayCurrency =
+    String(
+      currency ||
+      (
+        paymentProvider === "stripe"
+          ? STRIPE_CURRENCY
+          : CURRENCY
+      )
+    ).toUpperCase();
+
+  const fallbackMinor =
+    paymentProvider === "stripe"
+      ? STRIPE_AMOUNT
+      : Math.round(PRICE * 100);
+
+  const parsedMinor =
+    Number(amountMinor);
+
+  const displayAmountMinor =
+    Number.isFinite(parsedMinor) &&
+    parsedMinor >= 0
+      ? parsedMinor
+      : fallbackMinor;
+
+  let displayPrice;
+
+  try {
+    displayPrice =
+      new Intl.NumberFormat(
+        paymentProvider === "mercadopago"
+          ? "pt-BR"
+          : undefined,
+        {
+          style: "currency",
+          currency: displayCurrency,
+        }
+      ).format(
+        displayAmountMinor / 100
+      );
+  } catch {
+    displayPrice =
+      `${displayCurrency} ${(
+        displayAmountMinor / 100
+      ).toFixed(2)}`;
+  }
+
 
   const isSuccess =
     state === "success" &&
@@ -3170,7 +3316,7 @@ function returnPage({
 
       ? `
 <span class="tiny">
-  Status Mercado Pago:
+  Status ${escapeHtml(providerName)}:
   ${escapeHtml(
     paymentStatus
   )}
@@ -4363,7 +4509,7 @@ h1 {
 
 
       <div class="price">
-        R$ 9,99
+        ${escapeHtml(displayPrice)}
       </div>
 
 
@@ -4468,7 +4614,7 @@ h1 {
     com segurança pelo
 
     <strong>
-      Mercado Pago
+      ${escapeHtml(providerName)}
     </strong>.
 
   </div>
@@ -4488,6 +4634,219 @@ h1 {
    AUTOMATIC RETURN RECONCILE
    ========================================================= */
 
+async function handleStripePaymentReturn(
+  request,
+  env,
+  routeState
+) {
+
+  const url =
+    new URL(
+      request.url
+    );
+
+  const purchaseId =
+    String(
+      url.searchParams.get(
+        "purchase_id"
+      ) || ""
+    );
+
+  const sessionId =
+    String(
+      url.searchParams.get(
+        "session_id"
+      ) || ""
+    );
+
+
+  const render = ({
+    state,
+    activated = false,
+    paymentStatus = "",
+    amountMinor = null,
+    currency = null,
+  }) =>
+    returnPage({
+      state,
+      activated,
+      purchaseId,
+      paymentStatus,
+      retryUrl:
+        request.url,
+      provider:
+        "stripe",
+      amountMinor,
+      currency,
+    });
+
+
+  if (
+    routeState ===
+      "failure"
+  ) {
+
+    return render({
+      state:
+        "failure",
+
+      paymentStatus:
+        "checkout cancelado",
+    });
+  }
+
+
+  if (
+    !purchaseId.startsWith(
+      "pp_"
+    ) ||
+
+    !sessionId.startsWith(
+      "cs_"
+    )
+  ) {
+
+    return render({
+      state:
+        "pending",
+
+      paymentStatus:
+        "sessão de pagamento ausente",
+    });
+  }
+
+
+  try {
+
+    const session =
+      await stripeRequest(
+        env,
+
+        `/checkout/sessions/${encodeURIComponent(
+          sessionId
+        )}`,
+
+        {
+          method:
+            "GET",
+        }
+      );
+
+
+    const sessionPurchaseId =
+      String(
+        session?.metadata
+          ?.purchase_id ||
+
+        session
+          ?.client_reference_id ||
+
+        ""
+      );
+
+
+    if (
+      sessionPurchaseId !==
+        purchaseId
+    ) {
+
+      throw new Error(
+        "Checkout Session não pertence à compra"
+      );
+    }
+
+
+    const result =
+      await processStripeSession(
+        env,
+        session
+      );
+
+
+    const paymentStatus =
+      String(
+        session
+          ?.payment_status ||
+        "unknown"
+      )
+        .toLowerCase();
+
+
+    const amountMinor =
+      Number(
+        session
+          ?.amount_total ||
+        0
+      );
+
+
+    const currency =
+      String(
+        session?.currency ||
+        STRIPE_CURRENCY
+      )
+        .toUpperCase();
+
+
+    if (
+      paymentStatus ===
+        "paid" &&
+
+      result.activated
+    ) {
+
+      return render({
+        state:
+          "success",
+
+        activated:
+          true,
+
+        paymentStatus,
+
+        amountMinor,
+
+        currency,
+      });
+    }
+
+
+    return render({
+      state:
+        "pending",
+
+      activated:
+        Boolean(
+          result.activated
+        ),
+
+      paymentStatus,
+
+      amountMinor,
+
+      currency,
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Stripe return confirmation error",
+      error
+    );
+
+
+    return render({
+      state:
+        "pending",
+
+      paymentStatus:
+        "confirmação temporariamente indisponível",
+    });
+  }
+}
+
+
 async function handlePaymentReturn(
   request,
   env,
@@ -4498,6 +4857,29 @@ async function handlePaymentReturn(
     new URL(
       request.url
     );
+
+
+  const provider =
+    String(
+      url.searchParams.get(
+        "provider"
+      ) || ""
+    )
+      .toLowerCase();
+
+
+  if (
+    provider ===
+      "stripe"
+  ) {
+
+    return handleStripePaymentReturn(
+      request,
+      env,
+      routeState
+    );
+  }
+
 
 
   /*
