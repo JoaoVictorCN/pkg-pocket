@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_subtitle">Instale seus PKGs no PS4</string>
     <string name="select_pkgs">Selecionar PKGs</string>
@@ -201,4 +201,28 @@
     <string name="pro_opening_stripe">Abrindo checkout seguro da Stripe…</string>
     <string name="pro_opening_checkout">Abrindo checkout seguro…</string>
     <string name="library_local_note">Jogos instalados pelo PKG Pocket • histórico local</string>
+    <string name="ps4_model_generic">PlayStation 4 • modelo indisponível</string>
+    <string name="ps4_details_storage_unavailable">Não informado pelo Remote Package Installer</string>
+    <string name="ps4_details_rpi_port">Porta RPI</string>
+    <string name="faq_body">O que o PKG Pocket faz?
+Ele envia PKGs já armazenados no seu dispositivo Android para um PS4 através do Remote Package Installer.
+
+O que é necessário?
+O celular e o PS4 devem estar na mesma rede local. O PS4 deve estar ligado com um ambiente HEN/GoldHEN compatível e com o Remote Package Installer aberto.
+
+Posso selecionar um jogo, atualização e DLCs juntos?
+Sim. O PKG Pocket identifica os pacotes e organiza a fila como JOGO → ATUALIZAÇÃO → DLC.
+
+O PKG Pocket fornece jogos ou PKGs?
+Não. O aplicativo funciona apenas com arquivos selecionados pelo usuário.
+
+O que significa “Instalado anteriormente”?
+Significa que esse pacote foi concluído anteriormente com sucesso através do PKG Pocket. É uma entrada do histórico local, não uma garantia em tempo real de que o pacote ainda esteja instalado no PS4.
+
+De onde vêm as capas que estão faltando?
+O aplicativo usa primeiro a capa contida no PKG. A busca pela internet só é usada quando o PKG não contém uma capa.
+
+Precisa de alguma alteração, recurso ou correção de bug?
+Use “Enviar feedback” abaixo para abrir uma issue pré-preenchida no GitHub.</string>
+    <string name="pro_checkout_open_failed">Não foi possível abrir o checkout Pro: %1$s</string>
 </resources>
