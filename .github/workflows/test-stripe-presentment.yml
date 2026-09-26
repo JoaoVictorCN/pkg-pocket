@@ -1,0 +1,42 @@
+name: Test Stripe Presentment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test Stripe Adaptive Pricing
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESPONSE="$(
+            curl --fail-with-body -sS \
+              https://api.stripe.com/v1/checkout/sessions \
+              -u "${STRIPE_SECRET_KEY}:" \
+              -d mode=payment \
+              -d "line_items[0][price]=price_1UJlWlA9MXYST9EgrhTAD2uR" \
+              -d "line_items[0][quantity]=1" \
+              -d "adaptive_pricing[enabled]=true" \
+              --data-urlencode "success_url=https://example.com/success" \
+              --data-urlencode "cancel_url=https://example.com/cancel"
+          )"
+
+          echo "===== STRIPE RESULT ====="
+
+          echo "$RESPONSE" | jq '{
+            id,
+            amount_total,
+            currency,
+            adaptive_pricing,
+            presentment_details,
+            payment_status,
+            url_created: (.url != null)
+          }'
+
+          echo "===== END STRIPE RESULT ====="
