@@ -3200,6 +3200,15 @@ function logoSvg() {
    RETURN PAGE UI
    ========================================================= */
 
+function returnLanguage(country) {
+  return String(country || "")
+    .trim()
+    .toUpperCase() === "BR"
+      ? "pt-BR"
+      : "en";
+}
+
+
 function returnPage({
 
   state,
@@ -3218,7 +3227,15 @@ function returnPage({
 
   currency = null,
 
+  country = "",
+
 }) {
+
+  const language =
+    returnLanguage(country);
+
+  const isPtBr =
+    language === "pt-BR";
 
   const paymentProvider =
     provider === "stripe"
@@ -3259,9 +3276,9 @@ function returnPage({
   try {
     displayPrice =
       new Intl.NumberFormat(
-        paymentProvider === "mercadopago"
+        isPtBr
           ? "pt-BR"
-          : undefined,
+          : "en-US",
         {
           style: "currency",
           currency: displayCurrency,
@@ -3292,51 +3309,75 @@ function returnPage({
 
 
   const title =
-    isSuccess
-
-      ? "Pagamento concluído"
-
-      : isPending
-
-        ? "Confirmando pagamento"
-
-        : "Pagamento não concluído";
+    isPtBr
+      ? (
+          isSuccess
+            ? "Pagamento concluído"
+            : isPending
+              ? "Confirmando pagamento"
+              : "Pagamento não concluído"
+        )
+      : (
+          isSuccess
+            ? "Payment complete"
+            : isPending
+              ? "Confirming payment"
+              : "Payment not completed"
+        );
 
 
   const subtitle =
-    isSuccess
-
-      ? `Sua licença Pro foi confirmada diretamente com o ${providerName}.`
-
-      : isPending
-
-        ? "O pagamento foi recebido, mas a confirmação da licença ainda está em processamento."
-
-        : "O pagamento não foi concluído. Nenhuma licença foi ativada.";
+    isPtBr
+      ? (
+          isSuccess
+            ? `Sua licença Pro foi confirmada diretamente com o ${providerName}.`
+            : isPending
+              ? "O pagamento foi recebido, mas a confirmação da licença ainda está em processamento."
+              : "O pagamento não foi concluído. Nenhuma licença foi ativada."
+        )
+      : (
+          isSuccess
+            ? `Your Pro license was confirmed directly with ${providerName}.`
+            : isPending
+              ? "Your payment was received, but license confirmation is still being processed."
+              : "The payment was not completed. No license was activated."
+        );
 
 
   const statusTitle =
-    isSuccess
-
-      ? "Licença Pro ativada"
-
-      : isPending
-
-        ? "Confirmação em andamento"
-
-        : "Licença não ativada";
+    isPtBr
+      ? (
+          isSuccess
+            ? "Licença Pro ativada"
+            : isPending
+              ? "Confirmação em andamento"
+              : "Licença não ativada"
+        )
+      : (
+          isSuccess
+            ? "Pro license activated"
+            : isPending
+              ? "Confirmation in progress"
+              : "License not activated"
+        );
 
 
   const statusText =
-    isSuccess
-
-      ? `Pagamento confirmado via ${providerName}.`
-
-      : isPending
-
-        ? "Você pode atualizar esta página em alguns segundos."
-
-        : "Você pode voltar ao aplicativo e tentar novamente.";
+    isPtBr
+      ? (
+          isSuccess
+            ? `Pagamento confirmado via ${providerName}.`
+            : isPending
+              ? "Você pode atualizar esta página em alguns segundos."
+              : "Você pode voltar ao aplicativo e tentar novamente."
+        )
+      : (
+          isSuccess
+            ? `Payment confirmed via ${providerName}.`
+            : isPending
+              ? "You can refresh this page in a few seconds."
+              : "You can return to the app and try again."
+        );
 
 
   const icon =
@@ -3450,7 +3491,9 @@ function returnPage({
 
   </svg>
 
-  Atualizar confirmação
+  ${isPtBr
+    ? "Atualizar confirmação"
+    : "Refresh confirmation"}
 
 </a>
 `
@@ -3464,7 +3507,8 @@ function returnPage({
 
       ? `
 <span class="tiny">
-  Status ${escapeHtml(providerName)}:
+  ${isPtBr ? "Status" : "Status"}
+  ${escapeHtml(providerName)}:
   ${escapeHtml(
     paymentStatus
   )}
@@ -3477,7 +3521,7 @@ function returnPage({
   return html(`
 <!doctype html>
 
-<html lang="pt-BR">
+<html lang="${escapeHtml(language)}">
 
 <head>
 
@@ -4742,7 +4786,9 @@ h1 {
         </svg>
 
 
-        Voltar ao aplicativo
+        ${isPtBr
+    ? "Voltar ao aplicativo"
+    : "Return to app"}
 
       </a>
 
@@ -4808,14 +4854,22 @@ async function handleStripePaymentReturn(
     );
 
 
-  const render = ({
+  const render = async ({
     state,
     activated = false,
     paymentStatus = "",
     amountMinor = null,
     currency = null,
-  }) =>
-    returnPage({
+  }) => {
+    const purchase =
+      purchaseId
+        ? await env.LICENSES.get(
+            `purchase:${purchaseId}`,
+            "json"
+          )
+        : null;
+
+    return returnPage({
       state,
       activated,
       purchaseId,
@@ -4826,7 +4880,10 @@ async function handleStripePaymentReturn(
         "stripe",
       amountMinor,
       currency,
+      country:
+        purchase?.country || "",
     });
+  };
 
 
   if (
@@ -4834,7 +4891,7 @@ async function handleStripePaymentReturn(
       "failure"
   ) {
 
-    return render({
+    return await render({
       state:
         "failure",
 
@@ -4854,7 +4911,7 @@ async function handleStripePaymentReturn(
     )
   ) {
 
-    return render({
+    return await render({
       state:
         "pending",
 
@@ -4949,7 +5006,7 @@ async function handleStripePaymentReturn(
       result.activated
     ) {
 
-      return render({
+      return await render({
         state:
           "success",
 
@@ -4965,7 +5022,7 @@ async function handleStripePaymentReturn(
     }
 
 
-    return render({
+    return await render({
       state:
         "pending",
 
@@ -4990,7 +5047,7 @@ async function handleStripePaymentReturn(
     );
 
 
-    return render({
+    return await render({
       state:
         "pending",
 
@@ -5100,6 +5157,8 @@ async function handlePaymentReturn(
 
       retryUrl:
         request.url,
+      country:
+        "BR",
     });
   }
 
@@ -5251,6 +5310,8 @@ async function handlePaymentReturn(
 
       retryUrl:
         request.url,
+      country:
+        "BR",
     });
 
 
@@ -5288,6 +5349,8 @@ async function handlePaymentReturn(
 
       retryUrl:
         request.url,
+      country:
+        "BR",
     });
   }
 }
