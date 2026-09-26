@@ -200,4 +200,5 @@
     <string name="pro_opening_mercadopago">Abrindo checkout seguro do Mercado Pago…</string>
     <string name="pro_opening_stripe">Abrindo checkout seguro da Stripe…</string>
     <string name="pro_opening_checkout">Abrindo checkout seguro…</string>
+    <string name="library_local_note">Jogos instalados pelo PKG Pocket • histórico local</string>
 </resources>
