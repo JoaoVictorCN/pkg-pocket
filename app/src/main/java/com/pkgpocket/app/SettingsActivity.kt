@@ -20,6 +20,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivitySettingsBinding
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -390,8 +391,12 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         if (pendingPurchase.isNotBlank()) {
+            lastProSyncElapsed =
+                SystemClock.elapsedRealtime()
             reconcilePurchase(pendingPurchase)
         } else if (email.isNotBlank()) {
+            lastProSyncElapsed =
+                SystemClock.elapsedRealtime()
             refreshPro(false)
         }
     }
@@ -626,6 +631,10 @@ class SettingsActivity : AppCompatActivity() {
                 } else {
                     renderProPendingState()
                 }
+            } catch (e: CancellationException) {
+                // Cancelamento interno de coroutine não é erro
+                // de pagamento/licença.
+                throw e
             } catch (e: Exception) {
                 // Mantém a compra existente bloqueada.
                 // Uma falha de rede não significa que ela deixou
