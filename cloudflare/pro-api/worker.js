@@ -3163,7 +3163,7 @@ function returnPage({
   const subtitle =
     isSuccess
 
-      ? "Sua licença Pro foi confirmada diretamente com o Mercado Pago."
+      ? `Sua licença Pro foi confirmada diretamente com o ${providerName}.`
 
       : isPending
 
@@ -3187,7 +3187,7 @@ function returnPage({
   const statusText =
     isSuccess
 
-      ? "Pagamento confirmado via Mercado Pago."
+      ? `Pagamento confirmado via ${providerName}.`
 
       : isPending
 
