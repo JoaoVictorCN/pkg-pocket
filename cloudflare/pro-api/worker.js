@@ -2559,9 +2559,14 @@ async function reconcile(
 
     try {
 
-      return await reconcileStripe(
-        env,
-        purchase
+      const stripeResult =
+        await reconcileStripe(
+          env,
+          purchase
+        );
+
+      return json(
+        stripeResult
       );
 
     } catch (error) {
