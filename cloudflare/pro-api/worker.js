@@ -1846,6 +1846,81 @@ async function processPayment(
    CHECKOUT PRO - PREFERENCES
    ========================================================= */
 
+function proQuote(request) {
+  const detectedCountry =
+    String(
+      request.cf?.country || ""
+    )
+      .trim()
+      .toUpperCase();
+
+  const country =
+    /^[A-Z]{2}$/.test(detectedCountry)
+      ? detectedCountry
+      : "XX";
+
+  if (country === "BR") {
+    return json({
+      ok: true,
+      provider: "mercadopago",
+      country,
+      currency: "BRL",
+      amount_minor: 999,
+    });
+  }
+
+  if (country === "US") {
+    return json({
+      ok: true,
+      provider: "stripe",
+      country,
+      currency: "USD",
+      amount_minor: 199,
+    });
+  }
+
+  if (country === "GB") {
+    return json({
+      ok: true,
+      provider: "stripe",
+      country,
+      currency: "GBP",
+      amount_minor: 149,
+    });
+  }
+
+  const euroCountries =
+    new Set([
+      "AT", "BE", "HR", "CY", "EE",
+      "FI", "FR", "DE", "GR", "IE",
+      "IT", "LV", "LT", "LU", "MT",
+      "NL", "PT", "SK", "SI", "ES",
+    ]);
+
+  if (euroCountries.has(country)) {
+    return json({
+      ok: true,
+      provider: "stripe",
+      country,
+      currency: "EUR",
+      amount_minor: 179,
+    });
+  }
+
+  /*
+   * Fallback internacional atual.
+   * Mantém coerência com o Price Stripe.
+   */
+  return json({
+    ok: true,
+    provider: "stripe",
+    country,
+    currency: "BRL",
+    amount_minor: 999,
+  });
+}
+
+
 async function createCheckout(
   request,
   env
@@ -5320,6 +5395,21 @@ export default {
               ? "configured"
               : "missing",
         });
+      }
+
+
+      /* ---------- PRO QUOTE ---------- */
+
+      if (
+        method === "GET" &&
+
+        url.pathname ===
+          "/v1/pro/quote"
+      ) {
+
+        return proQuote(
+          request
+        );
       }
 
 

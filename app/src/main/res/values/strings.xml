@@ -414,4 +414,10 @@ Pro: %4$s</string>
     <string name="settings_rpi_port_default">Use 12800</string>
     <string name="settings_rpi_port_invalid">Enter a port between 1 and 65535.</string>
     <string name="settings_rpi_port_saved">RPI port set to %1$d</string>
+
+    <string name="pro_preparing_checkout">Preparing secure checkout…</string>
+    <string name="pro_opening_mercadopago">Opening secure Mercado Pago checkout…</string>
+    <string name="pro_opening_stripe">Opening secure Stripe checkout…</string>
+    <string name="pro_opening_checkout">Opening secure checkout…</string>
+
 </resources>

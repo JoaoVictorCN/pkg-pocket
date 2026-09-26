@@ -27,6 +27,12 @@ object ProManager {
         val currency: String,
         val amountMinor: Int
     )
+    data class Quote(
+        val provider: String,
+        val country: String,
+        val currency: String,
+        val amountMinor: Int
+    )
     data class Status(val active: Boolean, val status: String)
     data class Reconcile(val activated: Boolean, val status: String, val paymentId: String?)
 
@@ -41,6 +47,37 @@ object ProManager {
 
     fun savePurchaseId(context: Context, purchaseId: String) {
         prefs(context).edit().putString(KEY_PURCHASE_ID, purchaseId).apply()
+    }
+
+    suspend fun getQuote(): Quote =
+        withContext(Dispatchers.IO) {
+            val response = request(
+                "GET",
+                "$apiBase/v1/pro/quote"
+            )
+
+            Quote(
+                provider = response.optString("provider"),
+                country = response.optString("country"),
+                currency = response.optString("currency"),
+                amountMinor = response.optInt("amount_minor", 0)
+            )
+        }
+
+    fun formatPrice(currency: String, amountMinor: Int): String {
+        val amount = amountMinor / 100.0
+
+        return when (currency.uppercase()) {
+            "BRL" -> "R$ %.2f".format(Locale.US, amount).replace(".", ",")
+            "EUR" -> "€%.2f".format(Locale.US, amount)
+            "USD" -> "$%.2f".format(Locale.US, amount)
+            "GBP" -> "£%.2f".format(Locale.US, amount)
+            else -> "%.2f %s".format(
+                Locale.US,
+                amount,
+                currency.uppercase()
+            )
+        }
     }
 
     suspend fun createCheckout(context: Context, email: String): Checkout =

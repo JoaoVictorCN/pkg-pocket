@@ -353,22 +353,19 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupPro() {
-        b.settingsProPrice.text =
-            when (Locale.getDefault().country.uppercase()) {
-                "BR" -> "R$ 9,99"
+        b.settingsProPrice.text = "…"
 
-                "US" -> "$1.99"
-
-                "GB" -> "£1.49"
-
-                "IT", "DE", "FR", "ES", "PT",
-                "NL", "BE", "AT", "IE", "FI",
-                "GR", "LU", "SK", "SI", "EE",
-                "LV", "LT", "CY", "MT", "HR" ->
-                    "€1.79"
-
-                else -> "R$ 9,99"
+        lifecycleScope.launch {
+            runCatching {
+                ProManager.getQuote()
+            }.onSuccess { quote ->
+                b.settingsProPrice.text =
+                    ProManager.formatPrice(
+                        quote.currency,
+                        quote.amountMinor
+                    )
             }
+        }
 
         val email = ProManager.savedEmail(this)
         if (email.isNotBlank()) b.settingsProEmail.setText(email)
@@ -394,7 +391,7 @@ class SettingsActivity : AppCompatActivity() {
         b.settingsProBuy.isEnabled = false
         b.settingsProCheck.isEnabled = false
         b.settingsProStatus.text =
-            "Preparando checkout seguro..."
+            getString(R.string.pro_preparing_checkout)
 
         proJob?.cancel()
         proJob = lifecycleScope.launch {
@@ -402,30 +399,23 @@ class SettingsActivity : AppCompatActivity() {
                 val checkout =
                     ProManager.createCheckout(this@SettingsActivity, email)
 
-                val amount =
-                    checkout.amountMinor / 100.0
-
                 b.settingsProPrice.text =
-                    when (checkout.currency.uppercase()) {
-                        "BRL" -> "R$ %.2f".format(amount).replace(".", ",")
-                        "EUR" -> "€%.2f".format(amount)
-                        "USD" -> "$%.2f".format(amount)
-                        "GBP" -> "£%.2f".format(amount)
-                        else -> "%.2f %s".format(
-                            amount,
-                            checkout.currency.uppercase()
-                        )
-                    }
+                    ProManager.formatPrice(
+                        checkout.currency,
+                        checkout.amountMinor
+                    )
 
                 b.settingsProStatus.text =
-                    when (checkout.provider.lowercase()) {
-                        "mercadopago" ->
-                            "Abrindo checkout seguro do Mercado Pago..."
-                        "stripe" ->
-                            "Opening secure Stripe checkout..."
-                        else ->
-                            "Abrindo checkout seguro..."
-                    }
+                    getString(
+                        when (checkout.provider.lowercase()) {
+                            "mercadopago" ->
+                                R.string.pro_opening_mercadopago
+                            "stripe" ->
+                                R.string.pro_opening_stripe
+                            else ->
+                                R.string.pro_opening_checkout
+                        }
+                    )
 
                 CustomTabsIntent.Builder()
                     .setShowTitle(true)
