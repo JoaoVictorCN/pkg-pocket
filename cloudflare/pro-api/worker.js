@@ -2,10 +2,10 @@ const MP_API = "https://api.mercadopago.com";
 const STRIPE_API = "https://api.stripe.com/v1";
 
 const STRIPE_PRICE_ID =
-  "price_1UJda1A9MXYST9Eg0WGP5bfm";
+  "price_1UJlWlA9MXYST9EgrhTAD2uR";
 
-const STRIPE_AMOUNT = 199;
-const STRIPE_CURRENCY = "usd";
+const STRIPE_AMOUNT = 999;
+const STRIPE_CURRENCY = "brl";
 
 
 const SANDBOX = true;
