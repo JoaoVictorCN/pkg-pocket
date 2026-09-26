@@ -4777,16 +4777,22 @@ async function handleStripePaymentReturn(
         .toLowerCase();
 
 
+    const presentment =
+      session?.presentment_details ||
+      null;
+
+
     const amountMinor =
       Number(
-        session
-          ?.amount_total ||
+        presentment?.presentment_amount ??
+        session?.amount_total ??
         0
       );
 
 
     const currency =
       String(
+        presentment?.presentment_currency ||
         session?.currency ||
         STRIPE_CURRENCY
       )
