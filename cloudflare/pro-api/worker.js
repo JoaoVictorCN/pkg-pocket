@@ -262,6 +262,7 @@ async function createStripeCheckout(
     flow: "checkout_session",
     external_reference: purchaseId,
     email_hash: emailHash,
+    country: normalizedCountry,
     status: "creating",
     amount_minor: checkoutAmount,
     currency: checkoutCurrency.toUpperCase(),
@@ -1941,28 +1942,37 @@ async function createCheckout(
 
 
   /*
-   * Compatibilidade:
-   * sem provider = Mercado Pago.
+   * O servidor é a autoridade para região de pagamento.
    *
-   * App internacional envia:
-   * provider: "stripe"
+   * request.cf.country é determinado pela Cloudflare
+   * a partir da conexão que chegou ao Worker.
+   *
+   * provider/country enviados pelo APK NÃO decidem
+   * mais provedor ou moeda.
    */
-  const requestedProvider =
+  const detectedCountry =
     String(
-      body.provider || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  const requestedCountry =
-    String(
-      body.country || ""
+      request.cf?.country || ""
     )
       .trim()
       .toUpperCase();
 
+  /*
+   * Se a Cloudflare não fornecer país, usamos Stripe
+   * como fallback internacional em vez de assumir BR.
+   */
+  const paymentCountry =
+    /^[A-Z]{2}$/.test(detectedCountry)
+      ? detectedCountry
+      : "XX";
 
-  if (requestedProvider === "stripe") {
+  const paymentProvider =
+    paymentCountry === "BR"
+      ? "mercadopago"
+      : "stripe";
+
+
+  if (paymentProvider === "stripe") {
 
     try {
 
@@ -1972,7 +1982,7 @@ async function createCheckout(
           purchaseId,
           email,
           emailHash,
-          country: requestedCountry,
+          country: paymentCountry,
         }
       );
 
@@ -2026,6 +2036,9 @@ async function createCheckout(
 
     email_hash:
       emailHash,
+
+    country:
+      paymentCountry,
 
     status:
       "creating",
