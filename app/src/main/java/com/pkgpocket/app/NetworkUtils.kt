@@ -8,6 +8,26 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 object NetworkUtils {
+    data class RpiEndpoint(
+        val ip: String,
+        val port: Int
+    )
+
+    private val RPI_PORTS = listOf(
+        12800,
+        12801,
+        12802,
+        12803,
+        12804,
+        12805,
+        12806,
+        12807,
+        12808,
+        12809,
+        12810
+    )
+
+
     fun localIpv4(): String? {
         val all = NetworkInterface.getNetworkInterfaces() ?: return null
         while (all.hasMoreElements()) {
@@ -22,7 +42,7 @@ object NetworkUtils {
         return null
     }
 
-    fun findRpi(port: Int = 12800): String? {
+    private fun findRpiOnPort(port: Int): String? {
         val local = localIpv4() ?: return null
         val prefix = local.substringBeforeLast('.')
         val found = AtomicReference<String?>(null)
@@ -44,6 +64,35 @@ object NetworkUtils {
         pool.shutdownNow()
         return found.get()
     }
+
+    /**
+     * Detecta automaticamente o endpoint do RPI.
+     *
+     * 12800 continua tendo prioridade para manter a detecção
+     * da beta tão rápida quanto antes.
+     */
+    fun findRpiEndpoint(): RpiEndpoint? {
+        for (port in RPI_PORTS) {
+            val ip = findRpiOnPort(port)
+            if (ip != null) {
+                return RpiEndpoint(ip, port)
+            }
+        }
+        return null
+    }
+
+    /**
+     * Compatibilidade com chamadas antigas.
+     */
+    fun findRpi(port: Int = 12800): String? {
+        return if (port != 12800) {
+            findRpiOnPort(port)
+        } else {
+            findRpiEndpoint()?.ip
+        }
+    }
+
+
 
     fun canConnect(ip: String, port: Int = 12800, timeoutMs: Int = 700): Boolean = try {
         Socket().use { it.connect(InetSocketAddress(ip, port), timeoutMs) }

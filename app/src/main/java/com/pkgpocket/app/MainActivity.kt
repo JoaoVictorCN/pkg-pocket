@@ -384,11 +384,30 @@ class MainActivity : AppCompatActivity() {
                 addLog(searching)
                 showPs4IdentifyingState()
 
-                val ip = withContext(Dispatchers.IO) { NetworkUtils.findRpi() }
-                if (ip != null) {
+                val endpoint = withContext(Dispatchers.IO) {
+                    NetworkUtils.findRpiEndpoint()
+                }
+
+                if (endpoint != null) {
+                    val ip = endpoint.ip
+                    val port = endpoint.port
+
+                    getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+                        .edit()
+                        .putString("last_ps4_ip", ip)
+                        .putInt("rpi_port", port)
+                        .apply()
+
+                    RpiClient.setPort(port)
+
                     b.ps4Ip.setText(ip)
                     refreshPs4Info(ip, knownRpiReachable = true)
-                    val found = getString(R.string.rpi_found, ip)
+
+                    val found = getString(
+                        R.string.rpi_found_with_port,
+                        ip,
+                        port
+                    )
                     addLog(found)
                     Toast.makeText(
                         this@MainActivity,
@@ -2990,7 +3009,12 @@ class MainActivity : AppCompatActivity() {
 
         if (!::b.isInitialized) return
 
-        val latestSavedIp = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+        val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+
+        val savedRpiPort = prefs.getInt("rpi_port", 12800)
+        RpiClient.setPort(savedRpiPort)
+
+        val latestSavedIp = prefs
             .getString("last_ps4_ip", "")
             .orEmpty()
 

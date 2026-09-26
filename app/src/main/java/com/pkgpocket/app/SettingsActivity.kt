@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Patterns
 import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -63,6 +64,10 @@ class SettingsActivity : AppCompatActivity() {
             showAppDiagnostics()
         }
 
+        b.settingsRpiPort.setOnClickListener {
+            showRpiPortDialog()
+        }
+
         val prefs = getSharedPreferences("pkg_pocket", MODE_PRIVATE)
 
         b.settingsFaq.setOnClickListener {
@@ -93,6 +98,102 @@ class SettingsActivity : AppCompatActivity() {
 
         setupPro()
         handleCheckoutIntent(intent)
+    }
+
+    private fun showRpiPortDialog() {
+        val prefs = getSharedPreferences(
+            "pkg_pocket",
+            MODE_PRIVATE
+        )
+
+        val currentPort = prefs.getInt(
+            "rpi_port",
+            12800
+        )
+
+        val input = EditText(this).apply {
+            inputType =
+                android.text.InputType.TYPE_CLASS_NUMBER
+            setText(currentPort.toString())
+            selectAll()
+            setPadding(48, 20, 48, 8)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.settings_rpi_port)
+            .setMessage(
+                R.string.settings_rpi_port_message
+            )
+            .setView(input)
+            .setNegativeButton(
+                android.R.string.cancel,
+                null
+            )
+            .setNeutralButton(
+                R.string.settings_rpi_port_default
+            ) { _, _ ->
+
+                prefs.edit()
+                    .putInt("rpi_port", 12800)
+                    .apply()
+
+                RpiClient.setPort(12800)
+
+                Toast.makeText(
+                    this,
+                    getString(
+                        R.string.settings_rpi_port_saved,
+                        12800
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .setPositiveButton(
+                android.R.string.ok,
+                null
+            )
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(
+                AlertDialog.BUTTON_POSITIVE
+            ).setOnClickListener {
+
+                val port = input.text
+                    ?.toString()
+                    ?.trim()
+                    ?.toIntOrNull()
+
+                if (
+                    port == null ||
+                    port !in 1..65535
+                ) {
+                    input.error = getString(
+                        R.string.settings_rpi_port_invalid
+                    )
+                    return@setOnClickListener
+                }
+
+                prefs.edit()
+                    .putInt("rpi_port", port)
+                    .apply()
+
+                RpiClient.setPort(port)
+
+                Toast.makeText(
+                    this,
+                    getString(
+                        R.string.settings_rpi_port_saved,
+                        port
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
     }
 
     private fun checkForAppUpdate() {

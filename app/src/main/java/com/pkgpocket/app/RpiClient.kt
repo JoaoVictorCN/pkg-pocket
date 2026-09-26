@@ -5,6 +5,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object RpiClient {
+
+    @Volatile
+    private var rpiPort: Int = 12800
+
+    fun setPort(port: Int) {
+        require(port in 1..65535) { "Invalid RPI port" }
+        rpiPort = port
+    }
+
+    fun getPort(): Int = rpiPort
+
+
     data class InstallResult(val taskId: Int?, val raw: String)
 
     fun install(ps4Ip: String, pkgUrl: String): InstallResult {
@@ -55,7 +67,7 @@ object RpiClient {
         post(ps4Ip, "/api/unregister_task", JSONObject().put("task_id", taskId))
 
     private fun post(ip: String, path: String, json: JSONObject): String {
-        val conn = (URL("http://$ip:12800$path").openConnection() as HttpURLConnection).apply {
+        val conn = (URL("http://$ip:$rpiPort$path").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 3000
             readTimeout = 7000

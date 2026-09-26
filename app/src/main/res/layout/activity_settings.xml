@@ -102,6 +102,16 @@
                         android:text="@string/settings_app_diagnostics"
                         app:icon="@drawable/ic_analyze_24"
                         app:iconGravity="textStart" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/settingsRpiPort"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/settings_rpi_port"
+                        app:icon="@drawable/ic_refresh_24"
+                        app:iconGravity="textStart" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

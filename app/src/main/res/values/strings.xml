@@ -408,4 +408,10 @@ Pro: %4$s</string>
     <string name="home_selected_count_one">1 selected</string>
     <string name="library_sync_retry">Pro is active. Library sync will retry automatically.</string>
     <string name="library_sync_failed">Pro is active, but the library could not sync yet.</string>
+    <string name="rpi_found_with_port">RPI found at %1$s:%2$d</string>
+    <string name="settings_rpi_port">RPI port</string>
+    <string name="settings_rpi_port_message">Detect IP finds the port automatically. Change it here only when using a custom RPI port.</string>
+    <string name="settings_rpi_port_default">Use 12800</string>
+    <string name="settings_rpi_port_invalid">Enter a port between 1 and 65535.</string>
+    <string name="settings_rpi_port_saved">RPI port set to %1$d</string>
 </resources>
