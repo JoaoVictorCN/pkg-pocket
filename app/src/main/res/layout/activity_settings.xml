@@ -164,7 +164,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/pro_price"
+                            android:id="@+id/settingsProPrice"
+                                android:text="@string/pro_price"
                             android:textColor="?attr/colorOnSecondaryContainer"
                             android:textSize="17sp"
                             android:textStyle="bold" />

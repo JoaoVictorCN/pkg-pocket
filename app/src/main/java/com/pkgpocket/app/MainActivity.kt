@@ -2811,6 +2811,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupProUi() {
+        b.proPrice.text =
+            if (Locale.getDefault().country.equals("BR", true)) {
+                "R$ 9,99"
+            } else {
+                "Local price"
+            }
+
         val savedEmail = ProManager.savedEmail(this)
         if (savedEmail.isNotBlank()) b.proEmail.setText(savedEmail)
 
@@ -2837,7 +2844,12 @@ class MainActivity : AppCompatActivity() {
         b.proEmailLayout.error = null
         b.proBuyButton.isEnabled = false
         b.proRefreshButton.isEnabled = false
-        b.proStatusText.text = getString(R.string.pro_status_checkout)
+        b.proStatusText.text =
+            if (Locale.getDefault().country.equals("BR", true)) {
+                "Abrindo checkout seguro do Mercado Pago..."
+            } else {
+                "Opening secure Stripe checkout..."
+            }
 
         proSyncJob?.cancel()
         proSyncJob = lifecycleScope.launch {

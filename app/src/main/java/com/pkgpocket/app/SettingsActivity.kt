@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivitySettingsBinding
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var b: ActivitySettingsBinding
@@ -352,6 +353,13 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupPro() {
+        b.settingsProPrice.text =
+            if (Locale.getDefault().country.equals("BR", true)) {
+                "R$ 9,99"
+            } else {
+                "Local price"
+            }
+
         val email = ProManager.savedEmail(this)
         if (email.isNotBlank()) b.settingsProEmail.setText(email)
 
@@ -375,7 +383,12 @@ class SettingsActivity : AppCompatActivity() {
         b.settingsProEmailLayout.error = null
         b.settingsProBuy.isEnabled = false
         b.settingsProCheck.isEnabled = false
-        b.settingsProStatus.text = getString(R.string.pro_status_checkout)
+        b.settingsProStatus.text =
+            if (Locale.getDefault().country.equals("BR", true)) {
+                "Abrindo checkout seguro do Mercado Pago..."
+            } else {
+                "Opening secure Stripe checkout..."
+            }
 
         proJob?.cancel()
         proJob = lifecycleScope.launch {
