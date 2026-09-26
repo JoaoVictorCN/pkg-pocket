@@ -2812,10 +2812,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupProUi() {
         b.proPrice.text =
-            if (Locale.getDefault().country.equals("BR", true)) {
-                "R$ 9,99"
-            } else {
-                "Local price"
+            when (Locale.getDefault().country.uppercase()) {
+                "BR" -> "R$ 9,99"
+
+                "US" -> "$1.99"
+
+                "GB" -> "£1.49"
+
+                "IT", "DE", "FR", "ES", "PT",
+                "NL", "BE", "AT", "IE", "FI",
+                "GR", "LU", "SK", "SI", "EE",
+                "LV", "LT", "CY", "MT", "HR" ->
+                    "€1.79"
+
+                else -> "R$ 9,99"
             }
 
         val savedEmail = ProManager.savedEmail(this)

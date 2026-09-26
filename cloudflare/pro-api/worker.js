@@ -2,7 +2,7 @@ const MP_API = "https://api.mercadopago.com";
 const STRIPE_API = "https://api.stripe.com/v1";
 
 const STRIPE_PRICE_ID =
-  "price_1UJlWlA9MXYST9EgrhTAD2uR";
+  "price_1UJmHnA9MXYST9EgDPCaThcg";
 
 const STRIPE_AMOUNT = 999;
 const STRIPE_CURRENCY = "brl";
@@ -262,7 +262,7 @@ async function createStripeCheckout(
         "1",
 
       "adaptive_pricing[enabled]":
-        "true",
+        "false",
 
       "customer_email":
         email,
