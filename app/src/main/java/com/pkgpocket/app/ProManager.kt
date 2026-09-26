@@ -8,6 +8,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 
 object ProManager {
     private const val PREFS = "pkg_pocket_pro"
@@ -38,20 +39,43 @@ object ProManager {
     suspend fun createCheckout(context: Context, email: String): Checkout =
         withContext(Dispatchers.IO) {
             val normalized = email.trim().lowercase()
+
+            val country =
+                Locale.getDefault()
+                    .country
+                    .trim()
+                    .uppercase()
+
+            val provider =
+                if (country == "BR") {
+                    "mercadopago"
+                } else {
+                    "stripe"
+                }
+
+            val payload =
+                JSONObject()
+                    .put("email", normalized)
+                    .put("provider", provider)
+
             val response = request(
                 "POST",
                 "$apiBase/v1/pro/checkout",
-                JSONObject().put("email", normalized).toString()
+                payload.toString()
             )
+
             val purchaseId = response.optString("purchase_id")
             val checkoutUrl = response.optString("checkout_url")
+
             if (purchaseId.isBlank() || checkoutUrl.isBlank()) {
                 throw IOException("Invalid checkout response")
             }
+
             prefs(context).edit()
                 .putString(KEY_EMAIL, normalized)
                 .putString(KEY_PURCHASE_ID, purchaseId)
                 .apply()
+
             Checkout(purchaseId, checkoutUrl)
         }
 
