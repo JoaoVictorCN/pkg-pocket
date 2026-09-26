@@ -370,12 +370,30 @@ class SettingsActivity : AppCompatActivity() {
         val email = ProManager.savedEmail(this)
         if (email.isNotBlank()) b.settingsProEmail.setText(email)
 
-        renderProState(ProManager.isProCached(this), null)
+        val pendingPurchase =
+            ProManager.savedPurchaseId(this)
 
-        b.settingsProBuy.setOnClickListener { startCheckout() }
-        b.settingsProCheck.setOnClickListener { refreshPro(true) }
+        if (pendingPurchase.isNotBlank()) {
+            renderProPendingState()
+        } else {
+            renderProState(
+                ProManager.isProCached(this),
+                null
+            )
+        }
 
-        if (email.isNotBlank()) refreshPro(false)
+        b.settingsProBuy.setOnClickListener {
+            startCheckout()
+        }
+        b.settingsProCheck.setOnClickListener {
+            refreshPro(true)
+        }
+
+        if (pendingPurchase.isNotBlank()) {
+            reconcilePurchase(pendingPurchase)
+        } else if (email.isNotBlank()) {
+            refreshPro(false)
+        }
     }
 
     private fun startCheckout() {
@@ -433,8 +451,22 @@ class SettingsActivity : AppCompatActivity() {
                     )
                 )
             } finally {
-                b.settingsProBuy.isEnabled = true
-                b.settingsProCheck.isEnabled = true
+                val pending =
+                    ProManager.savedPurchaseId(
+                        this@SettingsActivity
+                    )
+
+                if (pending.isNotBlank()) {
+                    renderProPendingState()
+                } else if (
+                    !ProManager.isProCached(
+                        this@SettingsActivity
+                    )
+                ) {
+                    b.settingsProBuy.isEnabled = true
+                    b.settingsProCheck.isEnabled = true
+                    b.settingsProEmailLayout.isEnabled = true
+                }
             }
         }
     }
@@ -574,31 +606,56 @@ class SettingsActivity : AppCompatActivity() {
 
         proJob?.cancel()
         proJob = lifecycleScope.launch {
+            // Existe uma compra salva: não permita criar outra
+            // enquanto o servidor ainda estiver conciliando.
             b.settingsProStatus.text =
                 getString(R.string.pro_status_checking)
+            b.settingsProBuy.isEnabled = false
+            b.settingsProCheck.isEnabled = false
+            b.settingsProEmailLayout.isEnabled = false
 
             try {
                 val result =
-                    ProManager.reconcile(this@SettingsActivity, purchaseId)
+                    ProManager.reconcile(
+                        this@SettingsActivity,
+                        purchaseId
+                    )
 
                 if (result.activated) {
                     refreshPro(true)
                 } else {
-                    renderProState(
-                        false,
-                        getString(R.string.pro_status_pending)
-                    )
+                    renderProPendingState()
                 }
             } catch (e: Exception) {
-                renderProState(
-                    ProManager.isProCached(this@SettingsActivity),
+                // Mantém a compra existente bloqueada.
+                // Uma falha de rede não significa que ela deixou
+                // de existir.
+                renderProPendingState(
                     getString(
                         R.string.pro_check_error,
-                        e.message ?: getString(R.string.unknown_error)
+                        e.message
+                            ?: getString(
+                                R.string.unknown_error
+                            )
                     )
                 )
             }
         }
+    }
+
+    private fun renderProPendingState(
+        message: String? = null
+    ) {
+        b.settingsProStatus.text =
+            message
+                ?: getString(
+                    R.string.pro_status_pending
+                )
+
+        b.settingsProBuy.visibility = View.VISIBLE
+        b.settingsProBuy.isEnabled = false
+        b.settingsProCheck.isEnabled = false
+        b.settingsProEmailLayout.isEnabled = false
     }
 
     private fun renderProState(active: Boolean, message: String?) {
