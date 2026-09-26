@@ -394,17 +394,38 @@ class SettingsActivity : AppCompatActivity() {
         b.settingsProBuy.isEnabled = false
         b.settingsProCheck.isEnabled = false
         b.settingsProStatus.text =
-            if (Locale.getDefault().country.equals("BR", true)) {
-                "Abrindo checkout seguro do Mercado Pago..."
-            } else {
-                "Opening secure Stripe checkout..."
-            }
+            "Preparando checkout seguro..."
 
         proJob?.cancel()
         proJob = lifecycleScope.launch {
             try {
                 val checkout =
                     ProManager.createCheckout(this@SettingsActivity, email)
+
+                val amount =
+                    checkout.amountMinor / 100.0
+
+                b.settingsProPrice.text =
+                    when (checkout.currency.uppercase()) {
+                        "BRL" -> "R$ %.2f".format(amount).replace(".", ",")
+                        "EUR" -> "€%.2f".format(amount)
+                        "USD" -> "$%.2f".format(amount)
+                        "GBP" -> "£%.2f".format(amount)
+                        else -> "%.2f %s".format(
+                            amount,
+                            checkout.currency.uppercase()
+                        )
+                    }
+
+                b.settingsProStatus.text =
+                    when (checkout.provider.lowercase()) {
+                        "mercadopago" ->
+                            "Abrindo checkout seguro do Mercado Pago..."
+                        "stripe" ->
+                            "Opening secure Stripe checkout..."
+                        else ->
+                            "Abrindo checkout seguro..."
+                    }
 
                 CustomTabsIntent.Builder()
                     .setShowTitle(true)

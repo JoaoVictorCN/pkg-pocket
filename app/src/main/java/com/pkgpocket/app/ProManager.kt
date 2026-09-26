@@ -19,7 +19,14 @@ object ProManager {
     private val apiBase: String
         get() = BuildConfig.PRO_API_URL.trimEnd('/')
 
-    data class Checkout(val purchaseId: String, val checkoutUrl: String)
+    data class Checkout(
+        val purchaseId: String,
+        val checkoutUrl: String,
+        val provider: String,
+        val country: String,
+        val currency: String,
+        val amountMinor: Int
+    )
     data class Status(val active: Boolean, val status: String)
     data class Reconcile(val activated: Boolean, val status: String, val paymentId: String?)
 
@@ -40,24 +47,9 @@ object ProManager {
         withContext(Dispatchers.IO) {
             val normalized = email.trim().lowercase()
 
-            val country =
-                Locale.getDefault()
-                    .country
-                    .trim()
-                    .uppercase()
-
-            val provider =
-                if (country == "BR") {
-                    "mercadopago"
-                } else {
-                    "stripe"
-                }
-
             val payload =
                 JSONObject()
                     .put("email", normalized)
-                    .put("provider", provider)
-                    .put("country", country)
 
             val response = request(
                 "POST",
@@ -77,7 +69,14 @@ object ProManager {
                 .putString(KEY_PURCHASE_ID, purchaseId)
                 .apply()
 
-            Checkout(purchaseId, checkoutUrl)
+            Checkout(
+                purchaseId = purchaseId,
+                checkoutUrl = checkoutUrl,
+                provider = response.optString("provider"),
+                country = response.optString("country"),
+                currency = response.optString("currency"),
+                amountMinor = response.optInt("amount_minor", 0)
+            )
         }
 
     suspend fun reconcile(context: Context, purchaseId: String): Reconcile =

@@ -385,6 +385,9 @@ async function createStripeCheckout(
     ok: true,
     sandbox: true,
     provider: "stripe",
+    country: normalizedCountry,
+    currency: checkoutCurrency.toUpperCase(),
+    amount_minor: checkoutAmount,
     flow: "checkout_session",
     purchase_id: purchaseId,
     session_id: session.id,
@@ -2311,6 +2314,18 @@ async function createCheckout(
 
     sandbox:
       SANDBOX,
+
+    provider:
+      "mercadopago",
+
+    country:
+      paymentCountry,
+
+    currency:
+      CURRENCY,
+
+    amount_minor:
+      Math.round(PRICE * 100),
 
     flow:
       "preferences",
