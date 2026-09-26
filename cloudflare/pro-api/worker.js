@@ -3269,12 +3269,19 @@ function returnPage({
       ? STRIPE_AMOUNT
       : Math.round(PRICE * 100);
 
+  const hasAmountMinor =
+    amountMinor !== null &&
+    amountMinor !== undefined &&
+    amountMinor !== "";
+
   const parsedMinor =
-    Number(amountMinor);
+    hasAmountMinor
+      ? Number(amountMinor)
+      : NaN;
 
   const displayAmountMinor =
     Number.isFinite(parsedMinor) &&
-    parsedMinor >= 0
+    parsedMinor > 0
       ? parsedMinor
       : fallbackMinor;
 
@@ -4811,8 +4818,9 @@ h1 {
 
   <div class="footer">
 
-    Pagamento processado
-    com segurança pelo
+    ${isPtBr
+      ? "Pagamento processado com segurança pelo"
+      : "Payment securely processed by"}
 
     <strong>
       ${escapeHtml(providerName)}
@@ -5224,6 +5232,28 @@ async function handlePaymentReturn(
       fallbackPurchaseId;
 
 
+    /*
+     * Dados confirmados diretamente pelo Mercado Pago.
+     * Nunca dependemos do valor vindo da URL de retorno.
+     */
+    const amountMinor =
+      Number.isFinite(
+        Number(payment.transaction_amount)
+      )
+        ? Math.round(
+            Number(payment.transaction_amount) * 100
+          )
+        : null;
+
+    const currency =
+      String(
+        payment.currency_id ||
+        CURRENCY
+      )
+        .trim()
+        .toUpperCase();
+
+
     /* ---------- APROVADO ---------- */
 
     if (
@@ -5252,6 +5282,16 @@ async function handlePaymentReturn(
 
         retryUrl:
           request.url,
+
+        provider:
+          "mercadopago",
+
+        amountMinor,
+
+        currency,
+
+        country:
+          "BR",
       });
     }
 
@@ -5292,6 +5332,16 @@ async function handlePaymentReturn(
 
         retryUrl:
           request.url,
+
+        provider:
+          "mercadopago",
+
+        amountMinor,
+
+        currency,
+
+        country:
+          "BR",
       });
     }
 
@@ -5317,6 +5367,14 @@ async function handlePaymentReturn(
 
       retryUrl:
         request.url,
+
+      provider:
+        "mercadopago",
+
+      amountMinor,
+
+      currency,
+
       country:
         "BR",
     });
