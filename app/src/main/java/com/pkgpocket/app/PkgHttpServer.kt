@@ -192,31 +192,31 @@ class PkgHttpServer(
         val partial = rangeHeader != null
         val status = if (partial) "206 Partial Content" else "200 OK"
 
-        onLog(
-            buildString {
-                append("HTTP #")
-                append(requestId)
-                append(" ")
-                append(method)
-                append(" ")
-                append(item.fileName)
-                append(" • ")
-                append(status)
-                append(" • bytes ")
-                append(start)
-                append("-")
-                append(end)
-                append("/")
-                append(item.size)
+        if (method == "HEAD") {
+            onLog(
+                buildString {
+                    append("HTTP #")
+                    append(requestId)
+                    append(" HEAD ")
+                    append(item.fileName)
+                    append(" • ")
+                    append(status)
+                    append(" • bytes ")
+                    append(start)
+                    append("-")
+                    append(end)
+                    append("/")
+                    append(item.size)
 
-                if (rangeHeader != null) {
-                    append(" • Range: ")
-                    append(rangeHeader)
-                } else {
-                    append(" • sem Range")
+                    if (rangeHeader != null) {
+                        append(" • Range: ")
+                        append(rangeHeader)
+                    } else {
+                        append(" • sem Range")
+                    }
                 }
-            }
-        )
+            )
+        }
 
         val headers = buildString {
             append("HTTP/1.1 $status\r\n")
@@ -290,11 +290,13 @@ class PkgHttpServer(
                             end
                         )
 
-                        onLog(
-                            "HTTP #$requestId CONCLUÍDO • " +
-                                "range=$start-$end/${item.size} • " +
-                                "enviados=$sent/$len"
-                        )
+                        if (end == item.size - 1L) {
+                            onLog(
+                                "HTTP #$requestId ÚLTIMO RANGE CONCLUÍDO • " +
+                                    "range=$start-$end/${item.size} • " +
+                                    "enviados=$sent/$len"
+                            )
+                        }
                     } else {
                         onLog(
                             "HTTP #$requestId INTERROMPIDO • " +
