@@ -503,43 +503,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.toggleLog.setOnClickListener {
-            val logView = android.widget.TextView(this).apply {
-                text = buildLogText()
-                setTextIsSelectable(true)
-                setPadding(32, 16, 32, 8)
-                textSize = 13f
-                typeface = android.graphics.Typeface.MONOSPACE
-            }
+            val show = b.logContainer.visibility != View.VISIBLE
+            b.logContainer.visibility =
+                if (show) View.VISIBLE else View.GONE
 
-            val scrollView = android.widget.ScrollView(this).apply {
-                addView(logView)
-            }
-
-            val dialog = AlertDialog.Builder(this)
-                .setTitle(R.string.view_log)
-                .setView(scrollView)
-                .setNeutralButton(R.string.share_log, null)
-                .setNegativeButton(R.string.copy_log, null)
-                .setPositiveButton(R.string.close, null)
-                .create()
-
-            dialog.setOnShowListener {
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
-                    .setOnClickListener {
-                        shareLog()
-                    }
-
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                    .setOnClickListener {
-                        copyLogToClipboard()
-                    }
-
-                scrollView.post {
-                    scrollView.fullScroll(View.FOCUS_DOWN)
-                }
-            }
-
-            dialog.show()
+            b.toggleLog.text = getString(
+                if (show) R.string.hide_log
+                else R.string.view_log
+            )
         }
 
         b.liveLog.text = getString(R.string.no_active_transfer)
