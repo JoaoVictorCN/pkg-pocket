@@ -283,6 +283,19 @@ async function createStripeCheckout(
     }
   );
 
+  /*
+   * Índice direto para recuperação da compra.
+   * Evita varrer todas as purchase: do KV.
+   */
+  await env.LICENSES.put(
+    `email_purchase:${emailHash}`,
+    purchaseId,
+    {
+      expirationTtl:
+        60 * 60 * 24 * 7,
+    }
+  );
+
   const form =
     stripeForm({
       "mode":
@@ -2162,6 +2175,23 @@ async function createCheckout(
   );
 
 
+  /*
+   * Índice direto para recuperação da compra.
+   * Uma leitura substitui a antiga varredura global.
+   */
+  await env.LICENSES.put(
+    `email_purchase:${emailHash}`,
+    purchaseId,
+    {
+      expirationTtl:
+        60 *
+        60 *
+        24 *
+        7,
+    }
+  );
+
+
   const preferencePayload = {
 
     items: [
@@ -2874,89 +2904,131 @@ async function recoverSandboxLicenseByEmail(
 ) {
   if (!SANDBOX) return null;
 
-  let cursor = undefined;
+  /*
+   * Lookup O(1).
+   *
+   * Antes:
+   *   list purchase:
+   *   + get para CADA compra.
+   *
+   * Agora:
+   *   1 get do índice
+   *   + 1 get da compra.
+   */
+  const purchaseId =
+    String(
+      await env.LICENSES.get(
+        `email_purchase:${emailHash}`
+      ) || ""
+    );
 
-  do {
-    const page = await env.LICENSES.list({
-      prefix: "purchase:",
-      limit: 1000,
-      ...(cursor ? { cursor } : {}),
-    });
+  if (
+    !purchaseId.startsWith(
+      "pp_"
+    )
+  ) {
+    return null;
+  }
 
-    for (const entry of page.keys || []) {
-      const purchase = await env.LICENSES.get(
-        entry.name,
-        "json"
-      );
+  const purchase =
+    await env.LICENSES.get(
+      `purchase:${purchaseId}`,
+      "json"
+    );
+
+  if (
+    !purchase ||
+    purchase.email_hash !== emailHash
+  ) {
+    return null;
+  }
+
+  /*
+   * Stripe: tenta reconciliar diretamente pela
+   * Checkout Session já conhecida.
+   */
+  if (
+    purchase.provider === "stripe"
+  ) {
+    try {
+      const processed =
+        await reconcileStripe(
+          env,
+          purchase
+        );
 
       if (
-        !purchase ||
-        purchase.email_hash !== emailHash
+        processed?.activated
       ) {
-        continue;
+        return (
+          processed.license ||
+          await env.LICENSES.get(
+            `license:${emailHash}`,
+            "json"
+          )
+        );
       }
+    } catch {
+      return null;
+    }
 
-      const purchaseId = String(
-        purchase.external_reference ||
-        entry.name.slice("purchase:".length)
+    return null;
+  }
+
+  /*
+   * Mercado Pago:
+   * pesquisa somente a compra encontrada pelo índice.
+   */
+  try {
+    const search =
+      await mpRequest(
+        env,
+        `/v1/payments/search?external_reference=${encodeURIComponent(
+          purchaseId
+        )}`,
+        {
+          method: "GET",
+        }
       );
 
-      if (!purchaseId.startsWith("pp_")) {
-        continue;
-      }
-
-      let search;
-
-      try {
-        search = await mpRequest(
-          env,
-          `/v1/payments/search?external_reference=${encodeURIComponent(
-            purchaseId
-          )}`,
-          { method: "GET" }
-        );
-      } catch {
-        continue;
-      }
-
-      const payments = Array.isArray(search?.results)
+    const payments =
+      Array.isArray(
+        search?.results
+      )
         ? search.results
         : [];
 
-      const approved = payments.find(
-        payment => payment.status === "approved"
+    const approved =
+      payments.find(
+        payment =>
+          payment.status ===
+          "approved"
       );
 
-      if (!approved) {
-        continue;
-      }
-
-      try {
-        const processed = await processPayment(
-          env,
-          approved
-        );
-
-        if (processed?.activated) {
-          return (
-            processed.license ||
-            await env.LICENSES.get(
-              `license:${emailHash}`,
-              "json"
-            )
-          );
-        }
-      } catch {
-        continue;
-      }
+    if (!approved) {
+      return null;
     }
 
-    if (page.list_complete) {
-      break;
-    }
+    const processed =
+      await processPayment(
+        env,
+        approved
+      );
 
-    cursor = page.cursor;
-  } while (cursor);
+    if (
+      processed?.activated
+    ) {
+      return (
+        processed.license ||
+        await env.LICENSES.get(
+          `license:${emailHash}`,
+          "json"
+        )
+      );
+    }
+  } catch {
+    return null;
+  }
 
   return null;
 }
