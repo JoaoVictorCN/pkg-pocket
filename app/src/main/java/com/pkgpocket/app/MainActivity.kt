@@ -50,6 +50,7 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
     private lateinit var b: ActivityMainBinding
+    private var fastInstallerResume = false
     private val logLines = mutableListOf<String>()
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private var demoJob: Job? = null
@@ -256,6 +257,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        fastInstallerResume =
+            intent?.getBooleanExtra(
+                InstallerService.EXTRA_FROM_INSTALL_NOTIFICATION,
+                false
+            ) == true &&
+            InstallerService.isRunning
+
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
         setupHelpBubble()
@@ -267,7 +276,9 @@ class MainActivity : AppCompatActivity() {
             b.navLibrary,
             BottomNavStyler.Tab.HOME
         )
-        playLaunchAnimation()
+        if (!fastInstallerResume) {
+            playLaunchAnimation()
+        }
         setupExitGuard()
 
         ViewCompat.setOnApplyWindowInsetsListener(b.root) { view, insets ->
@@ -293,7 +304,13 @@ class MainActivity : AppCompatActivity() {
         val savedIp = prefs.getString("last_ps4_ip", "").orEmpty()
         if (savedIp.isNotBlank()) {
             b.ps4Ip.setText(savedIp)
-            refreshPs4Info(savedIp)
+
+            if (!fastInstallerResume) {
+                refreshPs4Info(savedIp)
+            } else {
+                b.ps4InfoMeta.text =
+                    getString(R.string.ps4_info_ip_only, savedIp)
+            }
         } else {
             updatePs4InfoUi("", null, false)
         }
@@ -526,7 +543,9 @@ class MainActivity : AppCompatActivity() {
             ensureService(InstallerService.ACTION_REQUEST_STATUS)
         }
 
-        UpdateChecker.checkIfDue(this)
+        if (!fastInstallerResume) {
+            UpdateChecker.checkIfDue(this)
+        }
 
         addLog(getString(R.string.app_started))
 
@@ -3183,10 +3202,14 @@ class MainActivity : AppCompatActivity() {
 
         if (latestSavedIp != b.ps4Ip.text?.toString()?.trim().orEmpty()) {
             b.ps4Ip.setText(latestSavedIp)
+
             if (latestSavedIp.isBlank()) {
                 updatePs4InfoUi("", null, false)
-            } else {
+            } else if (!fastInstallerResume) {
                 refreshPs4Info(latestSavedIp)
+            } else {
+                b.ps4InfoMeta.text =
+                    getString(R.string.ps4_info_ip_only, latestSavedIp)
             }
         }
 
@@ -3213,7 +3236,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        UpdateChecker.checkIfDue(this)
+        if (!fastInstallerResume) {
+            UpdateChecker.checkIfDue(this)
+        }
+
+        val wasFastInstallerResume = fastInstallerResume
+        fastInstallerResume = false
+
+        if (wasFastInstallerResume) {
+            return
+        }
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastProSyncElapsed < 2_500L) return

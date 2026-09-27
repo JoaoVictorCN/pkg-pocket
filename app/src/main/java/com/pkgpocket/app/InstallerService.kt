@@ -31,6 +31,9 @@ class InstallerService : Service() {
         const val ACTION_REQUEST_STATUS = "com.pkgpocket.REQUEST_STATUS"
         const val ACTION_STATUS = "com.pkgpocket.STATUS"
 
+        const val EXTRA_FROM_INSTALL_NOTIFICATION =
+            "from_install_notification"
+
         const val EXTRA_PS4_IP = "ps4_ip"
         const val EXTRA_STATUS = "status"
         const val EXTRA_PERCENT = "percent"
@@ -1175,7 +1178,8 @@ class InstallerService : Service() {
         val pi = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java)
+                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -1204,7 +1208,8 @@ class InstallerService : Service() {
         val pi = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java)
+                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
