@@ -28,12 +28,25 @@ object ProManager {
     private const val KEY_PRO_ACTIVE = "pro_active"
     private const val KEY_PRO_STATUS = "pro_status"
     private const val KEY_LAST_STATUS_CHECK = "last_status_check"
+    private const val KEY_QUOTE_PROVIDER = "quote_provider"
+    private const val KEY_QUOTE_COUNTRY = "quote_country"
+    private const val KEY_QUOTE_CURRENCY = "quote_currency"
+    private const val KEY_QUOTE_AMOUNT_MINOR = "quote_amount_minor"
+    private const val KEY_LAST_QUOTE_CHECK = "last_quote_check"
 
     /*
      * A licença Pro já possui tolerância offline.
      * Não há motivo para consultar /status a cada troca de Activity.
      */
     private const val STATUS_CACHE_MS = 12L * 60L * 60L * 1000L
+
+    /*
+     * Quote depende do país/IP atual.
+     * Cache curto evita chamadas repetidas entre Home e Configurações
+     * sem manter preço/região antigo por muito tempo após troca de rede/VPN.
+     */
+    private const val QUOTE_CACHE_MS = 15L * 60L * 1000L
+    private val quoteMutex = Mutex()
 
     private val apiBase: String
         get() = BuildConfig.PRO_API_URL.trimEnd('/')
@@ -100,19 +113,69 @@ object ProManager {
             .apply()
     }
 
-    suspend fun getQuote(): Quote =
+    suspend fun getQuote(context: Context): Quote =
         withContext(Dispatchers.IO) {
-            val response = request(
-                "GET",
-                "$apiBase/v1/pro/quote"
-            )
+            quoteMutex.withLock {
+                val preferences = prefs(context)
+                val lastCheck =
+                    preferences.getLong(KEY_LAST_QUOTE_CHECK, 0L)
+                val age =
+                    System.currentTimeMillis() - lastCheck
 
-            Quote(
-                provider = response.optString("provider"),
-                country = response.optString("country"),
-                currency = response.optString("currency"),
-                amountMinor = response.optInt("amount_minor", 0)
-            )
+                val cachedCurrency =
+                    preferences.getString(KEY_QUOTE_CURRENCY, "")
+                        .orEmpty()
+                val cachedAmount =
+                    preferences.getInt(KEY_QUOTE_AMOUNT_MINOR, 0)
+
+                if (
+                    lastCheck > 0L &&
+                    age in 0 until QUOTE_CACHE_MS &&
+                    cachedCurrency.isNotBlank() &&
+                    cachedAmount > 0
+                ) {
+                    return@withLock Quote(
+                        provider = preferences
+                            .getString(KEY_QUOTE_PROVIDER, "")
+                            .orEmpty(),
+                        country = preferences
+                            .getString(KEY_QUOTE_COUNTRY, "")
+                            .orEmpty(),
+                        currency = cachedCurrency,
+                        amountMinor = cachedAmount
+                    )
+                }
+
+                val response = request(
+                    "GET",
+                    "$apiBase/v1/pro/quote"
+                )
+
+                val quote = Quote(
+                    provider = response.optString("provider"),
+                    country = response.optString("country"),
+                    currency = response.optString("currency"),
+                    amountMinor = response.optInt("amount_minor", 0)
+                )
+
+                if (
+                    quote.currency.isNotBlank() &&
+                    quote.amountMinor > 0
+                ) {
+                    preferences.edit()
+                        .putString(KEY_QUOTE_PROVIDER, quote.provider)
+                        .putString(KEY_QUOTE_COUNTRY, quote.country)
+                        .putString(KEY_QUOTE_CURRENCY, quote.currency)
+                        .putInt(KEY_QUOTE_AMOUNT_MINOR, quote.amountMinor)
+                        .putLong(
+                            KEY_LAST_QUOTE_CHECK,
+                            System.currentTimeMillis()
+                        )
+                        .commit()
+                }
+
+                quote
+            }
         }
 
     fun formatPrice(currency: String, amountMinor: Int): String {

@@ -2815,7 +2815,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             runCatching {
-                ProManager.getQuote()
+                ProManager.getQuote(this@MainActivity)
             }.onSuccess { quote ->
                 b.proPrice.text =
                     ProManager.formatPrice(

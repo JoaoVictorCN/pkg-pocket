@@ -358,7 +358,7 @@ class SettingsActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             runCatching {
-                ProManager.getQuote()
+                ProManager.getQuote(this@SettingsActivity)
             }.onSuccess { quote ->
                 b.settingsProPrice.text =
                     ProManager.formatPrice(
