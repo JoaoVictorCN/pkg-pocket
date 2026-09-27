@@ -1020,9 +1020,12 @@ class MainActivity : AppCompatActivity() {
 
         val logView = TextView(this).apply {
             text = buildLogText()
-            setTextIsSelectable(true)
             textSize = 12f
             typeface = android.graphics.Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            isFocusable = false
+            isFocusableInTouchMode = false
+
             setPadding(
                 dp(16),
                 dp(12),
@@ -1034,6 +1037,8 @@ class MainActivity : AppCompatActivity() {
         val scrollView = android.widget.ScrollView(this).apply {
             isFillViewport = false
             isVerticalScrollBarEnabled = true
+            isFocusable = true
+            isFocusableInTouchMode = true
 
             addView(
                 logView,
@@ -1044,59 +1049,37 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        val shareButton =
-            com.google.android.material.button.MaterialButton(
-                this,
-                null,
-                com.google.android.material.R.attr.materialButtonTextButtonStyle
-            ).apply {
-                text = getString(R.string.share_log)
-                isAllCaps = false
-                setOnClickListener {
-                    shareLog()
-                }
-            }
+        val shareButton = android.widget.Button(this).apply {
+            text = getString(R.string.share_log)
+            isAllCaps = false
+        }
 
-        val copyButton =
-            com.google.android.material.button.MaterialButton(
-                this,
-                null,
-                com.google.android.material.R.attr.materialButtonTextButtonStyle
-            ).apply {
-                text = getString(R.string.copy_log)
-                isAllCaps = false
-                setOnClickListener {
-                    copyLogToClipboard()
-                }
-            }
+        val copyButton = android.widget.Button(this).apply {
+            text = getString(R.string.copy_log)
+            isAllCaps = false
+        }
 
-        val closeButton =
-            com.google.android.material.button.MaterialButton(
-                this,
-                null,
-                com.google.android.material.R.attr.materialButtonTextButtonStyle
-            ).apply {
-                text = getString(R.string.close)
-                isAllCaps = false
-            }
+        val closeButton = android.widget.Button(this).apply {
+            text = getString(R.string.close)
+            isAllCaps = false
+        }
 
         val buttonBar = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
-            gravity = android.view.Gravity.END or
-                android.view.Gravity.CENTER_VERTICAL
+            gravity = android.view.Gravity.CENTER
 
             setPadding(
-                dp(8),
+                dp(6),
                 dp(4),
-                dp(8),
-                dp(4)
+                dp(6),
+                dp(6)
             )
 
             addView(
                 shareButton,
                 android.widget.LinearLayout.LayoutParams(
                     0,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    dp(48),
                     1f
                 )
             )
@@ -1105,7 +1088,7 @@ class MainActivity : AppCompatActivity() {
                 copyButton,
                 android.widget.LinearLayout.LayoutParams(
                     0,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    dp(48),
                     1f
                 )
             )
@@ -1114,7 +1097,7 @@ class MainActivity : AppCompatActivity() {
                 closeButton,
                 android.widget.LinearLayout.LayoutParams(
                     0,
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    dp(48),
                     1f
                 )
             )
@@ -1146,31 +1129,35 @@ class MainActivity : AppCompatActivity() {
             .setView(content)
             .create()
 
+        shareButton.setOnClickListener {
+            shareLog()
+        }
+
+        copyButton.setOnClickListener {
+            copyLogToClipboard()
+        }
+
         closeButton.setOnClickListener {
             dialog.dismiss()
         }
 
         dialog.setOnShowListener {
+            val width =
+                (resources.displayMetrics.widthPixels * 0.92f).toInt()
+
             val height =
-                (resources.displayMetrics.heightPixels * 0.78f)
-                    .toInt()
+                (resources.displayMetrics.heightPixels * 0.82f).toInt()
 
-            dialog.window?.setLayout(
-                (resources.displayMetrics.widthPixels * 0.90f)
-                    .toInt(),
-                height
-            )
+            dialog.window?.setLayout(width, height)
 
-            // O TextView selecionável pode tentar levar o ScrollView
-            // para o fim durante o primeiro layout.
-            // Fazemos a correção após o layout completo.
+            scrollView.requestFocus()
+
             scrollView.post {
-                logView.clearFocus()
                 scrollView.scrollTo(0, 0)
 
-                scrollView.post {
+                scrollView.postDelayed({
                     scrollView.scrollTo(0, 0)
-                }
+                }, 100L)
             }
         }
 
