@@ -28,6 +28,7 @@ class InstallerService : Service() {
         const val ACTION_INSTALL_ALL = "com.pkgpocket.INSTALL_ALL"
         const val ACTION_CANCEL = "com.pkgpocket.CANCEL"
         const val ACTION_RETRY_RPI = "com.pkgpocket.RETRY_RPI"
+        const val ACTION_REQUEST_STATUS = "com.pkgpocket.REQUEST_STATUS"
         const val ACTION_STATUS = "com.pkgpocket.STATUS"
 
         const val EXTRA_PS4_IP = "ps4_ip"
@@ -104,9 +105,57 @@ class InstallerService : Service() {
 
             ACTION_CANCEL -> cancelInstall()
             ACTION_RETRY_RPI -> requestRpiRetry()
+            ACTION_REQUEST_STATUS -> publishCurrentSnapshot()
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun publishCurrentSnapshot() {
+        if (!isRunning) return
+
+        val token = currentItemToken.orEmpty()
+
+        val currentItem =
+            ActiveTransferQueue.get()
+                .firstOrNull { it.token == token }
+
+        val statusText =
+            if (waitingForRpiRecovery) {
+                getString(R.string.rpi_stalled_instruction)
+            } else if (currentItem != null) {
+                getString(
+                    R.string.state_sending_percent,
+                    currentItemPercent.coerceAtLeast(0)
+                )
+            } else {
+                getString(R.string.preparing_transfer)
+            }
+
+        sendBroadcast(
+            Intent(ACTION_STATUS)
+                .setPackage(packageName)
+                .putExtra(EXTRA_STATUS, statusText)
+                .putExtra(
+                    EXTRA_PERCENT,
+                    lastOverallPercent.coerceIn(0, 100)
+                )
+                .putExtra(EXTRA_OVERALL_STATUS, statusText)
+                .putExtra(EXTRA_ITEM_TOKEN, token)
+                .putExtra(EXTRA_ITEM_STATUS, statusText)
+                .putExtra(EXTRA_ITEM_DETAIL, currentItemDetail)
+                .putExtra(
+                    EXTRA_ITEM_PERCENT,
+                    currentItemPercent
+                )
+                .putExtra(EXTRA_LOG_ONLY, false)
+                .putExtra(EXTRA_LIVE_UPDATE, true)
+                .putExtra(EXTRA_ACTIVE, true)
+                .putExtra(
+                    EXTRA_RPI_STALLED,
+                    waitingForRpiRecovery
+                )
+        )
     }
 
     private fun requestRpiRetry() {

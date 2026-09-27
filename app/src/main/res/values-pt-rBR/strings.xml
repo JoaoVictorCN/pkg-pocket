@@ -218,4 +218,9 @@
     <string name="quick_check_ready_toast">%1$d PKG(s) pronto(s) • %2$s</string>
     <string name="pkgs_ready">%1$d PKG(s) pronto(s). Abra o Remote Package Installer no PS4.</string>
     <string name="state_installed_before">Instalado anteriormente pelo PKG Pocket</string>
+
+    <string name="update_channel_name">Atualizações do PKG Pocket</string>
+    <string name="update_channel_description">Avisos quando uma nova versão do PKG Pocket estiver disponível</string>
+    <string name="update_available_title">Atualização do PKG Pocket disponível</string>
+    <string name="update_available_text">PKG Pocket %1$s está disponível. Toque para baixar a nova versão.</string>
 </resources>

@@ -502,12 +502,30 @@ class MainActivity : AppCompatActivity() {
 
         loadCompletedCards()
 
+        if (InstallerService.isRunning) {
+            val activeQueue = ActiveTransferQueue.get()
+
+            if (activeQueue.isNotEmpty()) {
+                PkgRepository.items = activeQueue
+                installSelectedTokens.clear()
+                installSelectedTokens.addAll(
+                    activeQueue.map { it.token }
+                )
+            }
+        }
+
         if (PkgRepository.items.isNotEmpty()) {
             render(PkgRepository.items)
             updateSelectionSummary(PkgRepository.items)
         } else {
             showEmptyQueue()
         }
+
+        if (InstallerService.isRunning) {
+            ensureService(InstallerService.ACTION_REQUEST_STATUS)
+        }
+
+        UpdateChecker.checkIfDue(this)
 
         addLog(getString(R.string.app_started))
 
@@ -3152,6 +3170,31 @@ class MainActivity : AppCompatActivity() {
                 refreshPs4Info(latestSavedIp)
             }
         }
+
+        if (InstallerService.isRunning) {
+            val activeQueue = ActiveTransferQueue.get()
+
+            if (activeQueue.isNotEmpty()) {
+                PkgRepository.items = activeQueue
+
+                val queueTokens =
+                    activeQueue.map { it.token }.toSet()
+
+                if (installSelectedTokens != queueTokens) {
+                    installSelectedTokens.clear()
+                    installSelectedTokens.addAll(queueTokens)
+
+                    render(activeQueue)
+                    updateSelectionSummary(activeQueue)
+                }
+
+                ensureService(
+                    InstallerService.ACTION_REQUEST_STATUS
+                )
+            }
+        }
+
+        UpdateChecker.checkIfDue(this)
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastProSyncElapsed < 2_500L) return

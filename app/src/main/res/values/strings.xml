@@ -406,4 +406,9 @@ Pro: %4$s</string>
 
     <string name="home_more_pkgs">+%1$d selected PKGs · Show all</string>
     <string name="home_collapse_pkgs">Show fewer PKGs</string>
+
+    <string name="update_channel_name">PKG Pocket updates</string>
+    <string name="update_channel_description">Notifications when a new PKG Pocket version is available</string>
+    <string name="update_available_title">PKG Pocket update available</string>
+    <string name="update_available_text">PKG Pocket %1$s is available. Tap to download the new version.</string>
 </resources>
