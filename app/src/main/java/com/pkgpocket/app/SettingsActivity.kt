@@ -187,6 +187,37 @@ class SettingsActivity : AppCompatActivity() {
                         android.R.id.message
                     )
 
+                messageView?.setOnLongClickListener {
+                    AlertDialog.Builder(this)
+                        .setTitle("Limpar log?")
+                        .setMessage(
+                            "Todo o histórico do log será apagado."
+                        )
+                        .setNegativeButton(
+                            android.R.string.cancel,
+                            null
+                        )
+                        .setPositiveButton("Limpar") { _, _ ->
+                            prefs.edit()
+                                .remove("last_log")
+                                .apply()
+
+                            messageView.text =
+                                getString(
+                                    R.string.settings_log_empty
+                                )
+
+                            Toast.makeText(
+                                this,
+                                "Log limpo",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        .show()
+
+                    true
+                }
+
                 messageView?.let { textView ->
                     val parent = textView.parent
 
