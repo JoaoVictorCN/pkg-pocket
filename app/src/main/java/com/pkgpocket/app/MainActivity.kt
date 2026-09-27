@@ -3186,7 +3186,48 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (::b.isInitialized) handleCheckoutIntent(intent)
+
+        if (!::b.isInitialized) return
+
+        val fromInstallerNotification =
+            intent.getBooleanExtra(
+                InstallerService.EXTRA_FROM_INSTALL_NOTIFICATION,
+                false
+            )
+
+        if (fromInstallerNotification) {
+            fastInstallerResume = true
+
+            val queue =
+                ActiveTransferQueue.get()
+
+            if (queue.isNotEmpty()) {
+                PkgRepository.items = queue
+
+                val queueTokens =
+                    queue.map { it.token }.toSet()
+
+                if (installSelectedTokens != queueTokens) {
+                    installSelectedTokens.clear()
+                    installSelectedTokens.addAll(queueTokens)
+
+                    render(queue)
+                    updateSelectionSummary(queue)
+                }
+            }
+
+            restorePersistedLog()
+
+            if (InstallerService.isRunning) {
+                ensureService(
+                    InstallerService.ACTION_REQUEST_STATUS
+                )
+            }
+
+            return
+        }
+
+        handleCheckoutIntent(intent)
     }
 
     override fun onResume() {
@@ -3233,7 +3274,10 @@ class MainActivity : AppCompatActivity() {
                 updateSelectionSummary(resumeQueue)
             }
 
-            if (InstallerService.isRunning) {
+            if (
+                InstallerService.isRunning &&
+                !fastInstallerResume
+            ) {
                 ensureService(
                     InstallerService.ACTION_REQUEST_STATUS
                 )

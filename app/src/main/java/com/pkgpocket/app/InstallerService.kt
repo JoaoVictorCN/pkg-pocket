@@ -1185,7 +1185,11 @@ class InstallerService : Service() {
             this,
             0,
             Intent(this, MainActivity::class.java)
-                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true),
+                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                ),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -1215,7 +1219,11 @@ class InstallerService : Service() {
             this,
             0,
             Intent(this, MainActivity::class.java)
-                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true),
+                .putExtra(EXTRA_FROM_INSTALL_NOTIFICATION, true)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                ),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
