@@ -82,16 +82,93 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         b.settingsLogs.setOnClickListener {
-            val logs = prefs.getString("last_log", "").orEmpty()
-            AlertDialog.Builder(this)
+            val logs = prefs
+                .getString("last_log", "")
+                .orEmpty()
+                .ifBlank {
+                    getString(R.string.settings_log_empty)
+                }
+
+            val dialog = AlertDialog.Builder(this)
                 .setTitle(R.string.view_log)
-                .setMessage(
-                    logs.ifBlank {
-                        getString(R.string.settings_log_empty)
-                    }
+                .setMessage(logs)
+                .setNeutralButton(
+                    R.string.share_log,
+                    null
                 )
-                .setPositiveButton(R.string.close, null)
-                .show()
+                .setNegativeButton(
+                    R.string.copy_log,
+                    null
+                )
+                .setPositiveButton(
+                    R.string.close,
+                    null
+                )
+                .create()
+
+            dialog.setOnShowListener {
+                dialog.getButton(
+                    AlertDialog.BUTTON_NEUTRAL
+                ).setOnClickListener {
+                    val share = Intent(Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(
+                            Intent.EXTRA_SUBJECT,
+                            getString(R.string.log_share_subject)
+                        )
+                        .putExtra(
+                            Intent.EXTRA_TEXT,
+                            logs
+                        )
+
+                    startActivity(
+                        Intent.createChooser(
+                            share,
+                            getString(R.string.share_log)
+                        )
+                    )
+                }
+
+                dialog.getButton(
+                    AlertDialog.BUTTON_NEGATIVE
+                ).setOnClickListener {
+                    val clipboard =
+                        getSystemService(
+                            android.content.Context.CLIPBOARD_SERVICE
+                        ) as android.content.ClipboardManager
+
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(
+                            getString(R.string.log_clipboard_label),
+                            logs
+                        )
+                    )
+
+                    Toast.makeText(
+                        this,
+                        R.string.log_copied,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                // Garante que o diálogo abra no COMEÇO do log.
+                val messageView =
+                    dialog.findViewById<android.widget.TextView>(
+                        android.R.id.message
+                    )
+
+                messageView?.let { textView ->
+                    val parent = textView.parent
+
+                    if (parent is android.widget.ScrollView) {
+                        parent.post {
+                            parent.scrollTo(0, 0)
+                        }
+                    }
+                }
+            }
+
+            dialog.show()
         }
 
         b.settingsVersion.text = getString(
