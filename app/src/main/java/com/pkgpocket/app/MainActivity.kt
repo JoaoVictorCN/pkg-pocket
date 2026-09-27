@@ -1475,10 +1475,22 @@ class MainActivity : AppCompatActivity() {
         clearCompletedCards()
         resetPkgCardsForQueue()
 
-        items
-            .sortedWith(
-                compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
+        val orderedItems = items.sortedWith(
+            compareBy<PkgItem>(
+                {
+                    when (it.kind) {
+                        PkgKind.GAME -> 0
+                        PkgKind.UPDATE -> 1
+                        PkgKind.DLC -> 2
+                        PkgKind.OTHER -> 3
+                    }
+                },
+                { it.titleId },
+                { it.fileName }
             )
+        )
+
+        orderedItems
             .firstOrNull()
             ?.let { first ->
                 updatePkgCard(
@@ -1513,9 +1525,9 @@ class MainActivity : AppCompatActivity() {
         addLog(rpiHint)
         Toast.makeText(this, rpiHint, Toast.LENGTH_LONG).show()
 
-        ActiveTransferQueue.set(items)
+        ActiveTransferQueue.set(orderedItems)
 
-        addLog(getString(R.string.starting_queue, items.size, ip))
+        addLog(getString(R.string.starting_queue, orderedItems.size, ip))
         ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
     }
 
