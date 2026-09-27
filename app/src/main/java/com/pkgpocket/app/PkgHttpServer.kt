@@ -40,9 +40,22 @@ class PkgHttpServer(
                             try {
                                 handle(socket)
                             } catch (t: Throwable) {
-                                if (!isExpectedDisconnect(t) && running.get()) {
-                                    onLog("Falha HTTP: ${t.javaClass.simpleName}: ${t.message ?: "sem detalhes"}")
+                                if (running.get()) {
+                                    if (isExpectedDisconnect(t)) {
+                                        onLog(
+                                            "HTTP cliente desconectou • " +
+                                                "${t.javaClass.simpleName}: " +
+                                                "${t.message ?: "sem detalhes"}"
+                                        )
+                                    } else {
+                                        onLog(
+                                            "Falha HTTP • " +
+                                                "${t.javaClass.simpleName}: " +
+                                                "${t.message ?: "sem detalhes"}"
+                                        )
+                                    }
                                 }
+
                                 runCatching { socket.close() }
                             }
                         }
@@ -167,7 +180,12 @@ class PkgHttpServer(
                     .toByteArray(StandardCharsets.US_ASCII)
             )
             output.flush()
-            onLog("Range inválido solicitado pelo PS4")
+            onLog(
+                "Range inválido solicitado pelo PS4 • " +
+                    "arquivo=${item.fileName} • " +
+                    "Range=${rangeHeader ?: "<ausente>"} • " +
+                    "tamanho=${item.size}"
+            )
             return@use
         }
 
@@ -175,6 +193,30 @@ class PkgHttpServer(
         val len = end - start + 1
         val partial = rangeHeader != null
         val status = if (partial) "206 Partial Content" else "200 OK"
+
+        onLog(
+            buildString {
+                append("HTTP ")
+                append(method)
+                append(" ")
+                append(item.fileName)
+                append(" • ")
+                append(status)
+                append(" • bytes ")
+                append(start)
+                append("-")
+                append(end)
+                append("/")
+                append(item.size)
+
+                if (rangeHeader != null) {
+                    append(" • Range: ")
+                    append(rangeHeader)
+                } else {
+                    append(" • sem Range")
+                }
+            }
+        )
 
         val headers = buildString {
             append("HTTP/1.1 $status\r\n")
@@ -189,6 +231,12 @@ class PkgHttpServer(
 
         if (method == "HEAD") {
             output.flush()
+
+            onLog(
+                "HTTP HEAD concluído • ${item.fileName} • " +
+                    "bytes $start-$end/${item.size}"
+            )
+
             return@use
         }
 
@@ -201,20 +249,43 @@ class PkgHttpServer(
 
                 val buf = ByteArray(1024 * 1024)
                 var remaining = len
+                var sent = 0L
 
                 while (remaining > 0 && running.get()) {
                     val ask = minOf(buf.size.toLong(), remaining).toInt()
                     val n = fis.read(buf, 0, ask)
 
-                    if (n < 0) throw EOFException("PKG terminou antes do byte $end")
+                    if (n < 0) {
+                        throw EOFException(
+                            "PKG terminou antes do byte $end • " +
+                                "enviados=$sent • restantes=$remaining"
+                        )
+                    }
+
                     if (n == 0) continue
 
                     output.write(buf, 0, n)
                     remaining -= n
+                    sent += n
                 }
 
                 output.flush()
-                markServed(item.token, start, end)
+
+                if (remaining == 0L) {
+                    markServed(item.token, start, end)
+
+                    onLog(
+                        "HTTP GET concluído • ${item.fileName} • " +
+                            "bytes $start-$end/${item.size} • " +
+                            "enviados=$sent"
+                    )
+                } else {
+                    onLog(
+                        "HTTP GET interrompido • ${item.fileName} • " +
+                            "range=$start-$end • enviados=$sent/$len • " +
+                            "restantes=$remaining • servidorAtivo=${running.get()}"
+                    )
+                }
             }
         }
     }

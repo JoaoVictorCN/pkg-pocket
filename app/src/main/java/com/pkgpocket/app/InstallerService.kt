@@ -425,6 +425,14 @@ class InstallerService : Service() {
                                         statusFailures
                                     )
                                 )
+
+                                progressAttempt.exceptionOrNull()?.let { error ->
+                                    logOnly(
+                                        "Falha RPI detalhada • task=$activeTask • " +
+                                            "${error.javaClass.simpleName}: " +
+                                            "${error.message ?: "sem detalhes"}"
+                                    )
+                                }
                             }
 
                             if (statusFailures >= RPI_STALL_FAILURES) {
@@ -437,6 +445,15 @@ class InstallerService : Service() {
                                         statusFailures
                                     )
                                 )
+
+                                progressAttempt.exceptionOrNull()?.let { error ->
+                                    logOnly(
+                                        "RPI stall • task=$activeTask • " +
+                                            "último progresso=$lastPc% • " +
+                                            "${error.javaClass.simpleName}: " +
+                                            "${error.message ?: "sem detalhes"}"
+                                    )
+                                }
 
                                 publishRpiStalled(
                                     item = item,
@@ -463,10 +480,32 @@ class InstallerService : Service() {
                                 }.getOrNull()
 
                                 if (directRecovery != null) {
+                                    val recoveryDone =
+                                        RpiClient.bytesDone(directRecovery)
+
+                                    val recoveryTotal =
+                                        RpiClient.bytesTotal(directRecovery)
+
+                                    val recoveryPercent =
+                                        RpiClient.percent(directRecovery)
+
+                                    logOnly(
+                                        "RPI recuperado • task=$activeTask • " +
+                                            "progresso=$recoveryPercent% • " +
+                                            "bytes=$recoveryDone/$recoveryTotal • " +
+                                            "status=${directRecovery.toString().take(700)}"
+                                    )
+
                                     waitingForRpiRecovery = false
                                     statusFailures = 0
                                     pollDelayMs = 1000L
-                                    logOnly(getString(R.string.log_rpi_reconnected))
+
+                                    logOnly(
+                                        getString(
+                                            R.string.log_rpi_reconnected
+                                        )
+                                    )
+
                                     continue
                                 }
 
@@ -485,6 +524,31 @@ class InstallerService : Service() {
                                 if (recoveredTask != null) {
                                     activeTask = recoveredTask
                                     currentTaskId = recoveredTask
+
+                                    val recoveredState =
+                                        runCatching {
+                                            RpiClient.progress(
+                                                ps4Ip,
+                                                recoveredTask
+                                            )
+                                        }.getOrNull()
+
+                                    if (recoveredState != null) {
+                                        logOnly(
+                                            "Task recuperada após reinício • " +
+                                                "task=$recoveredTask • " +
+                                                "progresso=${RpiClient.percent(recoveredState)}% • " +
+                                                "bytes=${RpiClient.bytesDone(recoveredState)}/" +
+                                                "${RpiClient.bytesTotal(recoveredState)} • " +
+                                                "status=${recoveredState.toString().take(700)}"
+                                        )
+                                    } else {
+                                        logOnly(
+                                            "Task $recoveredTask encontrada, " +
+                                                "mas o status inicial não pôde ser lido."
+                                        )
+                                    }
+
                                     waitingForRpiRecovery = false
                                     statusFailures = 0
                                     pollDelayMs = 1000L
@@ -1063,7 +1127,7 @@ class InstallerService : Service() {
                 }
 
                 add(line)
-            }.takeLast(80)
+            }.takeLast(250)
 
         prefs.edit()
             .putString(
