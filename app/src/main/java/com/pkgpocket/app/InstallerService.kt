@@ -72,6 +72,7 @@ class InstallerService : Service() {
     @Volatile private var currentItemPercent = 0
     @Volatile private var currentItemDetail = ""
     @Volatile private var lastOverallPercent = 0
+    @Volatile private var lastHttpFailureSnapshotAt = 0L
     @Volatile private var cancelRequested = false
     @Volatile private var waitingForRpiRecovery = false
     @Volatile private var retryRpiRequested = false
@@ -195,13 +196,61 @@ class InstallerService : Service() {
         if (wifiLock?.isHeld == true) wifiLock?.release()
     }
 
+    private fun captureRpiSnapshotAfterHttpFailure(
+        httpFailure: String
+    ) {
+        val now = SystemClock.elapsedRealtime()
+
+        if (now - lastHttpFailureSnapshotAt < 10_000L) return
+
+        val taskId = currentTaskId ?: return
+        val ps4Ip = currentPs4Ip?.takeIf { it.isNotBlank() } ?: return
+
+        lastHttpFailureSnapshotAt = now
+
+        scope.launch {
+            val result = runCatching {
+                RpiClient.progress(ps4Ip, taskId)
+            }
+
+            result.onSuccess { json ->
+                val raw = json.toString()
+                    .replace("\n", " ")
+                    .take(2000)
+
+                val done = RpiClient.bytesDone(json)
+                val total = RpiClient.bytesTotal(json)
+                val percent = RpiClient.percent(json)
+
+                logOnly(
+                    "RPI SNAPSHOT APÓS FALHA HTTP • " +
+                        "task=$taskId • " +
+                        "percent=$percent% • " +
+                        "bytes=$done/$total • " +
+                        "json=$raw"
+                )
+            }
+
+            result.onFailure { error ->
+                logOnly(
+                    "RPI SNAPSHOT INDISPONÍVEL • " +
+                        "task=$taskId • " +
+                        "${error.javaClass.simpleName}: " +
+                        "${error.message ?: "sem detalhes"} • " +
+                        "gatilho=${httpFailure.take(300)}"
+                )
+            }
+        }
+    }
+
     private fun restartServer(items: List<PkgItem>) {
         server?.stop()
         server = PkgHttpServer(
             resolver = contentResolver,
             port = 8080,
             itemsProvider = { items },
-            onLog = ::logOnly
+            onLog = ::logOnly,
+            onHttpFailure = ::captureRpiSnapshotAfterHttpFailure
         ).also {
             runCatching { it.start() }
                 .onFailure { e -> logOnly(getString(R.string.log_server_error, e.message ?: "?")) }

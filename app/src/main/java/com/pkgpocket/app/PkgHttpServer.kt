@@ -18,7 +18,8 @@ class PkgHttpServer(
     private val resolver: ContentResolver,
     private val port: Int = 8080,
     private val itemsProvider: () -> List<PkgItem>,
-    private val onLog: (String) -> Unit = {}
+    private val onLog: (String) -> Unit = {},
+    private val onHttpFailure: (String) -> Unit = {}
 ) {
     private val running = AtomicBoolean(false)
     private val requestCounter = AtomicLong(0L)
@@ -307,14 +308,19 @@ class PkgHttpServer(
                         )
                     }
                 } catch (t: Throwable) {
-                    onLog(
+                    val failureDetail =
                         "HTTP #$requestId FALHOU • " +
                             "range=$start-$end/${item.size} • " +
                             "enviados=$sent/$len • " +
                             "restantes=$remaining • " +
                             "${t.javaClass.simpleName}: " +
                             "${t.message ?: "sem detalhes"}"
-                    )
+
+                    onLog(failureDetail)
+
+                    if (running.get()) {
+                        onHttpFailure(failureDetail)
+                    }
 
                     throw t
                 }
