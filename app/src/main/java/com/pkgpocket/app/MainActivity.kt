@@ -1013,28 +1013,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLogDialog() {
+        val density = resources.displayMetrics.density
+
+        fun dp(value: Int): Int =
+            (value * density).toInt()
+
         val logView = TextView(this).apply {
             text = buildLogText()
             setTextIsSelectable(true)
             textSize = 12f
             typeface = android.graphics.Typeface.MONOSPACE
-
-            val horizontalPadding =
-                (20 * resources.displayMetrics.density).toInt()
-
-            val verticalPadding =
-                (12 * resources.displayMetrics.density).toInt()
-
             setPadding(
-                horizontalPadding,
-                verticalPadding,
-                horizontalPadding,
-                verticalPadding
+                dp(16),
+                dp(12),
+                dp(16),
+                dp(12)
             )
         }
 
         val scrollView = android.widget.ScrollView(this).apply {
-            isFillViewport = true
+            isFillViewport = false
+            isVerticalScrollBarEnabled = true
+
             addView(
                 logView,
                 android.widget.FrameLayout.LayoutParams(
@@ -1044,28 +1044,133 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.view_log)
-            .setView(scrollView)
-            .setNeutralButton(R.string.share_log, null)
-            .setNegativeButton(R.string.copy_log, null)
-            .setPositiveButton(R.string.close, null)
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
-                .setOnClickListener {
+        val shareButton =
+            com.google.android.material.button.MaterialButton(
+                this,
+                null,
+                com.google.android.material.R.attr.materialButtonTextButtonStyle
+            ).apply {
+                text = getString(R.string.share_log)
+                isAllCaps = false
+                setOnClickListener {
                     shareLog()
                 }
+            }
 
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                .setOnClickListener {
+        val copyButton =
+            com.google.android.material.button.MaterialButton(
+                this,
+                null,
+                com.google.android.material.R.attr.materialButtonTextButtonStyle
+            ).apply {
+                text = getString(R.string.copy_log)
+                isAllCaps = false
+                setOnClickListener {
                     copyLogToClipboard()
                 }
+            }
 
-            // Sempre abre no INÍCIO do log.
+        val closeButton =
+            com.google.android.material.button.MaterialButton(
+                this,
+                null,
+                com.google.android.material.R.attr.materialButtonTextButtonStyle
+            ).apply {
+                text = getString(R.string.close)
+                isAllCaps = false
+            }
+
+        val buttonBar = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.END or
+                android.view.Gravity.CENTER_VERTICAL
+
+            setPadding(
+                dp(8),
+                dp(4),
+                dp(8),
+                dp(4)
+            )
+
+            addView(
+                shareButton,
+                android.widget.LinearLayout.LayoutParams(
+                    0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            )
+
+            addView(
+                copyButton,
+                android.widget.LinearLayout.LayoutParams(
+                    0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            )
+
+            addView(
+                closeButton,
+                android.widget.LinearLayout.LayoutParams(
+                    0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            )
+        }
+
+        val content = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+
+            addView(
+                scrollView,
+                android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f
+                )
+            )
+
+            addView(
+                buttonBar,
+                android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.view_log)
+            .setView(content)
+            .create()
+
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.setOnShowListener {
+            val height =
+                (resources.displayMetrics.heightPixels * 0.78f)
+                    .toInt()
+
+            dialog.window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.90f)
+                    .toInt(),
+                height
+            )
+
+            // O TextView selecionável pode tentar levar o ScrollView
+            // para o fim durante o primeiro layout.
+            // Fazemos a correção após o layout completo.
             scrollView.post {
+                logView.clearFocus()
                 scrollView.scrollTo(0, 0)
+
+                scrollView.post {
+                    scrollView.scrollTo(0, 0)
+                }
             }
         }
 
