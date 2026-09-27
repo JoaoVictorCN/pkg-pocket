@@ -212,4 +212,10 @@
 
     <string name="home_more_pkgs">+%1$d PKGs selecionados · Mostrar todos</string>
     <string name="home_collapse_pkgs">Mostrar menos PKGs</string>
+
+    <string name="keep_rpi_open_single">Mantenha o Remote Package Installer aberto no PS4 até a transferência terminar.</string>
+    <string name="keep_rpi_open_queue">Vários PKGs selecionados: mantenha o Remote Package Installer aberto no PS4 durante toda a fila.</string>
+    <string name="quick_check_ready_toast">%1$d PKG(s) pronto(s) • %2$s</string>
+    <string name="pkgs_ready">%1$d PKG(s) pronto(s). Abra o Remote Package Installer no PS4.</string>
+    <string name="state_installed_before">Instalado anteriormente pelo PKG Pocket</string>
 </resources>
