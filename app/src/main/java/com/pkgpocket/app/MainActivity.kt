@@ -2420,7 +2420,18 @@ class MainActivity : AppCompatActivity() {
         installSelectedTokens.retainAll(validTokens)
 
         val sorted = items.sortedWith(
-            compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
+            compareBy<PkgItem>(
+                {
+                    when (it.kind) {
+                        PkgKind.GAME -> 0
+                        PkgKind.UPDATE -> 1
+                        PkgKind.DLC -> 2
+                        PkgKind.OTHER -> 3
+                    }
+                },
+                { it.titleId },
+                { it.fileName }
+            )
         )
 
         val visibleItems =
