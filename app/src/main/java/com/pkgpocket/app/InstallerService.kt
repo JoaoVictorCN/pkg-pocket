@@ -1027,7 +1027,52 @@ class InstallerService : Service() {
         )
     }
 
+    private fun persistSessionLog(text: String) {
+        val clean = text.trim()
+        if (clean.isBlank()) return
+
+        val prefs =
+            getSharedPreferences(
+                "pkg_pocket",
+                MODE_PRIVATE
+            )
+
+        val previous =
+            prefs.getString("last_log", "")
+                .orEmpty()
+
+        val clock =
+            java.text.SimpleDateFormat(
+                "HH:mm:ss",
+                java.util.Locale.getDefault()
+            )
+
+        val line =
+            "[${clock.format(java.util.Date())}] $clean"
+
+        val lines =
+            buildList {
+                if (previous.isNotBlank()) {
+                    addAll(
+                        previous.lines()
+                            .filter { it.isNotBlank() }
+                    )
+                }
+
+                add(line)
+            }.takeLast(80)
+
+        prefs.edit()
+            .putString(
+                "last_log",
+                lines.joinToString("\n")
+            )
+            .apply()
+    }
+
     private fun logOnly(text: String) {
+        persistSessionLog(text)
+
         sendBroadcast(
             Intent(ACTION_STATUS)
                 .setPackage(packageName)
@@ -1039,6 +1084,7 @@ class InstallerService : Service() {
     }
 
     private fun finishSuccess(summary: String) {
+        persistSessionLog(summary)
         broadcastFinal(summary, 100, success = true)
         PkgRepository.items = emptyList()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -1056,6 +1102,7 @@ class InstallerService : Service() {
     }
 
     private fun finishError(message: String) {
+        persistSessionLog(message)
         broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
 
@@ -1072,6 +1119,7 @@ class InstallerService : Service() {
     }
 
     private fun finishCancelled(message: String) {
+        persistSessionLog(message)
         broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
 

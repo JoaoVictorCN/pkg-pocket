@@ -501,6 +501,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         loadCompletedCards()
+        restorePersistedLog()
 
         if (InstallerService.isRunning) {
             val activeQueue = ActiveTransferQueue.get()
@@ -2420,6 +2421,24 @@ class MainActivity : AppCompatActivity() {
             )
             prefs.edit().putBoolean("battery_prompted", true).apply()
         }
+    }
+
+    private fun restorePersistedLog() {
+        val saved =
+            getSharedPreferences("pkg_pocket", MODE_PRIVATE)
+                .getString("last_log", "")
+                .orEmpty()
+
+        if (saved.isBlank()) return
+
+        logLines.clear()
+        logLines.addAll(
+            saved.lines()
+                .filter { it.isNotBlank() }
+                .takeLast(80)
+        )
+
+        b.logText.text = logLines.joinToString("\n")
     }
 
     private fun addLog(message: String) {
