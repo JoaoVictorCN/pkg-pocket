@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var helpBubbleOnLeft = false
     private var lastBackPressedAt = 0L
     private var multiSelectMode = false
+    private var pkgQueueExpanded = false
     private val selectedTokens = linkedSetOf<String>()
     private val installSelectedTokens = linkedSetOf<String>()
     private val completedCards = mutableMapOf<String, String>()
@@ -106,6 +107,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val normalized = normalizeKinds(parsed)
+            pkgQueueExpanded = false
             clearCompletedCards()
             installSelectedTokens.clear()
             installSelectedTokens.addAll(normalized.map { it.token })
@@ -2421,7 +2423,14 @@ class MainActivity : AppCompatActivity() {
             compareBy<PkgItem>({ it.titleId }, { it.kind.order }, { it.fileName })
         )
 
-        sorted.forEach { item ->
+        val visibleItems =
+            if (!pkgQueueExpanded && sorted.size > 3) {
+                sorted.take(3)
+            } else {
+                sorted
+            }
+
+        visibleItems.forEach { item ->
             val row = LayoutInflater.from(this).inflate(R.layout.item_pkg, b.pkgList, false)
 
             row.findViewById<TextView>(R.id.title).text = item.title
@@ -2574,6 +2583,60 @@ class MainActivity : AppCompatActivity() {
 
             attachSwipeToDelete(row, item)
             b.pkgList.addView(row)
+        }
+
+        if (sorted.size > 3) {
+            val hiddenCount = sorted.size - 3
+
+            val toggle = TextView(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin =
+                        (6 * resources.displayMetrics.density).toInt()
+                    bottomMargin =
+                        (4 * resources.displayMetrics.density).toInt()
+                }
+
+                setPadding(
+                    (14 * resources.displayMetrics.density).toInt(),
+                    (12 * resources.displayMetrics.density).toInt(),
+                    (14 * resources.displayMetrics.density).toInt(),
+                    (12 * resources.displayMetrics.density).toInt()
+                )
+
+                gravity = android.view.Gravity.CENTER
+                textSize = 13f
+
+                setTextColor(
+                    ContextCompat.getColor(
+                        this@MainActivity,
+                        R.color.pp_primary
+                    )
+                )
+
+                text =
+                    if (pkgQueueExpanded) {
+                        getString(R.string.home_collapse_pkgs)
+                    } else {
+                        getString(
+                            R.string.home_more_pkgs,
+                            hiddenCount
+                        )
+                    }
+
+                isClickable = true
+                isFocusable = true
+
+                setOnClickListener {
+                    pkgQueueExpanded = !pkgQueueExpanded
+                    render(PkgRepository.items)
+                    updateSelectionSummary(PkgRepository.items)
+                }
+            }
+
+            b.pkgList.addView(toggle)
         }
     }
 

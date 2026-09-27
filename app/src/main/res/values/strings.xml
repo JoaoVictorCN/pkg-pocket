@@ -403,4 +403,7 @@ Pro: %4$s</string>
     <string name="pro_opening_stripe">Opening secure Stripe checkout…</string>
     <string name="pro_opening_checkout">Opening secure checkout…</string>
     <string name="pro_checkout_open_failed">Could not open Pro checkout: %1$s</string>
+
+    <string name="home_more_pkgs">+%1$d selected PKGs · Show all</string>
+    <string name="home_collapse_pkgs">Show fewer PKGs</string>
 </resources>

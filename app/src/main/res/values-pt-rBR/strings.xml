@@ -209,4 +209,7 @@
     <string name="settings_title">Configurações</string>
     <string name="pro_check_error">Não foi possível verificar o status Pro: %1$s</string>
     <string name="home_your_pkgs">Seus PKGs</string>
+
+    <string name="home_more_pkgs">+%1$d PKGs selecionados · Mostrar todos</string>
+    <string name="home_collapse_pkgs">Mostrar menos PKGs</string>
 </resources>
