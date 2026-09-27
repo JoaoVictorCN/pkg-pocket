@@ -12,6 +12,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 class PkgHttpServer(
     private val resolver: ContentResolver,
@@ -20,6 +21,7 @@ class PkgHttpServer(
     private val onLog: (String) -> Unit = {}
 ) {
     private val running = AtomicBoolean(false)
+    private val requestCounter = AtomicLong(0L)
     private val workers = Executors.newFixedThreadPool(16)
     private val coverageLock = Any()
     private val servedRanges = mutableMapOf<String, MutableList<LongRange>>()
@@ -41,15 +43,9 @@ class PkgHttpServer(
                                 handle(socket)
                             } catch (t: Throwable) {
                                 if (running.get()) {
-                                    if (isExpectedDisconnect(t)) {
+                                    if (!isExpectedDisconnect(t)) {
                                         onLog(
-                                            "HTTP cliente desconectou • " +
-                                                "${t.javaClass.simpleName}: " +
-                                                "${t.message ?: "sem detalhes"}"
-                                        )
-                                    } else {
-                                        onLog(
-                                            "Falha HTTP • " +
+                                            "Falha HTTP externa • " +
                                                 "${t.javaClass.simpleName}: " +
                                                 "${t.message ?: "sem detalhes"}"
                                         )
@@ -133,6 +129,8 @@ class PkgHttpServer(
     }
 
     private fun handle(socket: Socket) = socket.use { s ->
+        val requestId = requestCounter.incrementAndGet()
+
         s.soTimeout = 30_000
         s.tcpNoDelay = true
         runCatching { s.sendBufferSize = 1024 * 1024 }
@@ -196,7 +194,9 @@ class PkgHttpServer(
 
         onLog(
             buildString {
-                append("HTTP ")
+                append("HTTP #")
+                append(requestId)
+                append(" ")
                 append(method)
                 append(" ")
                 append(item.fileName)
@@ -251,40 +251,70 @@ class PkgHttpServer(
                 var remaining = len
                 var sent = 0L
 
-                while (remaining > 0 && running.get()) {
-                    val ask = minOf(buf.size.toLong(), remaining).toInt()
-                    val n = fis.read(buf, 0, ask)
+                try {
+                    while (remaining > 0 && running.get()) {
+                        val ask =
+                            minOf(
+                                buf.size.toLong(),
+                                remaining
+                            ).toInt()
 
-                    if (n < 0) {
-                        throw EOFException(
-                            "PKG terminou antes do byte $end • " +
-                                "enviados=$sent • restantes=$remaining"
-                        )
+                        val n = fis.read(buf, 0, ask)
+
+                        if (n < 0) {
+                            throw EOFException(
+                                "PKG terminou antes do byte $end • " +
+                                    "enviados=$sent • restantes=$remaining"
+                            )
+                        }
+
+                        if (n == 0) continue
+
+                        output.write(buf, 0, n)
+
+                        remaining -= n
+                        sent += n
                     }
 
-                    if (n == 0) continue
+                    if (remaining == 0L) {
+                        /*
+                         * Os bytes já foram entregues ao BufferedOutputStream,
+                         * mas flush() ainda pode revelar que o cliente encerrou
+                         * a conexão antes de aceitá-los.
+                         */
+                        output.flush()
 
-                    output.write(buf, 0, n)
-                    remaining -= n
-                    sent += n
-                }
+                        markServed(
+                            item.token,
+                            start,
+                            end
+                        )
 
-                output.flush()
-
-                if (remaining == 0L) {
-                    markServed(item.token, start, end)
-
+                        onLog(
+                            "HTTP #$requestId CONCLUÍDO • " +
+                                "range=$start-$end/${item.size} • " +
+                                "enviados=$sent/$len"
+                        )
+                    } else {
+                        onLog(
+                            "HTTP #$requestId INTERROMPIDO • " +
+                                "range=$start-$end/${item.size} • " +
+                                "enviados=$sent/$len • " +
+                                "restantes=$remaining • " +
+                                "servidorAtivo=${running.get()}"
+                        )
+                    }
+                } catch (t: Throwable) {
                     onLog(
-                        "HTTP GET concluído • ${item.fileName} • " +
-                            "bytes $start-$end/${item.size} • " +
-                            "enviados=$sent"
+                        "HTTP #$requestId FALHOU • " +
+                            "range=$start-$end/${item.size} • " +
+                            "enviados=$sent/$len • " +
+                            "restantes=$remaining • " +
+                            "${t.javaClass.simpleName}: " +
+                            "${t.message ?: "sem detalhes"}"
                     )
-                } else {
-                    onLog(
-                        "HTTP GET interrompido • ${item.fileName} • " +
-                            "range=$start-$end • enviados=$sent/$len • " +
-                            "restantes=$remaining • servidorAtivo=${running.get()}"
-                    )
+
+                    throw t
                 }
             }
         }
