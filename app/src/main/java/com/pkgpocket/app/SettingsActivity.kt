@@ -110,35 +110,117 @@ class SettingsActivity : AppCompatActivity() {
                 dialog.getButton(
                     AlertDialog.BUTTON_NEUTRAL
                 ).setOnClickListener {
-                    val diagnosticPatterns = listOf(
-                        "RPI SNAPSHOT",
-                        "HTTP #",
-                        "status query",
-                        "RPI did not",
-                        "RPI is responding",
-                        "Task ",
-                        "Queue paused",
-                        "reconectar ao RPI",
-                        "RPI status",
-                        "Transferência cancelada",
-                        "Erro",
-                        "ERROR"
-                    )
+                    val allLines = logs.lines()
 
-                    val diagnosticLogs = logs
-                        .lineSequence()
-                        .filter { line ->
-                            diagnosticPatterns.any { pattern ->
-                                line.contains(
-                                    pattern,
-                                    ignoreCase = true
-                                )
+                    // Snapshots do RPI são prioridade absoluta.
+                    val snapshots = allLines.filter { line ->
+                        line.contains(
+                            "RPI SNAPSHOT",
+                            ignoreCase = true
+                        )
+                    }
+
+                    // Eventos de controle/recovery da instalação.
+                    val rpiEvents = allLines.filter { line ->
+                        line.contains(
+                            "status query",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "RPI did not",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "RPI is responding",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "Task ",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "Queue paused",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "reconectar ao RPI",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "RPI status",
+                            ignoreCase = true
+                        )
+                    }.takeLast(30)
+
+                    // Não deixa milhares de Broken pipe engolirem
+                    // o diagnóstico realmente importante.
+                    val httpFailures = allLines.filter { line ->
+                        line.contains("HTTP #") &&
+                        (
+                            line.contains("FALHOU") ||
+                            line.contains("INTERROMPIDO") ||
+                            line.contains("ÚLTIMO RANGE")
+                        )
+                    }.takeLast(25)
+
+                    val terminalEvents = allLines.filter { line ->
+                        line.contains(
+                            "cancelada",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "erro",
+                            ignoreCase = true
+                        ) ||
+                        line.contains(
+                            "error",
+                            ignoreCase = true
+                        )
+                    }.takeLast(20)
+
+                    val diagnosticLogs = buildString {
+                        appendLine("=== PKG POCKET DIAGNÓSTICO ===")
+                        appendLine()
+
+                        appendLine("=== RPI SNAPSHOTS ===")
+                        if (snapshots.isEmpty()) {
+                            appendLine("Nenhum snapshot RPI encontrado.")
+                        } else {
+                            snapshots.takeLast(20).forEach {
+                                appendLine(it)
                             }
                         }
-                        .toList()
-                        .takeLast(120)
-                        .joinToString("\n")
-                        .ifBlank { logs.takeLast(12_000) }
+
+                        appendLine()
+                        appendLine("=== EVENTOS RPI ===")
+                        if (rpiEvents.isEmpty()) {
+                            appendLine("Nenhum evento RPI encontrado.")
+                        } else {
+                            rpiEvents.forEach {
+                                appendLine(it)
+                            }
+                        }
+
+                        appendLine()
+                        appendLine("=== ÚLTIMAS FALHAS HTTP ===")
+                        if (httpFailures.isEmpty()) {
+                            appendLine("Nenhuma falha HTTP encontrada.")
+                        } else {
+                            httpFailures.forEach {
+                                appendLine(it)
+                            }
+                        }
+
+                        appendLine()
+                        appendLine("=== EVENTOS TERMINAIS ===")
+                        if (terminalEvents.isEmpty()) {
+                            appendLine("Nenhum evento terminal encontrado.")
+                        } else {
+                            terminalEvents.forEach {
+                                appendLine(it)
+                            }
+                        }
+                    }.takeLast(20_000)
 
                     val share = Intent(Intent.ACTION_SEND)
                         .setType("text/plain")
