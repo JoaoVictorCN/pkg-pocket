@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -316,14 +317,19 @@ class GameDetailActivity : AppCompatActivity() {
         addInfoRow(
             body,
             getString(R.string.detail_title_id),
-            group.titleId.ifBlank { "—" }
+            group.titleId.ifBlank { "—" },
+            copyable = group.titleId.isNotBlank()
         )
+        val contentId = group.records.firstOrNull {
+            it.contentId.isNotBlank()
+        }?.contentId.orEmpty()
+
         addInfoRow(
             body,
             getString(R.string.detail_content_id),
-            group.records.firstOrNull {
-                it.contentId.isNotBlank()
-            }?.contentId.orEmpty().ifBlank { "—" }
+            contentId.ifBlank { "—" },
+            copyable = contentId.isNotBlank(),
+            singleLine = true
         )
         addInfoRow(
             body,
@@ -338,7 +344,9 @@ class GameDetailActivity : AppCompatActivity() {
     private fun addInfoRow(
         parent: LinearLayout,
         label: String,
-        value: String
+        value: String,
+        copyable: Boolean = false,
+        singleLine: Boolean = false
     ) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -359,7 +367,13 @@ class GameDetailActivity : AppCompatActivity() {
             TextView(this).apply {
                 text = value
                 textSize = 12f
-                maxLines = 3
+                maxLines = if (singleLine) 1 else 3
+
+                if (singleLine) {
+                    ellipsize =
+                        android.text.TextUtils.TruncateAt.END
+                }
+
                 setTextColor(
                     MaterialColors.getColor(
                         this@GameDetailActivity,
@@ -367,6 +381,32 @@ class GameDetailActivity : AppCompatActivity() {
                         Color.WHITE
                     )
                 )
+
+                if (copyable) {
+                    isClickable = true
+                    isLongClickable = true
+                    setTextIsSelectable(true)
+
+                    setOnClickListener {
+                        val clipboard =
+                            getSystemService(
+                                android.content.Context.CLIPBOARD_SERVICE
+                            ) as android.content.ClipboardManager
+
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                label,
+                                value
+                            )
+                        )
+
+                        Toast.makeText(
+                            this@GameDetailActivity,
+                            "$label copiado",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
             },
             LinearLayout.LayoutParams(0, -2, 1f)
         )

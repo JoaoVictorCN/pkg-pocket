@@ -788,7 +788,7 @@ class MainActivity : AppCompatActivity() {
                 R.color.pp_primary
             )
         } else {
-            android.graphics.Color.parseColor("#565B66")
+            android.graphics.Color.parseColor("#252B35")
         }
 
         val fg = if (canInstall) {
@@ -797,7 +797,7 @@ class MainActivity : AppCompatActivity() {
                 R.color.pp_on_primary
             )
         } else {
-            android.graphics.Color.parseColor("#ECEEF3")
+            android.graphics.Color.parseColor("#8E96A3")
         }
 
         b.installAll.backgroundTintList =
@@ -2085,7 +2085,7 @@ class MainActivity : AppCompatActivity() {
             bubble.x = (parent.width - bubble.width - margin)
                 .coerceAtLeast(margin)
                 .toFloat()
-            bubble.y = ((parent.height - bubble.height) * 0.42f)
+            bubble.y = ((parent.height - bubble.height) * 0.30f)
                 .coerceAtLeast(margin.toFloat())
 
             bubble.animate()

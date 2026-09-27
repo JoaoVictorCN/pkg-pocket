@@ -130,7 +130,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -175,7 +175,7 @@
                         android:id="@+id/settingsProStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="7dp"
                         android:text="@string/pro_status_free"
                         android:textColor="?attr/colorOnSecondaryContainer"
                         android:textSize="13sp"
@@ -185,7 +185,7 @@
                         android:id="@+id/settingsProEmailLayout"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="9dp"
+                        android:layout_marginTop="7dp"
                         android:hint="@string/pro_email_hint">
 
                         <com.google.android.material.textfield.TextInputEditText
@@ -199,7 +199,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="6dp"
                         android:orientation="horizontal">
 
                         <com.google.android.material.button.MaterialButton
