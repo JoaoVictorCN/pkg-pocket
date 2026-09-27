@@ -135,6 +135,7 @@ class SettingsActivity : AppCompatActivity() {
                                 )
                             }
                         }
+                        .toList()
                         .takeLast(120)
                         .joinToString("\n")
                         .ifBlank { logs.takeLast(12_000) }
