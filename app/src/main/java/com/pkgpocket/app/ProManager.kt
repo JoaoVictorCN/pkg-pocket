@@ -3,6 +3,8 @@ package com.pkgpocket.app
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -11,6 +13,15 @@ import java.net.URLEncoder
 import java.util.Locale
 
 object ProManager {
+    /*
+     * Single-flight da validação Pro.
+     *
+     * Se duas Activities pedirem /status ao mesmo tempo,
+     * apenas a primeira consulta o servidor.
+     * A segunda espera e reutiliza o cache gravado.
+     */
+    private val statusMutex = Mutex()
+
     private const val PREFS = "pkg_pocket_pro"
     private const val KEY_EMAIL = "email"
     private const val KEY_PURCHASE_ID = "purchase_id"
@@ -188,45 +199,60 @@ object ProManager {
         force: Boolean = false
     ): Status =
         withContext(Dispatchers.IO) {
-            val normalized = email.trim().lowercase()
-            val savedEmail = savedEmail(context).trim().lowercase()
+            statusMutex.withLock {
+                val normalized = email.trim().lowercase()
+                val savedEmail = savedEmail(context).trim().lowercase()
 
-            /*
-             * Cache só é válido para o mesmo e-mail.
-             * "Verificar" usa force=true e sempre consulta o servidor.
-             */
-            if (
-                !force &&
-                normalized == savedEmail &&
-                isStatusCacheFresh(context)
-            ) {
-                return@withContext cachedStatus(context)
+                /*
+                 * Esta verificação acontece DENTRO do lock.
+                 *
+                 * Isso é importante: se outra coroutine acabou de
+                 * consultar o servidor enquanto esta aguardava,
+                 * o cache já estará fresco e evitamos outro HTTP.
+                 */
+                if (
+                    !force &&
+                    normalized == savedEmail &&
+                    isStatusCacheFresh(context)
+                ) {
+                    return@withLock cachedStatus(context)
+                }
+
+                val encoded =
+                    URLEncoder.encode(normalized, "UTF-8")
+
+                val response = request(
+                    "GET",
+                    "$apiBase/v1/pro/status?email=$encoded"
+                )
+
+                val active =
+                    response.optBoolean("pro", false)
+
+                val status =
+                    response.optString(
+                        "status",
+                        if (active) "active" else "free"
+                    )
+
+                /*
+                 * commit() é intencional aqui.
+                 *
+                 * O valor precisa estar persistido antes de liberar
+                 * o Mutex para a próxima coroutine.
+                 */
+                prefs(context).edit()
+                    .putString(KEY_EMAIL, normalized)
+                    .putBoolean(KEY_PRO_ACTIVE, active)
+                    .putString(KEY_PRO_STATUS, status)
+                    .putLong(
+                        KEY_LAST_STATUS_CHECK,
+                        System.currentTimeMillis()
+                    )
+                    .commit()
+
+                Status(active, status)
             }
-
-            val encoded = URLEncoder.encode(normalized, "UTF-8")
-            val response = request(
-                "GET",
-                "$apiBase/v1/pro/status?email=$encoded"
-            )
-
-            val active = response.optBoolean("pro", false)
-            val status =
-                response.optString(
-                    "status",
-                    if (active) "active" else "free"
-                )
-
-            prefs(context).edit()
-                .putString(KEY_EMAIL, normalized)
-                .putBoolean(KEY_PRO_ACTIVE, active)
-                .putString(KEY_PRO_STATUS, status)
-                .putLong(
-                    KEY_LAST_STATUS_CHECK,
-                    System.currentTimeMillis()
-                )
-                .apply()
-
-            Status(active, status)
         }
 
     private fun prefs(context: Context) =
