@@ -56,7 +56,28 @@ const sanitizeRecords = (records) => {
   return out;
 };
 
+const PRO_VERIFY_CACHE_TTL = 15 * 60;
+
 const verifyPro = async (env, email) => {
+  /*
+   * Library Sync pode ser chamado várias vezes em poucos segundos
+   * (entrada na biblioteca, restore, WorkManager etc.).
+   *
+   * Não precisamos executar o Pro API novamente em cada sync.
+   * O resultado positivo é guardado por 15 minutos no KV LIBRARY.
+   *
+   * Resultado negativo NÃO é cacheado, para que uma compra/ativação
+   * recém-concluída seja reconhecida imediatamente.
+   */
+  const emailHash = await sha256(email);
+  const cacheKey = `pro_verify:${emailHash}`;
+
+  const cached = await env.LIBRARY.get(cacheKey);
+
+  if (cached === "1") {
+    return true;
+  }
+
   const query = encodeURIComponent(email);
 
   let response;
@@ -89,7 +110,19 @@ const verifyPro = async (env, email) => {
   if (!response.ok) return false;
 
   const data = await response.json().catch(() => ({}));
-  return data?.pro === true;
+  const active = data?.pro === true;
+
+  if (active) {
+    await env.LIBRARY.put(
+      cacheKey,
+      "1",
+      {
+        expirationTtl: PRO_VERIFY_CACHE_TTL,
+      }
+    );
+  }
+
+  return active;
 };
 
 const readBody = async (request) => {
