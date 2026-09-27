@@ -513,23 +513,26 @@ class MainActivity : AppCompatActivity() {
         b.overallProgressInfo.visibility = View.GONE
         b.progress.visibility = View.GONE
 
-        if (savedInstanceState == null && !InstallerService.isRunning) {
+        val preservedQueue =
+            ActiveTransferQueue.get()
+
+        if (
+            savedInstanceState == null &&
+            !InstallerService.isRunning &&
+            preservedQueue.isEmpty()
+        ) {
             resetTransientInstallerSession()
         }
 
         loadCompletedCards()
         restorePersistedLog()
 
-        if (InstallerService.isRunning) {
-            val activeQueue = ActiveTransferQueue.get()
-
-            if (activeQueue.isNotEmpty()) {
-                PkgRepository.items = activeQueue
-                installSelectedTokens.clear()
-                installSelectedTokens.addAll(
-                    activeQueue.map { it.token }
-                )
-            }
+        if (preservedQueue.isNotEmpty()) {
+            PkgRepository.items = preservedQueue
+            installSelectedTokens.clear()
+            installSelectedTokens.addAll(
+                preservedQueue.map { it.token }
+            )
         }
 
         if (PkgRepository.items.isNotEmpty()) {
@@ -3213,23 +3216,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (InstallerService.isRunning) {
-            val activeQueue = ActiveTransferQueue.get()
+        val resumeQueue =
+            ActiveTransferQueue.get()
 
-            if (activeQueue.isNotEmpty()) {
-                PkgRepository.items = activeQueue
+        if (resumeQueue.isNotEmpty()) {
+            PkgRepository.items = resumeQueue
 
-                val queueTokens =
-                    activeQueue.map { it.token }.toSet()
+            val queueTokens =
+                resumeQueue.map { it.token }.toSet()
 
-                if (installSelectedTokens != queueTokens) {
-                    installSelectedTokens.clear()
-                    installSelectedTokens.addAll(queueTokens)
+            if (installSelectedTokens != queueTokens) {
+                installSelectedTokens.clear()
+                installSelectedTokens.addAll(queueTokens)
 
-                    render(activeQueue)
-                    updateSelectionSummary(activeQueue)
-                }
+                render(resumeQueue)
+                updateSelectionSummary(resumeQueue)
+            }
 
+            if (InstallerService.isRunning) {
                 ensureService(
                     InstallerService.ACTION_REQUEST_STATUS
                 )

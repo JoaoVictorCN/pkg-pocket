@@ -1101,7 +1101,7 @@ class InstallerService : Service() {
             )
         )
 
-        cleanupAndStop()
+        cleanupAndStop(clearQueue = true)
     }
 
     private fun finishError(message: String) {
@@ -1118,7 +1118,7 @@ class InstallerService : Service() {
             )
         )
 
-        cleanupAndStop()
+        cleanupAndStop(clearQueue = false)
     }
 
     private fun finishCancelled(message: String) {
@@ -1135,7 +1135,7 @@ class InstallerService : Service() {
             )
         )
 
-        cleanupAndStop()
+        cleanupAndStop(clearQueue = true)
     }
 
     private fun broadcastFinal(
@@ -1157,7 +1157,9 @@ class InstallerService : Service() {
         )
     }
 
-    private fun cleanupAndStop() {
+    private fun cleanupAndStop(
+        clearQueue: Boolean
+    ) {
         server?.stop()
         server = null
         currentTaskId = null
@@ -1165,7 +1167,11 @@ class InstallerService : Service() {
         currentItemToken = null
         waitingForRpiRecovery = false
         retryRpiRequested = false
-        ActiveTransferQueue.clear()
+
+        if (clearQueue) {
+            ActiveTransferQueue.clear()
+        }
+
         releasePerformanceLocks()
         stopSelf()
     }
