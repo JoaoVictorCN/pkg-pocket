@@ -503,14 +503,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.toggleLog.setOnClickListener {
-            val show = b.logContainer.visibility != View.VISIBLE
-            b.logContainer.visibility =
-                if (show) View.VISIBLE else View.GONE
-
-            b.toggleLog.text = getString(
-                if (show) R.string.hide_log
-                else R.string.view_log
-            )
+            showLogDialog()
         }
 
         b.liveLog.text = getString(R.string.no_active_transfer)
@@ -1017,6 +1010,66 @@ class MainActivity : AppCompatActivity() {
                 addLog(getString(R.string.removal_undone))
             }
             .show()
+    }
+
+    private fun showLogDialog() {
+        val logView = TextView(this).apply {
+            text = buildLogText()
+            setTextIsSelectable(true)
+            textSize = 12f
+            typeface = android.graphics.Typeface.MONOSPACE
+
+            val horizontalPadding =
+                (20 * resources.displayMetrics.density).toInt()
+
+            val verticalPadding =
+                (12 * resources.displayMetrics.density).toInt()
+
+            setPadding(
+                horizontalPadding,
+                verticalPadding,
+                horizontalPadding,
+                verticalPadding
+            )
+        }
+
+        val scrollView = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            addView(
+                logView,
+                android.widget.ScrollView.LayoutParams(
+                    android.widget.ScrollView.LayoutParams.MATCH_PARENT,
+                    android.widget.ScrollView.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.view_log)
+            .setView(scrollView)
+            .setNeutralButton(R.string.share_log, null)
+            .setNegativeButton(R.string.copy_log, null)
+            .setPositiveButton(R.string.close, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                .setOnClickListener {
+                    shareLog()
+                }
+
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                .setOnClickListener {
+                    copyLogToClipboard()
+                }
+
+            // Sempre abre no INÍCIO do log.
+            scrollView.post {
+                scrollView.scrollTo(0, 0)
+            }
+        }
+
+        dialog.show()
     }
 
     private fun clearVisibleLog() {
@@ -2462,7 +2515,7 @@ class MainActivity : AppCompatActivity() {
         logLines.addAll(
             saved.lines()
                 .filter { it.isNotBlank() }
-                .takeLast(80)
+                .takeLast(250)
         )
 
         b.logText.text = logLines.joinToString("\n")
@@ -2473,7 +2526,7 @@ class MainActivity : AppCompatActivity() {
         if (clean.isBlank()) return
 
         logLines += "[${clock.format(Date())}] $clean"
-        while (logLines.size > 80) logLines.removeAt(0)
+        while (logLines.size > 250) logLines.removeAt(0)
         val renderedLog = logLines.joinToString("\n")
         b.logText.text = renderedLog
         getSharedPreferences("pkg_pocket", MODE_PRIVATE)
