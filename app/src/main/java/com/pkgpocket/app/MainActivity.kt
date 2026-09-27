@@ -3198,6 +3198,17 @@ class MainActivity : AppCompatActivity() {
         if (fromInstallerNotification) {
             fastInstallerResume = true
 
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                overrideActivityTransition(
+                    OVERRIDE_TRANSITION_OPEN,
+                    0,
+                    0
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
+            }
+
             val queue =
                 ActiveTransferQueue.get()
 
