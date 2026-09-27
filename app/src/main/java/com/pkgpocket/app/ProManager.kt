@@ -15,6 +15,14 @@ object ProManager {
     private const val KEY_EMAIL = "email"
     private const val KEY_PURCHASE_ID = "purchase_id"
     private const val KEY_PRO_ACTIVE = "pro_active"
+    private const val KEY_PRO_STATUS = "pro_status"
+    private const val KEY_LAST_STATUS_CHECK = "last_status_check"
+
+    /*
+     * A licença Pro já possui tolerância offline.
+     * Não há motivo para consultar /status a cada troca de Activity.
+     */
+    private const val STATUS_CACHE_MS = 12L * 60L * 60L * 1000L
 
     private val apiBase: String
         get() = BuildConfig.PRO_API_URL.trimEnd('/')
@@ -44,6 +52,31 @@ object ProManager {
 
     fun isProCached(context: Context): Boolean =
         prefs(context).getBoolean(KEY_PRO_ACTIVE, false)
+
+    fun cachedStatus(context: Context): Status =
+        Status(
+            active = isProCached(context),
+            status = prefs(context)
+                .getString(
+                    KEY_PRO_STATUS,
+                    if (isProCached(context)) "active" else "free"
+                )
+                .orEmpty()
+                .ifBlank {
+                    if (isProCached(context)) "active" else "free"
+                }
+        )
+
+    fun isStatusCacheFresh(context: Context): Boolean {
+        val lastCheck =
+            prefs(context).getLong(KEY_LAST_STATUS_CHECK, 0L)
+
+        if (lastCheck <= 0L) return false
+
+        val age = System.currentTimeMillis() - lastCheck
+
+        return age in 0 until STATUS_CACHE_MS
+    }
 
     fun savePurchaseId(context: Context, purchaseId: String) {
         prefs(context).edit().putString(KEY_PURCHASE_ID, purchaseId).apply()
@@ -137,6 +170,11 @@ object ProManager {
             if (activated) {
                 prefs(context).edit()
                     .putBoolean(KEY_PRO_ACTIVE, true)
+                    .putString(KEY_PRO_STATUS, "active")
+                    .putLong(
+                        KEY_LAST_STATUS_CHECK,
+                        System.currentTimeMillis()
+                    )
                     .remove(KEY_PURCHASE_ID)
                     .apply()
             }
@@ -144,20 +182,48 @@ object ProManager {
             Reconcile(activated, status, paymentId)
         }
 
-    suspend fun refreshStatus(context: Context, email: String): Status =
+    suspend fun refreshStatus(
+        context: Context,
+        email: String,
+        force: Boolean = false
+    ): Status =
         withContext(Dispatchers.IO) {
             val normalized = email.trim().lowercase()
+            val savedEmail = savedEmail(context).trim().lowercase()
+
+            /*
+             * Cache só é válido para o mesmo e-mail.
+             * "Verificar" usa force=true e sempre consulta o servidor.
+             */
+            if (
+                !force &&
+                normalized == savedEmail &&
+                isStatusCacheFresh(context)
+            ) {
+                return@withContext cachedStatus(context)
+            }
+
             val encoded = URLEncoder.encode(normalized, "UTF-8")
             val response = request(
                 "GET",
                 "$apiBase/v1/pro/status?email=$encoded"
             )
+
             val active = response.optBoolean("pro", false)
-            val status = response.optString("status", if (active) "active" else "free")
+            val status =
+                response.optString(
+                    "status",
+                    if (active) "active" else "free"
+                )
 
             prefs(context).edit()
                 .putString(KEY_EMAIL, normalized)
                 .putBoolean(KEY_PRO_ACTIVE, active)
+                .putString(KEY_PRO_STATUS, status)
+                .putLong(
+                    KEY_LAST_STATUS_CHECK,
+                    System.currentTimeMillis()
+                )
                 .apply()
 
             Status(active, status)

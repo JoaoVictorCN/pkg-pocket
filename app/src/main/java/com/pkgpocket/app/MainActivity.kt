@@ -2933,7 +2933,7 @@ class MainActivity : AppCompatActivity() {
                 val result = ProManager.reconcile(this@MainActivity, purchaseId)
 
                 if (result.activated) {
-                    refreshProStatus(showFeedback)
+                    renderProState(true, null)
                 } else {
                     val msg = when (result.status.lowercase()) {
                         "pending", "in_process", "in_mediation", "waiting_payment" ->
@@ -2991,7 +2991,12 @@ class MainActivity : AppCompatActivity() {
                  * se não houver licença local no backend, ele procura uma
                  * compra aprovada vinculada ao mesmo e-mail e recria a licença.
                  */
-                val status = ProManager.refreshStatus(this@MainActivity, email)
+                val status =
+                    ProManager.refreshStatus(
+                        this@MainActivity,
+                        email,
+                        force = showFeedback
+                    )
 
                 val message = if (showFeedback && !status.active) {
                     when (status.status.lowercase()) {

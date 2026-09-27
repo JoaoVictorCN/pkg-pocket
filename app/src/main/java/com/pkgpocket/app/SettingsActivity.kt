@@ -503,7 +503,8 @@ class SettingsActivity : AppCompatActivity() {
                 // 1) PRIMEIRO valida exclusivamente a licença.
                 val status = ProManager.refreshStatus(
                     this@SettingsActivity,
-                    email
+                    email,
+                    force = showFeedback
                 )
 
                 val licenseMessage =
@@ -626,7 +627,30 @@ class SettingsActivity : AppCompatActivity() {
                     )
 
                 if (result.activated) {
-                    refreshPro(true)
+                    renderProState(true, null)
+
+                    try {
+                        val sync =
+                            LibrarySyncManager.restoreAndMerge(
+                                this@SettingsActivity
+                            )
+
+                        if (sync.changedLocal) {
+                            Toast.makeText(
+                                this@SettingsActivity,
+                                getString(
+                                    R.string.library_sync_restored,
+                                    sync.totalRecords
+                                ),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } catch (_: Exception) {
+                        LibrarySyncManager.enqueueRestore(
+                            this@SettingsActivity
+                        )
+                    }
+
                     return@launch
                 }
 
