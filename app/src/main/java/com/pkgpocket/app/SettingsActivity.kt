@@ -110,6 +110,35 @@ class SettingsActivity : AppCompatActivity() {
                 dialog.getButton(
                     AlertDialog.BUTTON_NEUTRAL
                 ).setOnClickListener {
+                    val diagnosticPatterns = listOf(
+                        "RPI SNAPSHOT",
+                        "HTTP #",
+                        "status query",
+                        "RPI did not",
+                        "RPI is responding",
+                        "Task ",
+                        "Queue paused",
+                        "reconectar ao RPI",
+                        "RPI status",
+                        "Transferência cancelada",
+                        "Erro",
+                        "ERROR"
+                    )
+
+                    val diagnosticLogs = logs
+                        .lineSequence()
+                        .filter { line ->
+                            diagnosticPatterns.any { pattern ->
+                                line.contains(
+                                    pattern,
+                                    ignoreCase = true
+                                )
+                            }
+                        }
+                        .takeLast(120)
+                        .joinToString("\n")
+                        .ifBlank { logs.takeLast(12_000) }
+
                     val share = Intent(Intent.ACTION_SEND)
                         .setType("text/plain")
                         .putExtra(
@@ -118,7 +147,7 @@ class SettingsActivity : AppCompatActivity() {
                         )
                         .putExtra(
                             Intent.EXTRA_TEXT,
-                            logs
+                            diagnosticLogs
                         )
 
                     startActivity(
