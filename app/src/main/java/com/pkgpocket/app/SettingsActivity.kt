@@ -740,10 +740,15 @@ class SettingsActivity : AppCompatActivity() {
                     R.string.pro_status_pending
                 )
 
+        b.settingsProActiveEmail.visibility = View.GONE
+        b.settingsProEmailLayout.visibility = View.VISIBLE
+        b.settingsProEmailLayout.isEnabled = false
+
         b.settingsProBuy.visibility = View.VISIBLE
         b.settingsProBuy.isEnabled = false
+
+        b.settingsProCheck.visibility = View.VISIBLE
         b.settingsProCheck.isEnabled = false
-        b.settingsProEmailLayout.isEnabled = false
     }
 
     private fun renderProState(active: Boolean, message: String?) {
@@ -756,9 +761,55 @@ class SettingsActivity : AppCompatActivity() {
                 }
             )
 
-        b.settingsProBuy.visibility =
-            if (active) View.GONE else View.VISIBLE
-        b.settingsProEmailLayout.isEnabled = !active
+        if (active) {
+            val email = ProManager.savedEmail(this)
+
+            b.settingsProEmailLayout.visibility = View.GONE
+
+            b.settingsProActiveEmail.text = email
+            b.settingsProActiveEmail.visibility =
+                if (email.isBlank()) View.GONE else View.VISIBLE
+
+            b.settingsProBuy.visibility = View.GONE
+
+            b.settingsProCheck.visibility = View.VISIBLE
+            b.settingsProCheck.isEnabled = true
+
+            val params =
+                b.settingsProCheck.layoutParams as LinearLayout.LayoutParams
+
+            params.width = LinearLayout.LayoutParams.WRAP_CONTENT
+            params.weight = 0f
+            params.marginStart = 0
+            b.settingsProCheck.layoutParams = params
+
+        } else {
+            b.settingsProActiveEmail.visibility = View.GONE
+
+            b.settingsProEmailLayout.visibility = View.VISIBLE
+            b.settingsProEmailLayout.isEnabled = true
+
+            b.settingsProBuy.visibility = View.VISIBLE
+            b.settingsProBuy.isEnabled = true
+
+            b.settingsProCheck.visibility = View.VISIBLE
+            b.settingsProCheck.isEnabled = true
+
+            val buyParams =
+                b.settingsProBuy.layoutParams as LinearLayout.LayoutParams
+
+            buyParams.width = 0
+            buyParams.weight = 1f
+            b.settingsProBuy.layoutParams = buyParams
+
+            val checkParams =
+                b.settingsProCheck.layoutParams as LinearLayout.LayoutParams
+
+            checkParams.width = 0
+            checkParams.weight = 1f
+            checkParams.marginStart = dp(8)
+            b.settingsProCheck.layoutParams = checkParams
+        }
     }
 
     private fun handleCheckoutIntent(source: Intent?) {
@@ -809,4 +860,9 @@ class SettingsActivity : AppCompatActivity() {
             refreshPro(false)
         }
     }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
+
 }
