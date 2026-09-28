@@ -426,6 +426,24 @@ class MainActivity : AppCompatActivity() {
             pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*"))
         }
 
+        b.selectPkgs.setOnLongClickListener {
+            Toast.makeText(
+                this,
+                "Teste do Fallout: selecione somente o PKG GAME.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            pickFalloutDiagnostic.launch(
+                arrayOf(
+                    "application/octet-stream",
+                    "application/x-pkg",
+                    "*/*"
+                )
+            )
+
+            true
+        }
+
         b.clearSelection.setOnClickListener {
             clearSelection()
         }
@@ -473,24 +491,6 @@ class MainActivity : AppCompatActivity() {
 
         b.diagnosticsButton.setOnClickListener {
             runDiagnostics()
-        }
-
-        b.diagnosticsButton.setOnLongClickListener {
-            Toast.makeText(
-                this,
-                "Teste de integridade do Fallout: selecione o PKG GAME.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            pickFalloutDiagnostic.launch(
-                arrayOf(
-                    "application/octet-stream",
-                    "application/x-pkg",
-                    "*/*"
-                )
-            )
-
-            true
         }
 
         b.detectPs4.setOnClickListener {
