@@ -282,8 +282,29 @@ class InstallerService : Service() {
                 return@launch
             }
 
-            if (!NetworkUtils.canConnect(ps4Ip)) {
-                finishError(getString(R.string.error_rpi_not_found, ps4Ip))
+            val configuredRpiPort =
+                getSharedPreferences(
+                    "pkg_pocket",
+                    MODE_PRIVATE
+                ).getInt(
+                    "rpi_port",
+                    RpiClient.getPort()
+                )
+
+            RpiClient.setPort(configuredRpiPort)
+
+            if (
+                !NetworkUtils.canConnect(
+                    ps4Ip,
+                    configuredRpiPort
+                )
+            ) {
+                finishError(
+                    getString(
+                        R.string.error_rpi_not_found,
+                        ps4Ip
+                    )
+                )
                 return@launch
             }
 

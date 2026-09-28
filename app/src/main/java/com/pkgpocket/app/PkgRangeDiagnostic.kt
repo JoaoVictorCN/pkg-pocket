@@ -1,6 +1,7 @@
 package com.pkgpocket.app
 
 import android.content.ContentResolver
+import android.net.Uri
 import java.io.EOFException
 import java.io.FileInputStream
 import java.security.MessageDigest
@@ -12,7 +13,8 @@ object PkgRangeDiagnostic {
         val sha256: String
     )
 
-    private const val BLOCK = 16L * 1024L * 1024L
+    private const val BLOCK =
+        16L * 1024L * 1024L
 
     private val expected = listOf(
         Expected(
@@ -39,106 +41,182 @@ object PkgRangeDiagnostic {
 
     fun run(
         resolver: ContentResolver,
-        item: PkgItem
+        uri: Uri
     ): String {
+
+        val fileName =
+            uri.lastPathSegment
+                ?.substringAfterLast('/')
+                ?.ifBlank { "package.pkg" }
+                ?: "package.pkg"
+
+        val fileSize =
+            resolver.openFileDescriptor(
+                uri,
+                "r"
+            )?.use {
+                it.statSize
+            } ?: -1L
 
         val out = StringBuilder()
 
-        out.appendLine("=== PKG POCKET RANGE DIAGNOSTIC ===")
-        out.appendLine("Arquivo: ${item.fileName}")
-        out.appendLine("Tamanho: ${item.size}")
-        out.appendLine("URI: ${item.uri}")
+        out.appendLine(
+            "=== PKG POCKET RANGE DIAGNOSTIC ==="
+        )
+        out.appendLine("Arquivo: $fileName")
+        out.appendLine("Tamanho: $fileSize")
+        out.appendLine("URI: $uri")
         out.appendLine()
 
-        if (item.size < 38665125888L) {
-            out.appendLine("ERRO: arquivo menor que a área de teste.")
+        if (
+            fileSize >= 0L &&
+            fileSize < 38665125888L
+        ) {
+            out.appendLine(
+                "ERRO: arquivo menor que a região crítica."
+            )
             return out.toString()
         }
 
-        expected.forEachIndexed { index, e ->
+        val actualHashes =
+            expected.mapIndexed { index, e ->
 
-            val end = e.start + BLOCK - 1L
+                val end =
+                    e.start + BLOCK - 1L
 
-            val actual = hashRange(
-                resolver,
-                item,
-                e.start,
-                BLOCK
-            )
+                val actual =
+                    hashRange(
+                        resolver,
+                        uri,
+                        e.start,
+                        BLOCK
+                    )
 
-            val ok = actual.equals(
-                e.sha256,
-                ignoreCase = true
-            )
+                val ok =
+                    actual.equals(
+                        e.sha256,
+                        ignoreCase = true
+                    )
 
-            out.appendLine("BLOCK ${index + 1}")
-            out.appendLine("range=${e.start}-$end")
-            out.appendLine("size=$BLOCK")
-            out.appendLine("expected=${e.sha256}")
-            out.appendLine("actual=$actual")
-            out.appendLine(
-                "result=" + if (ok) "MATCH" else "MISMATCH"
-            )
-            out.appendLine()
-        }
+                out.appendLine(
+                    "BLOCK ${index + 1}"
+                )
+                out.appendLine(
+                    "range=${e.start}-$end"
+                )
+                out.appendLine(
+                    "size=$BLOCK"
+                )
+                out.appendLine(
+                    "expected=${e.sha256}"
+                )
+                out.appendLine(
+                    "actual=$actual"
+                )
+                out.appendLine(
+                    "result=" +
+                        if (ok) {
+                            "MATCH"
+                        } else {
+                            "MISMATCH"
+                        }
+                )
+                out.appendLine()
+
+                actual
+            }
 
         /*
-         * Repete o bloco crítico duas vezes usando NOVOS
-         * FileDescriptors, exatamente como conexões HTTP
-         * independentes fariam.
+         * O bloco 3 já foi lido uma vez acima.
+         * Aqui abrimos mais DOIS descritores independentes.
+         *
+         * Total do teste:
+         * 5 blocos + 2 repetições = 112 MiB.
          */
-        val criticalStart = 38614794240L
+        val criticalStart =
+            38614794240L
 
-        val repeat1 = hashRange(
-            resolver,
-            item,
-            criticalStart,
-            BLOCK
-        )
-
-        val repeat2 = hashRange(
-            resolver,
-            item,
-            criticalStart,
-            BLOCK
-        )
-
-        out.appendLine("=== CRITICAL REPEAT ===")
-        out.appendLine("repeat1=$repeat1")
-        out.appendLine("repeat2=$repeat2")
-        out.appendLine(
-            "LOCAL_REPEAT=" +
-                if (repeat1 == repeat2) "IDENTICAL"
-                else "DIFFERENT"
-        )
-
-        val mismatches = expected.count { e ->
+        val repeat1 =
             hashRange(
                 resolver,
-                item,
-                e.start,
+                uri,
+                criticalStart,
                 BLOCK
-            ) != e.sha256
-        }
+            )
+
+        val repeat2 =
+            hashRange(
+                resolver,
+                uri,
+                criticalStart,
+                BLOCK
+            )
+
+        val originalCritical =
+            actualHashes[2]
+
+        out.appendLine(
+            "=== CRITICAL REPEAT ==="
+        )
+        out.appendLine(
+            "original=$originalCritical"
+        )
+        out.appendLine(
+            "repeat1=$repeat1"
+        )
+        out.appendLine(
+            "repeat2=$repeat2"
+        )
+
+        val stable =
+            originalCritical == repeat1 &&
+                repeat1 == repeat2
+
+        out.appendLine(
+            "LOCAL_REPEAT=" +
+                if (stable) {
+                    "IDENTICAL"
+                } else {
+                    "DIFFERENT"
+                }
+        )
+
+        val mismatches =
+            actualHashes
+                .zip(expected)
+                .count { (actual, e) ->
+                    !actual.equals(
+                        e.sha256,
+                        ignoreCase = true
+                    )
+                }
 
         out.appendLine()
-        out.appendLine("=== RESULTADO ===")
+        out.appendLine(
+            "=== RESULTADO ==="
+        )
 
         when {
-            repeat1 != repeat2 ->
+            !stable -> {
                 out.appendLine(
                     "LOCAL_READ_UNSTABLE"
                 )
+            }
 
-            mismatches == 0 ->
+            mismatches == 0 -> {
                 out.appendLine(
                     "ALL_RANGES_MATCH_MIRROR"
                 )
+            }
 
-            else ->
+            else -> {
                 out.appendLine(
                     "LOCAL_PKG_DIFFERS_FROM_MIRROR"
                 )
+                out.appendLine(
+                    "MISMATCHES=$mismatches"
+                )
+            }
         }
 
         return out.toString()
@@ -146,32 +224,46 @@ object PkgRangeDiagnostic {
 
     private fun hashRange(
         resolver: ContentResolver,
-        item: PkgItem,
+        uri: Uri,
         start: Long,
         length: Long
     ): String {
 
         val digest =
-            MessageDigest.getInstance("SHA-256")
+            MessageDigest.getInstance(
+                "SHA-256"
+            )
 
         val pfd =
-            resolver.openFileDescriptor(item.uri, "r")
-                ?: error(
-                    "Não foi possível abrir ${item.fileName}"
-                )
+            resolver.openFileDescriptor(
+                uri,
+                "r"
+            ) ?: error(
+                "Não foi possível abrir o PKG"
+            )
 
         pfd.use {
 
-            FileInputStream(it.fileDescriptor).use { fis ->
+            FileInputStream(
+                it.fileDescriptor
+            ).use { fis ->
 
-                seek(fis, start)
+                seek(
+                    fis,
+                    start
+                )
 
                 val buffer =
-                    ByteArray(1024 * 1024)
+                    ByteArray(
+                        1024 * 1024
+                    )
 
-                var remaining = length
+                var remaining =
+                    length
 
-                while (remaining > 0L) {
+                while (
+                    remaining > 0L
+                ) {
 
                     val ask =
                         minOf(
@@ -188,11 +280,13 @@ object PkgRangeDiagnostic {
 
                     if (n < 0) {
                         throw EOFException(
-                            "EOF em $start"
+                            "PKG terminou durante range iniciado em $start"
                         )
                     }
 
-                    if (n == 0) continue
+                    if (n == 0) {
+                        continue
+                    }
 
                     digest.update(
                         buffer,
@@ -205,35 +299,45 @@ object PkgRangeDiagnostic {
             }
         }
 
-        return digest.digest()
+        return digest
+            .digest()
             .joinToString("") {
                 "%02x".format(it)
             }
     }
 
     /*
-     * MESMA estratégia usada pelo PkgHttpServer:
-     * channel.position() e fallback para skip/read.
+     * Mesmo método do PkgHttpServer:
+     * FileChannel.position() e fallback skip/read.
      */
     private fun seek(
         fis: FileInputStream,
         offset: Long
     ) {
 
-        if (offset == 0L) return
+        if (offset == 0L) {
+            return
+        }
 
         try {
-            fis.channel.position(offset)
+            fis.channel.position(
+                offset
+            )
             return
         } catch (_: Throwable) {
         }
 
-        var remaining = offset
+        var remaining =
+            offset
 
-        while (remaining > 0L) {
+        while (
+            remaining > 0L
+        ) {
 
             val skipped =
-                fis.skip(remaining)
+                fis.skip(
+                    remaining
+                )
 
             if (skipped > 0L) {
                 remaining -= skipped
@@ -241,7 +345,7 @@ object PkgRangeDiagnostic {
 
                 if (fis.read() < 0) {
                     throw EOFException(
-                        "Não foi possível avançar até $offset"
+                        "Não foi possível avançar até o byte $offset"
                     )
                 }
 

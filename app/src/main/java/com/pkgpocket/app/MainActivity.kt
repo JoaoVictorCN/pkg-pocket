@@ -79,6 +79,84 @@ class MainActivity : AppCompatActivity() {
 
     private val pkgCards = mutableMapOf<String, PkgCardViews>()
 
+    private val pickFalloutDiagnostic =
+        registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+
+            if (uri == null) {
+                return@registerForActivityResult
+            }
+
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+
+            b.status.text =
+                "Verificando integridade do Fallout…"
+
+            b.liveLog.text =
+                "Lendo apenas os blocos críticos do PKG…"
+
+            Toast.makeText(
+                this,
+                "Diagnóstico iniciado. Não será enviado nada ao PS4.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            lifecycleScope.launch {
+
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        PkgRangeDiagnostic.run(
+                            contentResolver,
+                            uri
+                        )
+                    }.getOrElse { error ->
+                        buildString {
+                            appendLine(
+                                "=== PKG POCKET RANGE DIAGNOSTIC ==="
+                            )
+                            appendLine("ERRO")
+                            appendLine(
+                                error.javaClass.simpleName +
+                                    ": " +
+                                    (
+                                        error.message
+                                            ?: "sem detalhes"
+                                    )
+                            )
+                        }
+                    }
+                }
+
+                getSharedPreferences(
+                    "pkg_pocket",
+                    MODE_PRIVATE
+                ).edit()
+                    .putString(
+                        "last_log",
+                        result
+                    )
+                    .apply()
+
+                b.status.text =
+                    "Diagnóstico do Fallout concluído"
+
+                b.liveLog.text =
+                    "Resultado salvo em Configurações > Log"
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "Teste concluído. Abra Configurações > Log.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
     private val pickPkgs = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
 
@@ -395,6 +473,24 @@ class MainActivity : AppCompatActivity() {
 
         b.diagnosticsButton.setOnClickListener {
             runDiagnostics()
+        }
+
+        b.diagnosticsButton.setOnLongClickListener {
+            Toast.makeText(
+                this,
+                "Teste de integridade do Fallout: selecione o PKG GAME.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            pickFalloutDiagnostic.launch(
+                arrayOf(
+                    "application/octet-stream",
+                    "application/x-pkg",
+                    "*/*"
+                )
+            )
+
+            true
         }
 
         b.detectPs4.setOnClickListener {
@@ -1718,51 +1814,6 @@ class MainActivity : AppCompatActivity() {
 
         ActiveTransferQueue.set(orderedItems)
 
-        // PKG RANGE DIAGNOSTIC TEMP
-        val falloutDiagnostic = orderedItems.firstOrNull {
-            it.titleId.equals("CUSA02962", ignoreCase = true) ||
-            it.fileName.contains("Fallout", ignoreCase = true)
-        }
-
-        if (falloutDiagnostic != null) {
-            Thread {
-                val result = runCatching {
-                    PkgRangeDiagnostic.run(
-                        contentResolver,
-                        falloutDiagnostic
-                    )
-                }.getOrElse { error ->
-                    buildString {
-                        appendLine("=== PKG POCKET RANGE DIAGNOSTIC ===")
-                        appendLine("ERRO")
-                        appendLine(
-                            error.javaClass.simpleName +
-                                ": " +
-                                (error.message ?: "sem detalhes")
-                        )
-                    }
-                }
-
-                getSharedPreferences(
-                    "pkg_pocket",
-                    MODE_PRIVATE
-                ).edit()
-                    .putString(
-                        "last_log",
-                        result
-                    )
-                    .apply()
-
-                runOnUiThread {
-                    Toast.makeText(
-                        this,
-                        "Teste do Fallout concluído. Veja Configurações > Log.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }.start()
-        }
-
 
         addLog(getString(R.string.starting_queue, orderedItems.size, ip))
         ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
@@ -2043,7 +2094,10 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 val info = Ps4Discovery.query(ip)
-                val rpi = knownRpiReachable ?: NetworkUtils.canConnect(ip)
+                val rpi = knownRpiReachable ?: NetworkUtils.canConnect(
+                    ip,
+                    RpiClient.getPort()
+                )
                 info to rpi
             }
 
@@ -2112,7 +2166,10 @@ class MainActivity : AppCompatActivity() {
                 false
             } else {
                 withContext(Dispatchers.IO) {
-                    NetworkUtils.canConnect(ip)
+                    NetworkUtils.canConnect(
+                    ip,
+                    RpiClient.getPort()
+                )
                 }
             }
 
