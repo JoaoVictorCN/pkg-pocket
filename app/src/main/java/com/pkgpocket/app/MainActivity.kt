@@ -1718,6 +1718,52 @@ class MainActivity : AppCompatActivity() {
 
         ActiveTransferQueue.set(orderedItems)
 
+        // PKG RANGE DIAGNOSTIC TEMP
+        val falloutDiagnostic = orderedItems.firstOrNull {
+            it.titleId.equals("CUSA02962", ignoreCase = true) ||
+            it.fileName.contains("Fallout", ignoreCase = true)
+        }
+
+        if (falloutDiagnostic != null) {
+            Thread {
+                val result = runCatching {
+                    PkgRangeDiagnostic.run(
+                        contentResolver,
+                        falloutDiagnostic
+                    )
+                }.getOrElse { error ->
+                    buildString {
+                        appendLine("=== PKG POCKET RANGE DIAGNOSTIC ===")
+                        appendLine("ERRO")
+                        appendLine(
+                            error.javaClass.simpleName +
+                                ": " +
+                                (error.message ?: "sem detalhes")
+                        )
+                    }
+                }
+
+                getSharedPreferences(
+                    "pkg_pocket",
+                    MODE_PRIVATE
+                ).edit()
+                    .putString(
+                        "last_log",
+                        result
+                    )
+                    .apply()
+
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "Teste do Fallout concluído. Veja Configurações > Log.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }.start()
+        }
+
+
         addLog(getString(R.string.starting_queue, orderedItems.size, ip))
         ensureService(InstallerService.ACTION_INSTALL_ALL, ip)
     }
