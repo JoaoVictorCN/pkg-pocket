@@ -23,7 +23,15 @@ class PkgHttpServer(
 ) {
     private val running = AtomicBoolean(false)
     private val requestCounter = AtomicLong(0L)
-    private val workers = Executors.newFixedThreadPool(16)
+    /*
+     * TESTE DE ESTABILIDADE RPI
+     *
+     * O PS4 pode solicitar vários ranges simultaneamente.
+     * Limitamos a concorrência HTTP para 4 conexões para evitar
+     * uma rajada de leituras simultâneas do mesmo PKG sem
+     * alterar a semântica das respostas Range.
+     */
+    private val workers = Executors.newFixedThreadPool(4)
     private val coverageLock = Any()
     private val servedRanges = mutableMapOf<String, MutableList<LongRange>>()
     private var server: ServerSocket? = null
@@ -134,10 +142,15 @@ class PkgHttpServer(
 
         s.soTimeout = 30_000
         s.tcpNoDelay = true
-        runCatching { s.sendBufferSize = 1024 * 1024 }
+        runCatching {
+            s.sendBufferSize = 256 * 1024
+        }
 
         val input = BufferedInputStream(s.getInputStream(), 64 * 1024)
-        val output = BufferedOutputStream(s.getOutputStream(), 1024 * 1024)
+        val output = BufferedOutputStream(
+            s.getOutputStream(),
+            256 * 1024
+        )
 
         val headerText = readHeaders(input) ?: return@use
         val lines = headerText.split("\r\n")
