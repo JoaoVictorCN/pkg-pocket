@@ -51,6 +51,86 @@ jobs:
 
           echo "Secrets necessários presentes."
 
+      - name: Validate live Stripe access
+        shell: bash
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+
+          LIVE_PRICE="price_1ULBAuAW7uGRei6w1WTS96uo"
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --get \
+            --user "$STRIPE_SECRET_KEY:" \
+            --data-urlencode "expand[]=currency_options" \
+            "https://api.stripe.com/v1/prices/$LIVE_PRICE" \
+            > stripe-live-price.json
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const p =
+            JSON.parse(
+              fs.readFileSync(
+                "stripe-live-price.json",
+                "utf8"
+              )
+            );
+
+          if (
+            p.id !==
+            "price_1ULBAuAW7uGRei6w1WTS96uo"
+          ) {
+            throw new Error(
+              "Price live incorreto"
+            );
+          }
+
+          if (p.livemode !== true) {
+            throw new Error(
+              "Stripe ainda não está em live mode"
+            );
+          }
+
+          if (p.unit_amount !== 999) {
+            throw new Error(
+              "Preço BRL incorreto"
+            );
+          }
+
+          const c =
+            p.currency_options || {};
+
+          if (
+            c.brl?.unit_amount !== 999 ||
+            c.usd?.unit_amount !== 199 ||
+            c.eur?.unit_amount !== 179 ||
+            c.gbp?.unit_amount !== 149
+          ) {
+            throw new Error(
+              "Preços regionais Stripe incorretos"
+            );
+          }
+
+          console.log(
+            "Stripe LIVE OK"
+          );
+
+          console.log(
+            "Price:",
+            p.id
+          );
+
+          console.log(
+            "Product:",
+            p.product
+          );
+          NODE
+
       - name: Validate Worker syntax
         run: node --check worker.js
 

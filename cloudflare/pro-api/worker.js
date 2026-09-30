@@ -2,13 +2,21 @@ const MP_API = "https://api.mercadopago.com";
 const STRIPE_API = "https://api.stripe.com/v1";
 
 const STRIPE_PRICE_ID =
-  "price_1UJmHnA9MXYST9EgDPCaThcg";
+  "price_1ULBAuAW7uGRei6w1WTS96uo";
 
 const STRIPE_AMOUNT = 999;
 const STRIPE_CURRENCY = "brl";
 
 
+/*
+ * Os providers podem entrar em produção separadamente.
+ *
+ * Mercado Pago permanece em sandbox por enquanto.
+ * Stripe já usa credenciais e Price de produção.
+ */
 const SANDBOX = true;
+const STRIPE_SANDBOX = false;
+
 const PRICE = 9.99;
 const CURRENCY = "BRL";
 const PRODUCT_NAME = "PKG Pocket Pro";
@@ -266,7 +274,7 @@ async function createStripeCheckout(
     status: "creating",
     amount_minor: checkoutAmount,
     currency: checkoutCurrency.toUpperCase(),
-    sandbox: true,
+    sandbox: STRIPE_SANDBOX,
     created_at: now,
     updated_at: now,
   };
@@ -396,7 +404,7 @@ async function createStripeCheckout(
 
   return json({
     ok: true,
-    sandbox: true,
+    sandbox: STRIPE_SANDBOX,
     provider: "stripe",
     country: normalizedCountry,
     currency: checkoutCurrency.toUpperCase(),
@@ -5576,6 +5584,16 @@ export default {
             env.STRIPE_SECRET_KEY
               ? "configured"
               : "missing",
+
+          stripe_environment:
+            STRIPE_SANDBOX
+              ? "sandbox"
+              : "production",
+
+          mercado_pago_environment:
+            SANDBOX
+              ? "sandbox"
+              : "production",
 
           stripe_price:
             STRIPE_PRICE_ID,
