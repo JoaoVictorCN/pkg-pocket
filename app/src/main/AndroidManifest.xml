@@ -50,18 +50,18 @@
 
         <activity
             android:name=".Ps4DetailsActivity"
-            android:exported="false" /
-            android:screenOrientation="portrait">
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".LibraryActivity"
-            android:exported="false" /
-            android:screenOrientation="portrait">
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".GameDetailActivity"
-            android:exported="false" /
-            android:screenOrientation="portrait">
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".MainActivity"
