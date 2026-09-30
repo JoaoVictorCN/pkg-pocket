@@ -227,4 +227,17 @@
     <string name="update_channel_description">Avisos quando uma nova versão do PKG Pocket estiver disponível</string>
     <string name="update_available_title">Atualização do PKG Pocket disponível</string>
     <string name="update_available_text">PKG Pocket %1$s está disponível. Toque para baixar a nova versão.</string>
-\n    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) pronto(s) para instalar • %2$s</string>\n    <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s...</string>\n    <string name="error_rpi_not_found">Remote Package Installer não encontrado em %1$s:12800</string>\n</resources>
+\n    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) pronto(s) para instalar • %2$s</string>\n    <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s...</string>\n    <string name="error_rpi_not_found">Remote Package Installer não encontrado em %1$s:12800</string>\n
+    <string name="pro_payment_method_title">Forma de pagamento</string>
+    <string name="pro_payment_pix">Pix</string>
+    <string name="pro_payment_mercadopago">Mercado Pago / cartão</string>
+    <string name="pro_generating_pix">Gerando Pix…</string>
+    <string name="pro_pix_title">Pagar com Pix</string>
+    <string name="pro_pix_instructions">Pague pelo QR Code ou copie o código Pix abaixo. Ao voltar ao PKG Pocket, o pagamento será verificado automaticamente.</string>
+    <string name="pro_pix_copy_paste">Pix copia e cola</string>
+    <string name="pro_pix_copy">Copiar código Pix</string>
+    <string name="pro_pix_copied">Código Pix copiado.</string>
+    <string name="pro_pix_verify">Já paguei</string>
+    <string name="pro_pix_view">Ver Pix</string>
+
+</resources>

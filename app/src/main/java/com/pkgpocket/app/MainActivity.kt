@@ -29,6 +29,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -3227,7 +3228,20 @@ class MainActivity : AppCompatActivity() {
 
         renderProState(ProManager.isProCached(this), null)
 
-        b.proBuyButton.setOnClickListener { startProCheckout() }
+        b.proBuyButton.setOnClickListener {
+            val savedPix = ProManager.savedPix(this@MainActivity)
+
+            if (savedPix != null) {
+                PixPaymentDialog.show(
+                    this@MainActivity,
+                    savedPix
+                ) {
+                    reconcilePendingPurchase(savedPix.purchaseId, true)
+                }
+            } else {
+                startProPurchase()
+            }
+        }
         b.proRefreshButton.setOnClickListener { refreshProStatus(true) }
 
         handleCheckoutIntent(intent)
@@ -3237,7 +3251,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startProCheckout() {
+    private fun startProPurchase() {
         val email = b.proEmail.text?.toString()?.trim().orEmpty()
 
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
@@ -3245,52 +3259,135 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val pending = ProManager.savedPurchaseId(this)
+
+        if (pending.isNotBlank()) {
+            reconcilePendingPurchase(pending, true)
+            return
+        }
+
         b.proEmailLayout.error = null
         b.proBuyButton.isEnabled = false
         b.proRefreshButton.isEnabled = false
-        b.proStatusText.text =
-            getString(R.string.pro_preparing_checkout)
+        b.proStatusText.text = getString(R.string.pro_preparing_checkout)
+
+        lifecycleScope.launch {
+            try {
+                val quote = ProManager.getQuote(this@MainActivity)
+
+                b.proPrice.text =
+                    ProManager.formatPrice(quote.currency, quote.amountMinor)
+
+                b.proBuyButton.isEnabled = true
+                b.proRefreshButton.isEnabled = true
+
+                if (
+                    quote.provider.equals("mercadopago", ignoreCase = true) &&
+                    quote.currency.equals("BRL", ignoreCase = true)
+                ) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle(R.string.pro_payment_method_title)
+                        .setItems(
+                            arrayOf(
+                                getString(R.string.pro_payment_pix),
+                                getString(R.string.pro_payment_mercadopago)
+                            )
+                        ) { _, which ->
+                            when (which) {
+                                0 -> startPix(email)
+                                else -> startProCheckout(email)
+                            }
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                } else {
+                    startProCheckout(email)
+                }
+            } catch (e: Exception) {
+                renderProState(
+                    ProManager.isProCached(this@MainActivity),
+                    getString(
+                        R.string.pro_checkout_error,
+                        e.message ?: getString(R.string.unknown_error)
+                    )
+                )
+            }
+        }
+    }
+
+    private fun startProCheckout(email: String) {
+        b.proEmailLayout.error = null
+        b.proBuyButton.isEnabled = false
+        b.proRefreshButton.isEnabled = false
+        b.proStatusText.text = getString(R.string.pro_preparing_checkout)
 
         proSyncJob?.cancel()
         proSyncJob = lifecycleScope.launch {
             try {
-                val checkout =
-                    ProManager.createCheckout(this@MainActivity, email)
+                val checkout = ProManager.createCheckout(this@MainActivity, email)
 
                 b.proPrice.text =
-                    ProManager.formatPrice(
-                        checkout.currency,
-                        checkout.amountMinor
-                    )
+                    ProManager.formatPrice(checkout.currency, checkout.amountMinor)
 
                 b.proStatusText.text =
                     getString(
                         when (checkout.provider.lowercase()) {
-                            "mercadopago" ->
-                                R.string.pro_opening_mercadopago
-                            "stripe" ->
-                                R.string.pro_opening_stripe
-                            else ->
-                                R.string.pro_opening_checkout
+                            "mercadopago" -> R.string.pro_opening_mercadopago
+                            "stripe" -> R.string.pro_opening_stripe
+                            else -> R.string.pro_opening_checkout
                         }
                     )
 
-                val checkoutIntent =
-                    Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse(
-                            checkout.checkoutUrl
-                        )
+                CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build()
+                    .launchUrl(
+                        this@MainActivity,
+                        Uri.parse(checkout.checkoutUrl)
                     )
-
-                startActivity(
-                    Intent.createChooser(
-                        checkoutIntent,
-                        getString(
-                            R.string.pro_checkout_choose_app
-                        )
+            } catch (e: Exception) {
+                renderProState(
+                    ProManager.isProCached(this@MainActivity),
+                    getString(
+                        R.string.pro_checkout_error,
+                        e.message ?: getString(R.string.unknown_error)
                     )
                 )
+            } finally {
+                val pending = ProManager.savedPurchaseId(this@MainActivity)
+
+                if (pending.isNotBlank()) {
+                    renderProState(false, getString(R.string.pro_status_pending))
+                } else {
+                    b.proBuyButton.isEnabled = true
+                    b.proRefreshButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun startPix(email: String) {
+        b.proBuyButton.isEnabled = false
+        b.proRefreshButton.isEnabled = false
+        b.proEmailLayout.isEnabled = false
+        b.proStatusText.text = getString(R.string.pro_generating_pix)
+
+        proSyncJob?.cancel()
+        proSyncJob = lifecycleScope.launch {
+            try {
+                val pix = ProManager.createPix(this@MainActivity, email)
+
+                b.proPrice.text =
+                    ProManager.formatPrice(pix.currency, pix.amountMinor)
+
+                renderProState(false, getString(R.string.pro_status_pending))
+
+                PixPaymentDialog.show(
+                    this@MainActivity,
+                    pix
+                ) {
+                    reconcilePendingPurchase(pix.purchaseId, true)
+                }
             } catch (e: Exception) {
                 renderProState(
                     ProManager.isProCached(this@MainActivity),
@@ -3506,11 +3603,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderProState(active: Boolean, message: String?) {
-        b.proStatusText.text = message ?: getString(
-            if (active) R.string.pro_status_active else R.string.pro_status_free
-        )
+        b.proStatusText.text =
+            message ?: getString(
+                if (active) {
+                    R.string.pro_status_active
+                } else {
+                    R.string.pro_status_free
+                }
+            )
+
         b.proBuyButton.visibility = if (active) View.GONE else View.VISIBLE
         b.proEmailLayout.isEnabled = !active
+
+        if (!active) {
+            val savedPix = ProManager.savedPix(this)
+
+            b.proBuyButton.text =
+                getString(
+                    if (savedPix != null) {
+                        R.string.pro_pix_view
+                    } else {
+                        R.string.pro_buy
+                    }
+                )
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

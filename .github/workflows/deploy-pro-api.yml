@@ -278,9 +278,9 @@ jobs:
               "Health retornou ok=false"
             );
 
-          if (h.version !== 8)
+          if (h.version !== 9)
             throw new Error(
-              "Pro API não está na versão 8"
+              "Pro API não está na versão 9"
             );
 
           if (
@@ -289,6 +289,15 @@ jobs:
           )
             throw new Error(
               "Device binding não está ativo"
+            );
+
+
+          if (
+            h.pix_api !==
+            "enabled"
+          )
+            throw new Error(
+              "Pix nativo não está ativo"
             );
 
           if (

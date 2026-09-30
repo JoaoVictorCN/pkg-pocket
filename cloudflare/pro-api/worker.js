@@ -1975,6 +1975,158 @@ function proQuote(request) {
 }
 
 
+
+async function createMercadoPagoPix(
+  env,
+  {
+    purchaseId,
+    email,
+    emailHash,
+    deviceHash,
+    country,
+  }
+) {
+
+  const now = new Date().toISOString();
+
+  const purchase = {
+    version: 3,
+    provider: "mercadopago",
+    flow: "pix",
+    external_reference: purchaseId,
+    email_hash: emailHash,
+    device_hash: deviceHash,
+    country,
+    status: "creating",
+    amount: PRICE,
+    currency: CURRENCY,
+    sandbox: SANDBOX,
+    created_at: now,
+    updated_at: now,
+  };
+
+  await env.LICENSES.put(
+    `purchase:${purchaseId}`,
+    JSON.stringify(purchase),
+    { expirationTtl: 60 * 60 * 24 * 7 }
+  );
+
+  await env.LICENSES.put(
+    `email_purchase:${emailHash}`,
+    purchaseId,
+    { expirationTtl: 60 * 60 * 24 * 7 }
+  );
+
+  let payment;
+
+  try {
+    payment = await mpRequest(
+      env,
+      "/v1/payments",
+      {
+        method: "POST",
+        headers: {
+          "X-Idempotency-Key": purchaseId,
+        },
+        body: JSON.stringify({
+          transaction_amount: PRICE,
+          description: PRODUCT_NAME,
+          payment_method_id: "pix",
+          external_reference: purchaseId,
+          notification_url: `${API_BASE}/v1/mercadopago/webhook`,
+          payer: {
+            email: SANDBOX ? SANDBOX_BUYER_EMAIL : email,
+          },
+        }),
+      }
+    );
+  } catch (error) {
+    await env.LICENSES.put(
+      `purchase:${purchaseId}`,
+      JSON.stringify({
+        ...purchase,
+        status: "pix_error",
+        updated_at: new Date().toISOString(),
+      }),
+      { expirationTtl: 60 * 60 * 24 * 7 }
+    );
+
+    console.error("Mercado Pago Pix error", error);
+
+    return json(
+      {
+        ok: false,
+        code: "PIX_CREATE_FAILED",
+        message: "Não foi possível gerar o Pix agora.",
+      },
+      502
+    );
+  }
+
+  const transactionData =
+    payment?.point_of_interaction?.transaction_data || {};
+
+  const qrCode = String(transactionData?.qr_code || "");
+  const qrCodeBase64 = String(transactionData?.qr_code_base64 || "");
+  const ticketUrl = String(transactionData?.ticket_url || "");
+
+  if (!payment?.id || !qrCode) {
+    await env.LICENSES.put(
+      `purchase:${purchaseId}`,
+      JSON.stringify({
+        ...purchase,
+        status: "invalid_pix_response",
+        payment_id: payment?.id ? String(payment.id) : null,
+        updated_at: new Date().toISOString(),
+      }),
+      { expirationTtl: 60 * 60 * 24 * 7 }
+    );
+
+    return json(
+      {
+        ok: false,
+        code: "INVALID_PIX_RESPONSE",
+        message: "O Mercado Pago não retornou um código Pix válido.",
+      },
+      502
+    );
+  }
+
+  const paymentStatus = String(payment.status || "pending").toLowerCase();
+
+  await env.LICENSES.put(
+    `purchase:${purchaseId}`,
+    JSON.stringify({
+      ...purchase,
+      status: paymentStatus,
+      payment_id: String(payment.id),
+      payment_status: paymentStatus,
+      payment_status_detail: payment.status_detail || null,
+      collector_id: payment.collector_id || null,
+      updated_at: new Date().toISOString(),
+    }),
+    { expirationTtl: 60 * 60 * 24 * 7 }
+  );
+
+  return json({
+    ok: true,
+    sandbox: SANDBOX,
+    provider: "mercadopago",
+    country,
+    currency: CURRENCY,
+    amount_minor: Math.round(PRICE * 100),
+    flow: "pix",
+    purchase_id: purchaseId,
+    payment_id: String(payment.id),
+    status: paymentStatus,
+    status_detail: payment.status_detail || null,
+    pix_qr_code: qrCode,
+    pix_qr_code_base64: qrCodeBase64,
+    pix_ticket_url: ticketUrl,
+  });
+}
+
+
 async function createCheckout(
   request,
   env
@@ -2156,10 +2308,58 @@ async function createCheckout(
       ? detectedCountry
       : "XX";
 
+  const requestedPaymentMethod =
+    String(
+      body.payment_method ||
+      "checkout"
+    )
+      .trim()
+      .toLowerCase();
+
+
+  if (
+    requestedPaymentMethod !== "checkout" &&
+    requestedPaymentMethod !== "pix"
+  ) {
+    return json(
+      {
+        ok: false,
+        code: "INVALID_PAYMENT_METHOD",
+      },
+      400
+    );
+  }
+
+
   const paymentProvider =
     paymentCountry === "BR"
       ? "mercadopago"
       : "stripe";
+
+
+  if (requestedPaymentMethod === "pix") {
+    if (paymentCountry !== "BR") {
+      return json(
+        {
+          ok: false,
+          code: "PIX_NOT_AVAILABLE",
+          message: "Pix está disponível apenas para pagamentos no Brasil.",
+        },
+        400
+      );
+    }
+
+    return createMercadoPagoPix(
+      env,
+      {
+        purchaseId,
+        email,
+        emailHash,
+        deviceHash,
+        country: paymentCountry,
+      }
+    );
+  }
 
 
   if (paymentProvider === "stripe") {
@@ -5771,7 +5971,7 @@ export default {
             "pkg-pocket-api",
 
           version:
-            8,
+            9,
 
           device_binding:
             "sha256_android_id_v1",
@@ -5783,7 +5983,10 @@ export default {
             72,
 
           payment_flow:
-            "checkout-pro-preferences",
+            "checkout-pro-preferences+native-pix",
+
+          pix_api:
+            "enabled",
 
           return_reconcile:
             "enabled",

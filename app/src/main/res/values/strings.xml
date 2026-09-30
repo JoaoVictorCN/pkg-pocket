@@ -415,4 +415,17 @@ Pro: %4$s</string>
     <string name="update_channel_description">Notifications when a new PKG Pocket version is available</string>
     <string name="update_available_title">PKG Pocket update available</string>
     <string name="update_available_text">PKG Pocket %1$s is available. Tap to download the new version.</string>
+
+    <string name="pro_payment_method_title">Payment method</string>
+    <string name="pro_payment_pix">Pix</string>
+    <string name="pro_payment_mercadopago">Mercado Pago / card</string>
+    <string name="pro_generating_pix">Generating Pix…</string>
+    <string name="pro_pix_title">Pay with Pix</string>
+    <string name="pro_pix_instructions">Pay using the QR Code or copy the Pix code below. When you return to PKG Pocket, the payment will be checked automatically.</string>
+    <string name="pro_pix_copy_paste">Pix copy and paste</string>
+    <string name="pro_pix_copy">Copy Pix code</string>
+    <string name="pro_pix_copied">Pix code copied.</string>
+    <string name="pro_pix_verify">I already paid</string>
+    <string name="pro_pix_view">View Pix</string>
+
 </resources>

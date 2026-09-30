@@ -35,6 +35,13 @@ object ProManager {
     private const val KEY_QUOTE_CURRENCY = "quote_currency"
     private const val KEY_QUOTE_AMOUNT_MINOR = "quote_amount_minor"
     private const val KEY_LAST_QUOTE_CHECK = "last_quote_check"
+    private const val KEY_PIX_PURCHASE_ID = "pix_purchase_id"
+    private const val KEY_PIX_PAYMENT_ID = "pix_payment_id"
+    private const val KEY_PIX_QR_CODE = "pix_qr_code"
+    private const val KEY_PIX_QR_BASE64 = "pix_qr_base64"
+    private const val KEY_PIX_TICKET_URL = "pix_ticket_url"
+    private const val KEY_PIX_CURRENCY = "pix_currency"
+    private const val KEY_PIX_AMOUNT_MINOR = "pix_amount_minor"
 
     /*
      * A licença Pro já possui tolerância offline.
@@ -68,6 +75,17 @@ object ProManager {
         val currency: String,
         val amountMinor: Int
     )
+    data class PixPayment(
+        val purchaseId: String,
+        val paymentId: String,
+        val status: String,
+        val qrCode: String,
+        val qrCodeBase64: String,
+        val ticketUrl: String,
+        val currency: String,
+        val amountMinor: Int
+    )
+
     data class Quote(
         val provider: String,
         val country: String,
@@ -177,11 +195,88 @@ object ProManager {
         prefs(context).edit().putString(KEY_PURCHASE_ID, purchaseId).apply()
     }
 
+    private fun clearPix(context: Context) {
+        prefs(context)
+            .edit()
+            .remove(KEY_PIX_PURCHASE_ID)
+            .remove(KEY_PIX_PAYMENT_ID)
+            .remove(KEY_PIX_QR_CODE)
+            .remove(KEY_PIX_QR_BASE64)
+            .remove(KEY_PIX_TICKET_URL)
+            .remove(KEY_PIX_CURRENCY)
+            .remove(KEY_PIX_AMOUNT_MINOR)
+            .apply()
+    }
+
     fun clearPurchaseId(context: Context) {
         prefs(context)
             .edit()
             .remove(KEY_PURCHASE_ID)
             .apply()
+
+        clearPix(context)
+    }
+
+    fun savedPix(context: Context): PixPayment? {
+        val preferences = prefs(context)
+
+        val purchaseId =
+            preferences.getString(
+                KEY_PIX_PURCHASE_ID,
+                ""
+            ).orEmpty()
+
+        if (
+            purchaseId.isBlank() ||
+            purchaseId != savedPurchaseId(context)
+        ) {
+            return null
+        }
+
+        val qrCode =
+            preferences.getString(
+                KEY_PIX_QR_CODE,
+                ""
+            ).orEmpty()
+
+        if (qrCode.isBlank()) {
+            return null
+        }
+
+        return PixPayment(
+            purchaseId = purchaseId,
+            paymentId = preferences
+                .getString(
+                    KEY_PIX_PAYMENT_ID,
+                    ""
+                )
+                .orEmpty(),
+            status = "pending",
+            qrCode = qrCode,
+            qrCodeBase64 = preferences
+                .getString(
+                    KEY_PIX_QR_BASE64,
+                    ""
+                )
+                .orEmpty(),
+            ticketUrl = preferences
+                .getString(
+                    KEY_PIX_TICKET_URL,
+                    ""
+                )
+                .orEmpty(),
+            currency = preferences
+                .getString(
+                    KEY_PIX_CURRENCY,
+                    "BRL"
+                )
+                .orEmpty(),
+            amountMinor = preferences
+                .getInt(
+                    KEY_PIX_AMOUNT_MINOR,
+                    999
+                )
+        )
     }
 
     /*
@@ -334,6 +429,8 @@ object ProManager {
                 throw IOException("Invalid checkout response")
             }
 
+            clearPix(context)
+
             prefs(context).edit()
                 .putString(KEY_EMAIL, normalized)
                 .putString(KEY_PURCHASE_ID, purchaseId)
@@ -346,6 +443,140 @@ object ProManager {
                 country = response.optString("country"),
                 currency = response.optString("currency"),
                 amountMinor = response.optInt("amount_minor", 0)
+            )
+        }
+
+    suspend fun createPix(
+        context: Context,
+        email: String
+    ): PixPayment =
+        withContext(Dispatchers.IO) {
+            val normalized =
+                email.trim().lowercase()
+
+            val payload =
+                JSONObject()
+                    .put(
+                        "email",
+                        normalized
+                    )
+                    .put(
+                        "device_hash",
+                        deviceHash(context)
+                    )
+                    .put(
+                        "payment_method",
+                        "pix"
+                    )
+
+            val response =
+                request(
+                    "POST",
+                    "$apiBase/v1/pro/checkout",
+                    payload.toString()
+                )
+
+            val purchaseId =
+                response.optString(
+                    "purchase_id"
+                )
+
+            val paymentId =
+                response.optString(
+                    "payment_id"
+                )
+
+            val qrCode =
+                response.optString(
+                    "pix_qr_code"
+                )
+
+            val qrBase64 =
+                response.optString(
+                    "pix_qr_code_base64"
+                )
+
+            val ticketUrl =
+                response.optString(
+                    "pix_ticket_url"
+                )
+
+            if (
+                purchaseId.isBlank() ||
+                paymentId.isBlank() ||
+                qrCode.isBlank()
+            ) {
+                throw IOException(
+                    "Invalid Pix response"
+                )
+            }
+
+            val currency =
+                response.optString(
+                    "currency",
+                    "BRL"
+                )
+
+            val amountMinor =
+                response.optInt(
+                    "amount_minor",
+                    999
+                )
+
+            clearPix(context)
+
+            prefs(context)
+                .edit()
+                .putString(
+                    KEY_EMAIL,
+                    normalized
+                )
+                .putString(
+                    KEY_PURCHASE_ID,
+                    purchaseId
+                )
+                .putString(
+                    KEY_PIX_PURCHASE_ID,
+                    purchaseId
+                )
+                .putString(
+                    KEY_PIX_PAYMENT_ID,
+                    paymentId
+                )
+                .putString(
+                    KEY_PIX_QR_CODE,
+                    qrCode
+                )
+                .putString(
+                    KEY_PIX_QR_BASE64,
+                    qrBase64
+                )
+                .putString(
+                    KEY_PIX_TICKET_URL,
+                    ticketUrl
+                )
+                .putString(
+                    KEY_PIX_CURRENCY,
+                    currency
+                )
+                .putInt(
+                    KEY_PIX_AMOUNT_MINOR,
+                    amountMinor
+                )
+                .apply()
+
+            PixPayment(
+                purchaseId = purchaseId,
+                paymentId = paymentId,
+                status = response.optString(
+                    "status",
+                    "pending"
+                ),
+                qrCode = qrCode,
+                qrCodeBase64 = qrBase64,
+                ticketUrl = ticketUrl,
+                currency = currency,
+                amountMinor = amountMinor
             )
         }
 
@@ -386,6 +617,27 @@ object ProManager {
                     )
                     .remove(
                         KEY_PURCHASE_ID
+                    )
+                    .remove(
+                        KEY_PIX_PURCHASE_ID
+                    )
+                    .remove(
+                        KEY_PIX_PAYMENT_ID
+                    )
+                    .remove(
+                        KEY_PIX_QR_CODE
+                    )
+                    .remove(
+                        KEY_PIX_QR_BASE64
+                    )
+                    .remove(
+                        KEY_PIX_TICKET_URL
+                    )
+                    .remove(
+                        KEY_PIX_CURRENCY
+                    )
+                    .remove(
+                        KEY_PIX_AMOUNT_MINOR
                     )
                     .apply()
             } else if (
