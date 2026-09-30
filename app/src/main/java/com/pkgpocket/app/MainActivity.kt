@@ -19,6 +19,8 @@ import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.Gravity
+import android.widget.FrameLayout
 import android.view.ViewConfiguration
 import android.widget.CheckBox
 import android.widget.ImageView
@@ -36,6 +38,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.MobileAds
 import com.pkgpocket.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,6 +55,7 @@ import java.util.Locale
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
+    private var bannerAdView: AdView? = null
     private lateinit var b: ActivityMainBinding
     private var fastInstallerResume = false
     private val logLines = mutableListOf<String>()
@@ -345,6 +352,7 @@ class MainActivity : AppCompatActivity() {
 
         b = ActivityMainBinding.inflate(layoutInflater)
         setContentView(b.root)
+        setupFreeBannerAd()
         setupHelpBubble()
         setupPublicBeta()
         setupProUi()
@@ -3614,6 +3622,7 @@ class MainActivity : AppCompatActivity() {
 
         b.proBuyButton.visibility = if (active) View.GONE else View.VISIBLE
         b.proEmailLayout.isEnabled = !active
+        updateBannerForProState(active)
 
         if (!active) {
             val savedPix = ProManager.savedPix(this)
@@ -3762,6 +3771,73 @@ class MainActivity : AppCompatActivity() {
             reconcilePendingPurchase(pending, false)
         } else if (ProManager.savedEmail(this).isNotBlank()) {
             refreshProStatus(false)
+        }
+    }
+
+
+    private fun setupFreeBannerAd() {
+        if (ProManager.isProCached(this)) {
+            destroyBannerAd()
+            return
+        }
+
+        b.adBannerContainer.visibility = View.VISIBLE
+
+        Thread {
+            MobileAds.initialize(this@MainActivity) {
+                runOnUiThread {
+                    loadFreeBannerAfterInit()
+                }
+            }
+        }.start()
+    }
+
+    private fun loadFreeBannerAfterInit() {
+        if (isFinishing || isDestroyed) return
+        if (ProManager.isProCached(this)) {
+            destroyBannerAd()
+            return
+        }
+        if (bannerAdView != null) return
+
+        b.adBannerContainer.visibility = View.VISIBLE
+
+        val adView = AdView(this).apply {
+            adUnitId = BuildConfig.ADMOB_BANNER_ID
+            setAdSize(AdSize.BANNER)
+        }
+
+        bannerAdView = adView
+        b.adBannerContainer.removeAllViews()
+
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.CENTER
+        }
+
+        b.adBannerContainer.addView(adView, params)
+        adView.loadAd(AdRequest.Builder().build())
+    }
+
+    private fun updateBannerForProState(active: Boolean) {
+        if (active) {
+            destroyBannerAd()
+        } else if (bannerAdView == null) {
+            setupFreeBannerAd()
+        } else {
+            b.adBannerContainer.visibility = View.VISIBLE
+        }
+    }
+
+    private fun destroyBannerAd() {
+        bannerAdView?.destroy()
+        bannerAdView = null
+
+        if (::b.isInitialized) {
+            b.adBannerContainer.removeAllViews()
+            b.adBannerContainer.visibility = View.GONE
         }
     }
 

@@ -19,7 +19,7 @@
             android:paddingStart="18dp"
             android:paddingTop="16dp"
             android:paddingEnd="18dp"
-            android:paddingBottom="112dp">
+            android:paddingBottom="168dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -612,6 +612,17 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </ScrollView>
+
+    <FrameLayout
+        android:id="@+id/adBannerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="78dp"
+        android:background="?attr/colorSurface"
+        android:elevation="18dp"
+        android:translationZ="18dp"
+        android:visibility="gone" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/bottomNav"

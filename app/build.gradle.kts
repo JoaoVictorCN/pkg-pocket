@@ -18,6 +18,17 @@ val stableSigningReady =
     !signingKeyPassword.isNullOrBlank() &&
     file(signingStorePath).exists()
 
+
+val admobAppId =
+    System.getenv("PKGPOCKET_ADMOB_APP_ID")
+        ?.takeIf { it.isNotBlank() }
+        ?: "ca-app-pub-3940256099942544~3347511713"
+
+val admobBannerId =
+    System.getenv("PKGPOCKET_ADMOB_BANNER_ID")
+        ?.takeIf { it.isNotBlank() }
+        ?: "ca-app-pub-3940256099942544/6300978111"
+
 android {
     namespace = "com.pkgpocket.app"
     compileSdk = 35
@@ -26,8 +37,16 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 78
-        versionName = "1.0.0-rc.50"
+        versionCode = 79
+        versionName = "1.0.0-rc.51"
+
+
+        manifestPlaceholders["ADMOB_APP_ID"] = admobAppId
+        buildConfigField(
+            "String",
+            "ADMOB_BANNER_ID",
+            "\"${admobBannerId}\""
+        )
         buildConfigField("int", "BETA_MAX_GAMES", "5")
         buildConfigField("int", "BETA_MAX_DLCS", "5")
         buildConfigField("int", "BETA_MAX_UPDATES", "5")
@@ -80,6 +99,7 @@ android {
 }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-ads:25.5.0")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.browser:browser:1.8.0")
