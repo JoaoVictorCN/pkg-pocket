@@ -171,6 +171,15 @@
                     </LinearLayout>
 
                     <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:lineSpacingExtra="2dp"
+                        android:text="@string/pro_benefits"
+                        android:textColor="?attr/colorOnSecondaryContainer"
+                        android:textSize="12.5sp" />
+
+                    <TextView
                         android:id="@+id/settingsProStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

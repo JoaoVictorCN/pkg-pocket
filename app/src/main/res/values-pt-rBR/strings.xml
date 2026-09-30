@@ -99,7 +99,7 @@
     <string name="unknown_error">erro desconhecido</string>
     <string name="cancelled_by_user">Transferência cancelada pelo usuário</string>
     <string name="pro_title">PKG Pocket Pro</string>
-    <string name="pro_subtitle">Apoie o projeto e desbloqueie o status Pro</string>
+    <string name="pro_subtitle">Mais praticidade, sem anúncios e sua biblioteca protegida</string>
     <string name="pro_status_free">Grátis • Pro não ativo</string>
     <string name="pro_status_active">Pro ativo • Obrigado por apoiar o PKG Pocket ❤️</string>
     <string name="pro_status_checking">Verificando status Pro…</string>
@@ -240,4 +240,5 @@
     <string name="pro_pix_verify">Já paguei</string>
     <string name="pro_pix_view">Ver Pix</string>
 
+    <string name="pro_benefits">✓ Sem anúncios\n✓ Backup automático da Biblioteca na nuvem\n✓ Restaure sua Biblioteca ao trocar de celular\n✓ Sincronização da Biblioteca na nuvem</string>
 </resources>

@@ -245,7 +245,7 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="installation_completed_summary">Installation completed • %1$s • %2$s</string>
     <string name="queue_completed_summary">Queue completed • %1$d PKGs • %2$s • %3$s</string>
     <string name="pro_title">PKG Pocket Pro</string>
-    <string name="pro_subtitle">Support the project and unlock Pro status</string>
+    <string name="pro_subtitle">More convenience, no ads and your library protected</string>
     <string name="pro_price">R$ 9,99</string>
     <string name="pro_status_free">Free • Pro not active</string>
     <string name="pro_status_active">Pro active • Thank you for supporting PKG Pocket ❤️</string>
@@ -428,4 +428,5 @@ Pro: %4$s</string>
     <string name="pro_pix_verify">I already paid</string>
     <string name="pro_pix_view">View Pix</string>
 
+    <string name="pro_benefits">✓ No ads\n✓ Automatic library cloud backup\n✓ Restore your library when changing phones\n✓ Cloud library sync</string>
 </resources>
