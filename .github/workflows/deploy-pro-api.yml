@@ -31,6 +31,9 @@ jobs:
         shell: bash
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+          MERCADOPAGO_WEBHOOK_SECRET: ${{ secrets.MERCADOPAGO_WEBHOOK_SECRET }}
         run: |
           set -euo pipefail
 
@@ -46,6 +49,21 @@ jobs:
 
           [ -n "$STRIPE_SECRET_KEY" ] || {
             echo "STRIPE_SECRET_KEY ausente"
+            exit 1
+          }
+
+          [ -n "$STRIPE_WEBHOOK_SECRET" ] || {
+            echo "STRIPE_WEBHOOK_SECRET ausente"
+            exit 1
+          }
+
+          [ -n "$MERCADOPAGO_ACCESS_TOKEN" ] || {
+            echo "MERCADOPAGO_ACCESS_TOKEN ausente"
+            exit 1
+          }
+
+          [ -n "$MERCADOPAGO_WEBHOOK_SECRET" ] || {
+            echo "MERCADOPAGO_WEBHOOK_SECRET ausente"
             exit 1
           }
 
@@ -131,6 +149,44 @@ jobs:
           );
           NODE
 
+      - name: Validate Mercado Pago access
+        shell: bash
+        env:
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            -H "Authorization: Bearer $MERCADOPAGO_ACCESS_TOKEN" \
+            https://api.mercadolibre.com/users/me \
+            > mp-user.json
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const u =
+            JSON.parse(
+              fs.readFileSync(
+                "mp-user.json",
+                "utf8"
+              )
+            );
+
+          if (!u.id) {
+            throw new Error(
+              "Access Token Mercado Pago inválido"
+            );
+          }
+
+          console.log(
+            "Mercado Pago credential OK"
+          );
+          NODE
+
       - name: Validate Worker syntax
         run: node --check worker.js
 
@@ -162,6 +218,28 @@ jobs:
 
           printf '%s' "$STRIPE_WEBHOOK_SECRET" |
             npx wrangler secret put STRIPE_WEBHOOK_SECRET               --config wrangler.toml
+
+      - name: Configure Mercado Pago access token
+        shell: bash
+        env:
+          MERCADOPAGO_ACCESS_TOKEN: ${{ secrets.MERCADOPAGO_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          printf '%s' "$MERCADOPAGO_ACCESS_TOKEN" |
+            npx wrangler secret put MERCADOPAGO_ACCESS_TOKEN \
+              --config wrangler.toml
+
+      - name: Configure Mercado Pago webhook secret
+        shell: bash
+        env:
+          MERCADOPAGO_WEBHOOK_SECRET: ${{ secrets.MERCADOPAGO_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+
+          printf '%s' "$MERCADOPAGO_WEBHOOK_SECRET" |
+            npx wrangler secret put MERCADOPAGO_WEBHOOK_SECRET \
+              --config wrangler.toml
 
       - name: Deploy Pro API
         run: |
@@ -219,6 +297,38 @@ jobs:
           )
             throw new Error(
               "Stripe não configurada"
+            );
+
+          if (
+            h.stripe_environment !==
+            "production"
+          )
+            throw new Error(
+              "Stripe não está em produção"
+            );
+
+          if (
+            h.mercado_pago_environment !==
+            "production"
+          )
+            throw new Error(
+              "Mercado Pago não está em produção"
+            );
+
+          if (
+            h.stripe_webhook !==
+            "configured"
+          )
+            throw new Error(
+              "Webhook Stripe não configurado"
+            );
+
+          if (
+            h.webhook_secret !==
+            "configured"
+          )
+            throw new Error(
+              "Webhook Mercado Pago não configurado"
             );
 
           console.log(

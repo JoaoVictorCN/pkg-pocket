@@ -11,10 +11,10 @@ const STRIPE_CURRENCY = "brl";
 /*
  * Os providers podem entrar em produção separadamente.
  *
- * Mercado Pago permanece em sandbox por enquanto.
+ * Mercado Pago já usa credenciais de produção.
  * Stripe já usa credenciais e Price de produção.
  */
-const SANDBOX = true;
+const SANDBOX = false;
 const STRIPE_SANDBOX = false;
 
 const PRICE = 9.99;
@@ -5551,7 +5551,7 @@ export default {
             "pkg-pocket-api",
 
           version:
-            6,
+            7,
 
           payment_flow:
             "checkout-pro-preferences",
