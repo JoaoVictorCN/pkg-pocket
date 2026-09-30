@@ -36,7 +36,8 @@
 
         <activity
             android:name=".SettingsActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -49,20 +50,24 @@
 
         <activity
             android:name=".Ps4DetailsActivity"
-            android:exported="false" />
+            android:exported="false" /
+            android:screenOrientation="portrait">
 
         <activity
             android:name=".LibraryActivity"
-            android:exported="false" />
+            android:exported="false" /
+            android:screenOrientation="portrait">
 
         <activity
             android:name=".GameDetailActivity"
-            android:exported="false" />
+            android:exported="false" /
+            android:screenOrientation="portrait">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
