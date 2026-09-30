@@ -13,6 +13,8 @@ jobs:
       PKGPOCKET_KEY_PASSWORD: ${{ secrets.PKGPOCKET_KEY_PASSWORD }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PKGPOCKET_ADMOB_APP_ID: ca-app-pub-3984463008005939~7930530635
+      PKGPOCKET_ADMOB_BANNER_ID: ca-app-pub-3984463008005939/9365892075
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
