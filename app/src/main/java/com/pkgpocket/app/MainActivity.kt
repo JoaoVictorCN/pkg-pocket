@@ -29,7 +29,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -3276,10 +3275,22 @@ class MainActivity : AppCompatActivity() {
                         }
                     )
 
-                CustomTabsIntent.Builder()
-                    .setShowTitle(true)
-                    .build()
-                    .launchUrl(this@MainActivity, Uri.parse(checkout.checkoutUrl))
+                val checkoutIntent =
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                            checkout.checkoutUrl
+                        )
+                    )
+
+                startActivity(
+                    Intent.createChooser(
+                        checkoutIntent,
+                        getString(
+                            R.string.pro_checkout_choose_app
+                        )
+                    )
+                )
             } catch (e: Exception) {
                 renderProState(
                     ProManager.isProCached(this@MainActivity),
