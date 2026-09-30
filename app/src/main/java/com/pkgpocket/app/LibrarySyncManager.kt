@@ -88,12 +88,25 @@ object LibrarySyncManager {
             )
         }
 
-        val cloud = restore(email)
+        val deviceHash =
+            ProManager.deviceHash(
+                context
+            )
+
+        val cloud =
+            restore(
+                email,
+                deviceHash
+            )
         val local = InstallHistoryStore.all(context)
 
         if (cloud.isEmpty()) {
             if (local.isNotEmpty()) {
-                sync(email, local)
+                sync(
+                    email,
+                    deviceHash,
+                    local
+                )
 
                 return RestoreResult(
                     changedLocal = false,
@@ -121,7 +134,11 @@ object LibrarySyncManager {
         }
 
         if (fingerprint(merged) != fingerprint(cloud)) {
-            sync(email, merged)
+            sync(
+                email,
+                deviceHash,
+                merged
+            )
         }
 
         return RestoreResult(
@@ -140,7 +157,12 @@ object LibrarySyncManager {
 
         sync(
             email,
-            InstallHistoryStore.all(context)
+            ProManager.deviceHash(
+                context
+            ),
+            InstallHistoryStore.all(
+                context
+            )
         )
     }
 
@@ -195,11 +217,23 @@ object LibrarySyncManager {
 
     private fun sync(
         email: String,
+        deviceHash: String,
         records: List<InstalledPkgRecord>
     ) {
-        val body = JSONObject()
-            .put("email", email)
-            .put("records", encode(records))
+        val body =
+            JSONObject()
+                .put(
+                    "email",
+                    email
+                )
+                .put(
+                    "device_hash",
+                    deviceHash
+                )
+                .put(
+                    "records",
+                    encode(records)
+                )
             .toString()
 
         request(
@@ -210,15 +244,26 @@ object LibrarySyncManager {
     }
 
     private fun restore(
-        email: String
+        email: String,
+        deviceHash: String
     ): List<InstalledPkgRecord> {
-        val response = request(
-            method = "POST",
-            url = "$apiBase/v1/library/restore",
-            body = JSONObject()
-                .put("email", email)
-                .toString()
-        )
+        val response =
+            request(
+                method = "POST",
+                url =
+                    "$apiBase/v1/library/restore",
+                body =
+                    JSONObject()
+                        .put(
+                            "email",
+                            email
+                        )
+                        .put(
+                            "device_hash",
+                            deviceHash
+                        )
+                        .toString()
+            )
 
         return decode(
             response.optJSONArray("records")

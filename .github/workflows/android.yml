@@ -95,8 +95,8 @@ jobs:
             echo "$HEALTH"
 
             if printf '%s' "$HEALTH" |
-              jq -e '.ok == true and .version == 2' >/dev/null 2>&1; then
-              echo "Library backend v2 respondeu na tentativa $TRY."
+              jq -e '.ok == true and .version == 3' >/dev/null 2>&1; then
+              echo "Library backend v3 respondeu na tentativa $TRY."
               OK=1
               break
             fi

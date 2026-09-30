@@ -106,6 +106,9 @@
     <string name="pro_status_checkout">Abrindo checkout seguro…</string>
     <string name="pro_status_pending">Pagamento encontrado • aguardando confirmação…</string>
     <string name="pro_status_failed">Pagamento não concluído • você pode tentar novamente.</string>
+    <string name="pro_status_device_mismatch">Esta licença Pro está vinculada a outro dispositivo.</string>
+    <string name="pro_status_device_unbound">Esta é uma licença antiga sem vínculo de aparelho. Inicie uma nova compra Pro para vinculá-la com segurança a este dispositivo.</string>
+    <string name="pro_status_offline_expired">O Pro precisa de uma validação online. Conecte-se à internet e verifique a licença novamente.</string>
     <string name="pro_email_hint">E-mail da sua licença Pro</string>
     <string name="pro_buy">Comprar Pro</string>
     <string name="pro_check">Verificar licença</string>

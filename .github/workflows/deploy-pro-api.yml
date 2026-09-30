@@ -278,6 +278,27 @@ jobs:
               "Health retornou ok=false"
             );
 
+          if (h.version !== 8)
+            throw new Error(
+              "Pro API não está na versão 8"
+            );
+
+          if (
+            h.device_binding !==
+            "sha256_android_id_v1"
+          )
+            throw new Error(
+              "Device binding não está ativo"
+            );
+
+          if (
+            h.online_validation_hours !== 12 ||
+            h.offline_grace_hours !== 72
+          )
+            throw new Error(
+              "Janela de validação Pro incorreta"
+            );
+
           if (h.kv !== "connected")
             throw new Error(
               "KV não conectado"

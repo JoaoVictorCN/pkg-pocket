@@ -737,6 +737,21 @@ class SettingsActivity : AppCompatActivity() {
                             "waiting_payment" ->
                                 getString(R.string.pro_status_pending)
 
+                            "device_mismatch" ->
+                                getString(
+                                    R.string.pro_status_device_mismatch
+                                )
+
+                            "device_unbound" ->
+                                getString(
+                                    R.string.pro_status_device_unbound
+                                )
+
+                            "offline_expired" ->
+                                getString(
+                                    R.string.pro_status_offline_expired
+                                )
+
                             "revoked",
                             "refunded",
                             "charged_back",
@@ -887,6 +902,50 @@ class SettingsActivity : AppCompatActivity() {
                     "in_mediation",
                     "waiting_payment" -> {
                         renderProPendingState()
+                    }
+
+                    "device_mismatch",
+                    "device_unbound",
+                    "offline_expired" -> {
+                        ProManager.clearPurchaseId(
+                            this@SettingsActivity
+                        )
+
+                        val message =
+                            when (
+                                result.status
+                                    .trim()
+                                    .lowercase()
+                            ) {
+                                "device_mismatch" ->
+                                    getString(
+                                        R.string.pro_status_device_mismatch
+                                    )
+
+                                "device_unbound" ->
+                                    getString(
+                                        R.string.pro_status_device_unbound
+                                    )
+
+                                else ->
+                                    getString(
+                                        R.string.pro_status_offline_expired
+                                    )
+                            }
+
+                        renderProState(
+                            false,
+                            message
+                        )
+
+                        b.settingsProBuy.isEnabled =
+                            true
+
+                        b.settingsProCheck.isEnabled =
+                            true
+
+                        b.settingsProEmailLayout.isEnabled =
+                            true
                     }
 
                     // Checkout sem pagamento ou encerrado.

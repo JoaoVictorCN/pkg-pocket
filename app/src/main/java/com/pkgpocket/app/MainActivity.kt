@@ -3331,15 +3331,66 @@ class MainActivity : AppCompatActivity() {
                 val result = ProManager.reconcile(this@MainActivity, purchaseId)
 
                 if (result.activated) {
-                    renderProState(true, null)
+                    renderProState(
+                        true,
+                        null
+                    )
                 } else {
-                    val msg = when (result.status.lowercase()) {
-                        "pending", "in_process", "in_mediation", "waiting_payment" ->
-                            getString(R.string.pro_status_pending)
-                        else ->
-                            getString(R.string.pro_status_failed)
+                    val normalized =
+                        result.status
+                            .trim()
+                            .lowercase()
+
+                    val pending =
+                        normalized in
+                            setOf(
+                                "pending",
+                                "in_process",
+                                "in_mediation",
+                                "waiting_payment"
+                            )
+
+                    if (!pending) {
+                        ProManager.clearPurchaseId(
+                            this@MainActivity
+                        )
                     }
-                    renderProState(false, msg)
+
+                    val msg =
+                        when (normalized) {
+                            "pending",
+                            "in_process",
+                            "in_mediation",
+                            "waiting_payment" ->
+                                getString(
+                                    R.string.pro_status_pending
+                                )
+
+                            "device_mismatch" ->
+                                getString(
+                                    R.string.pro_status_device_mismatch
+                                )
+
+                            "device_unbound" ->
+                                getString(
+                                    R.string.pro_status_device_unbound
+                                )
+
+                            "offline_expired" ->
+                                getString(
+                                    R.string.pro_status_offline_expired
+                                )
+
+                            else ->
+                                getString(
+                                    R.string.pro_status_failed
+                                )
+                        }
+
+                    renderProState(
+                        false,
+                        msg
+                    )
                 }
             } catch (e: Exception) {
                 renderProState(
@@ -3400,6 +3451,21 @@ class MainActivity : AppCompatActivity() {
                     when (status.status.lowercase()) {
                         "pending", "in_process", "in_mediation", "waiting_payment" ->
                             getString(R.string.pro_status_pending)
+
+                        "device_mismatch" ->
+                            getString(
+                                R.string.pro_status_device_mismatch
+                            )
+
+                        "device_unbound" ->
+                            getString(
+                                R.string.pro_status_device_unbound
+                            )
+
+                        "offline_expired" ->
+                            getString(
+                                R.string.pro_status_offline_expired
+                            )
 
                         "revoked", "refunded", "charged_back", "cancelled", "canceled" ->
                             getString(R.string.pro_status_revoked)

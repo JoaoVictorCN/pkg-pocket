@@ -86,6 +86,15 @@ function validEmail(email) {
 }
 
 
+function validDeviceHash(value) {
+  return /^[0-9a-f]{64}$/.test(
+    String(value || "")
+      .trim()
+      .toLowerCase()
+  );
+}
+
+
 function randomPurchaseId() {
   return (
     "pp_" +
@@ -227,6 +236,7 @@ async function createStripeCheckout(
     purchaseId,
     email,
     emailHash,
+    deviceHash,
     country,
   }
 ) {
@@ -270,6 +280,7 @@ async function createStripeCheckout(
     flow: "checkout_session",
     external_reference: purchaseId,
     email_hash: emailHash,
+    device_hash: deviceHash,
     country: normalizedCountry,
     status: "creating",
     amount_minor: checkoutAmount,
@@ -519,6 +530,16 @@ async function processStripeSession(
   }
 
   if (
+    !validDeviceHash(
+      purchase.device_hash
+    )
+  ) {
+    throw new Error(
+      "Compra Stripe sem vínculo de dispositivo"
+    );
+  }
+
+  if (
     purchase.stripe_session_id &&
     String(purchase.stripe_session_id) !==
       String(session.id)
@@ -598,8 +619,7 @@ async function processStripeSession(
       purchase.email_hash,
 
     active_device_hash:
-      oldLicense?.active_device_hash ||
-      null,
+      purchase.device_hash,
 
     purchased_at:
       oldLicense?.purchased_at ||
@@ -1506,6 +1526,18 @@ async function processPayment(
   }
 
 
+  if (
+    !validDeviceHash(
+      purchase.device_hash
+    )
+  ) {
+
+    throw new Error(
+      "Compra sem vínculo de dispositivo"
+    );
+  }
+
+
   const paidAmount =
     Number(
       payment
@@ -1751,14 +1783,8 @@ async function processPayment(
     email_hash:
       purchase.email_hash,
 
-    /*
-     * Vinculação ao aparelho
-     * entra na próxima etapa.
-     */
     active_device_hash:
-      oldLicense
-        ?.active_device_hash ||
-      null,
+      purchase.device_hash,
 
     purchased_at:
       oldLicense
@@ -1986,6 +2012,15 @@ async function createCheckout(
     );
 
 
+  const deviceHash =
+    String(
+      body.device_hash ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
   if (
     !validEmail(
       email
@@ -2008,6 +2043,28 @@ async function createCheckout(
   }
 
 
+  if (
+    !validDeviceHash(
+      deviceHash
+    )
+  ) {
+
+    return json(
+      {
+        ok:
+          false,
+
+        code:
+          "INVALID_DEVICE_HASH",
+
+        message:
+          "Não foi possível identificar este dispositivo.",
+      },
+      400
+    );
+  }
+
+
   const emailHash =
     await sha256(
       email
@@ -2024,8 +2081,35 @@ async function createCheckout(
   if (
     currentLicense
       ?.status ===
-      "active"
+      "active" &&
+
+    validDeviceHash(
+      currentLicense
+        ?.active_device_hash
+    )
   ) {
+
+    if (
+      currentLicense
+        .active_device_hash ===
+      deviceHash
+    ) {
+
+      return json(
+        {
+          ok:
+            false,
+
+          code:
+            "ALREADY_PRO",
+
+          message:
+            "Esse e-mail já possui PKG Pocket Pro neste dispositivo.",
+        },
+        409
+      );
+    }
+
 
     return json(
       {
@@ -2033,10 +2117,10 @@ async function createCheckout(
           false,
 
         code:
-          "ALREADY_PRO",
+          "LICENSE_DEVICE_MISMATCH",
 
         message:
-          "Esse e-mail já possui PKG Pocket Pro.",
+          "Esta licença Pro está vinculada a outro dispositivo.",
       },
       409
     );
@@ -2088,6 +2172,7 @@ async function createCheckout(
           purchaseId,
           email,
           emailHash,
+          deviceHash,
           country: paymentCountry,
         }
       );
@@ -2142,6 +2227,9 @@ async function createCheckout(
 
     email_hash:
       emailHash,
+
+    device_hash:
+      deviceHash,
 
     country:
       paymentCountry,
@@ -2697,6 +2785,15 @@ async function reconcile(
     );
 
 
+  const deviceHash =
+    String(
+      body.device_hash ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
   if (
     !purchaseId.startsWith(
       "pp_"
@@ -2710,6 +2807,25 @@ async function reconcile(
 
         code:
           "INVALID_PURCHASE_ID",
+      },
+      400
+    );
+  }
+
+
+  if (
+    !validDeviceHash(
+      deviceHash
+    )
+  ) {
+
+    return json(
+      {
+        ok:
+          false,
+
+        code:
+          "INVALID_DEVICE_HASH",
       },
       400
     );
@@ -2735,6 +2851,43 @@ async function reconcile(
       },
       404
     );
+  }
+
+
+  if (
+    !validDeviceHash(
+      purchase.device_hash
+    )
+  ) {
+
+    return json({
+      ok:
+        true,
+
+      activated:
+        false,
+
+      status:
+        "device_unbound",
+    });
+  }
+
+
+  if (
+    purchase.device_hash !==
+      deviceHash
+  ) {
+
+    return json({
+      ok:
+        true,
+
+      activated:
+        false,
+
+      status:
+        "device_mismatch",
+    });
   }
 
 
@@ -3062,6 +3215,17 @@ async function proStatus(
     );
 
 
+  const deviceHash =
+    String(
+      url.searchParams.get(
+        "device_hash"
+      ) ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
   if (
     !validEmail(
       email
@@ -3075,6 +3239,25 @@ async function proStatus(
 
         code:
           "INVALID_EMAIL",
+      },
+      400
+    );
+  }
+
+
+  if (
+    !validDeviceHash(
+      deviceHash
+    )
+  ) {
+
+    return json(
+      {
+        ok:
+          false,
+
+        code:
+          "INVALID_DEVICE_HASH",
       },
       400
     );
@@ -3127,6 +3310,43 @@ async function proStatus(
 
       status:
         "free",
+    });
+  }
+
+
+  if (
+    !validDeviceHash(
+      license.active_device_hash
+    )
+  ) {
+
+    return json({
+      ok:
+        true,
+
+      pro:
+        false,
+
+      status:
+        "device_unbound",
+    });
+  }
+
+
+  if (
+    license.active_device_hash !==
+      deviceHash
+  ) {
+
+    return json({
+      ok:
+        true,
+
+      pro:
+        false,
+
+      status:
+        "device_mismatch",
     });
   }
 
@@ -5551,7 +5771,16 @@ export default {
             "pkg-pocket-api",
 
           version:
-            7,
+            8,
+
+          device_binding:
+            "sha256_android_id_v1",
+
+          online_validation_hours:
+            12,
+
+          offline_grace_hours:
+            72,
 
           payment_flow:
             "checkout-pro-preferences",

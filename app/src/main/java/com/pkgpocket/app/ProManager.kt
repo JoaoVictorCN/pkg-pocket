@@ -1,6 +1,7 @@
 package com.pkgpocket.app
 
 import android.content.Context
+import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -10,6 +11,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.security.MessageDigest
 import java.util.Locale
 
 object ProManager {
@@ -39,6 +41,13 @@ object ProManager {
      * Não há motivo para consultar /status a cada troca de Activity.
      */
     private const val STATUS_CACHE_MS = 12L * 60L * 60L * 1000L
+
+    /*
+     * Depois de uma validação online bem-sucedida,
+     * o Pro continua disponível offline por até 72 horas.
+     */
+    private const val OFFLINE_GRACE_MS =
+        72L * 60L * 60L * 1000L
 
     /*
      * Quote depende do país/IP atual.
@@ -74,22 +83,84 @@ object ProManager {
     fun savedPurchaseId(context: Context): String =
         prefs(context).getString(KEY_PURCHASE_ID, "").orEmpty()
 
-    fun isProCached(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_PRO_ACTIVE, false)
+    fun isProCached(context: Context): Boolean {
+        val preferences = prefs(context)
 
-    fun cachedStatus(context: Context): Status =
-        Status(
-            active = isProCached(context),
-            status = prefs(context)
-                .getString(
-                    KEY_PRO_STATUS,
-                    if (isProCached(context)) "active" else "free"
-                )
+        if (
+            !preferences.getBoolean(
+                KEY_PRO_ACTIVE,
+                false
+            )
+        ) {
+            return false
+        }
+
+        val lastCheck =
+            preferences.getLong(
+                KEY_LAST_STATUS_CHECK,
+                0L
+            )
+
+        if (lastCheck <= 0L) {
+            return false
+        }
+
+        val age =
+            System.currentTimeMillis() -
+                lastCheck
+
+        return age in
+            0 until OFFLINE_GRACE_MS
+    }
+
+    fun cachedStatus(
+        context: Context
+    ): Status {
+        val preferences =
+            prefs(context)
+
+        val rawActive =
+            preferences.getBoolean(
+                KEY_PRO_ACTIVE,
+                false
+            )
+
+        val active =
+            isProCached(context)
+
+        val rawStatus =
+            preferences.getString(
+                KEY_PRO_STATUS,
+                if (rawActive) {
+                    "active"
+                } else {
+                    "free"
+                }
+            )
                 .orEmpty()
                 .ifBlank {
-                    if (isProCached(context)) "active" else "free"
+                    if (rawActive) {
+                        "active"
+                    } else {
+                        "free"
+                    }
                 }
+
+        val status =
+            if (
+                rawActive &&
+                !active
+            ) {
+                "offline_expired"
+            } else {
+                rawStatus
+            }
+
+        return Status(
+            active,
+            status
         )
+    }
 
     fun isStatusCacheFresh(context: Context): Boolean {
         val lastCheck =
@@ -111,6 +182,47 @@ object ProManager {
             .edit()
             .remove(KEY_PURCHASE_ID)
             .apply()
+    }
+
+    /*
+     * ANDROID_ID bruto nunca sai do aparelho.
+     * O backend recebe somente um SHA-256.
+     */
+    fun deviceHash(
+        context: Context
+    ): String {
+        val androidId =
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            )
+                ?.trim()
+                .orEmpty()
+
+        if (androidId.isBlank()) {
+            throw IllegalStateException(
+                "Android device identifier unavailable"
+            )
+        }
+
+        val material =
+            "pkg-pocket-pro:v1:" +
+                context.packageName +
+                ":" +
+                androidId
+
+        return MessageDigest
+            .getInstance("SHA-256")
+            .digest(
+                material.toByteArray(
+                    Charsets.UTF_8
+                )
+            )
+            .joinToString("") {
+                "%02x".format(
+                    it.toInt() and 0xff
+                )
+            }
     }
 
     suspend fun getQuote(context: Context): Quote =
@@ -200,7 +312,14 @@ object ProManager {
 
             val payload =
                 JSONObject()
-                    .put("email", normalized)
+                    .put(
+                        "email",
+                        normalized
+                    )
+                    .put(
+                        "device_hash",
+                        deviceHash(context)
+                    )
 
             val response = request(
                 "POST",
@@ -235,25 +354,74 @@ object ProManager {
             val response = request(
                 "POST",
                 "$apiBase/v1/pro/reconcile",
-                JSONObject().put("purchase_id", purchaseId).toString()
+                JSONObject()
+                    .put(
+                        "purchase_id",
+                        purchaseId
+                    )
+                    .put(
+                        "device_hash",
+                        deviceHash(context)
+                    )
+                    .toString()
             )
             val activated = response.optBoolean("activated", false)
             val status = response.optString("status", "unknown")
             val paymentId = response.optString("payment_id").takeIf { it.isNotBlank() }
 
             if (activated) {
-                prefs(context).edit()
-                    .putBoolean(KEY_PRO_ACTIVE, true)
-                    .putString(KEY_PRO_STATUS, "active")
+                prefs(context)
+                    .edit()
+                    .putBoolean(
+                        KEY_PRO_ACTIVE,
+                        true
+                    )
+                    .putString(
+                        KEY_PRO_STATUS,
+                        "active"
+                    )
                     .putLong(
                         KEY_LAST_STATUS_CHECK,
                         System.currentTimeMillis()
                     )
-                    .remove(KEY_PURCHASE_ID)
+                    .remove(
+                        KEY_PURCHASE_ID
+                    )
+                    .apply()
+            } else if (
+                status.lowercase() in
+                    setOf(
+                        "device_mismatch",
+                        "device_unbound",
+                        "revoked",
+                        "refunded",
+                        "charged_back",
+                        "cancelled",
+                        "canceled"
+                    )
+            ) {
+                prefs(context)
+                    .edit()
+                    .putBoolean(
+                        KEY_PRO_ACTIVE,
+                        false
+                    )
+                    .putString(
+                        KEY_PRO_STATUS,
+                        status
+                    )
+                    .putLong(
+                        KEY_LAST_STATUS_CHECK,
+                        System.currentTimeMillis()
+                    )
                     .apply()
             }
 
-            Reconcile(activated, status, paymentId)
+            Reconcile(
+                activated,
+                status,
+                paymentId
+            )
         }
 
     suspend fun refreshStatus(
@@ -282,12 +450,22 @@ object ProManager {
                 }
 
                 val encoded =
-                    URLEncoder.encode(normalized, "UTF-8")
+                    URLEncoder.encode(
+                        normalized,
+                        "UTF-8"
+                    )
 
-                val response = request(
-                    "GET",
-                    "$apiBase/v1/pro/status?email=$encoded"
-                )
+                val encodedDevice =
+                    URLEncoder.encode(
+                        deviceHash(context),
+                        "UTF-8"
+                    )
+
+                val response =
+                    request(
+                        "GET",
+                        "$apiBase/v1/pro/status?email=$encoded&device_hash=$encodedDevice"
+                    )
 
                 val active =
                     response.optBoolean("pro", false)

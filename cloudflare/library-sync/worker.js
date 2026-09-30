@@ -16,6 +16,13 @@ const normalizeEmail = (value) =>
 const validEmail = (value) =>
   /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 
+const validDeviceHash = (value) =>
+  /^[0-9a-f]{64}$/.test(
+    String(value || "")
+      .trim()
+      .toLowerCase()
+  );
+
 const sha256 = async (text) => {
   const bytes = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -58,7 +65,11 @@ const sanitizeRecords = (records) => {
 
 const PRO_VERIFY_CACHE_TTL = 15 * 60;
 
-const verifyPro = async (env, email) => {
+const verifyPro = async (
+  env,
+  email,
+  deviceHash
+) => {
   /*
    * Library Sync pode ser chamado várias vezes em poucos segundos
    * (entrada na biblioteca, restore, WorkManager etc.).
@@ -70,7 +81,8 @@ const verifyPro = async (env, email) => {
    * recém-concluída seja reconhecida imediatamente.
    */
   const emailHash = await sha256(email);
-  const cacheKey = `pro_verify:${emailHash}`;
+  const cacheKey =
+    `pro_verify:${emailHash}:${deviceHash}`;
 
   const cached = await env.LIBRARY.get(cacheKey);
 
@@ -78,30 +90,36 @@ const verifyPro = async (env, email) => {
     return true;
   }
 
-  const query = encodeURIComponent(email);
+  const query =
+    encodeURIComponent(email);
+
+  const deviceQuery =
+    encodeURIComponent(
+      deviceHash
+    );
 
   let response;
 
   if (env.PRO_API && typeof env.PRO_API.fetch === "function") {
     response = await env.PRO_API.fetch(
       new Request(
-        `https://pkg-pocket-api.internal/v1/pro/status?email=${query}`,
+        `https://pkg-pocket-api.internal/v1/pro/status?email=${query}&device_hash=${deviceQuery}`,
         {
           method: "GET",
           headers: {
             accept: "application/json",
-            "user-agent": "pkg-pocket-library-sync/2",
+            "user-agent": "pkg-pocket-library-sync/3",
           },
         }
       )
     );
   } else {
     response = await fetch(
-      `${PRO_STATUS_BASE}/v1/pro/status?email=${query}`,
+      `${PRO_STATUS_BASE}/v1/pro/status?email=${query}&device_hash=${deviceQuery}`,
       {
         headers: {
           accept: "application/json",
-          "user-agent": "pkg-pocket-library-sync/2",
+          "user-agent": "pkg-pocket-library-sync/3",
         },
       }
     );
@@ -141,7 +159,7 @@ export default {
       return json({
         ok: true,
         service: "pkg-pocket-library",
-        version: 2,
+        version: 3,
       });
     }
 
@@ -161,12 +179,49 @@ export default {
       return json({ error: "invalid_json" }, 400);
     }
 
-    const email = normalizeEmail(body.email);
+    const email =
+      normalizeEmail(
+        body.email
+      );
+
+    const deviceHash =
+      String(
+        body.device_hash ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
     if (!validEmail(email)) {
-      return json({ error: "invalid_email" }, 400);
+      return json(
+        {
+          error:
+            "invalid_email"
+        },
+        400
+      );
     }
 
-    const active = await verifyPro(env, email);
+    if (
+      !validDeviceHash(
+        deviceHash
+      )
+    ) {
+      return json(
+        {
+          error:
+            "invalid_device_hash"
+        },
+        400
+      );
+    }
+
+    const active =
+      await verifyPro(
+        env,
+        email,
+        deviceHash
+      );
     if (!active) {
       return json(
         {
