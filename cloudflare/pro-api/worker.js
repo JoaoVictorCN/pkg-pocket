@@ -3478,6 +3478,52 @@ async function proStatus(
 
 
   /*
+   * ADMIN_LICENSE_AUTO_BIND
+   *
+   * Licenças criadas manualmente pelo workflow de administração
+   * começam sem aparelho vinculado. A primeira validação /status
+   * feita pelo APK oficial vincula a licença ao device_hash atual.
+   *
+   * Licenças de pagamento normais NÃO entram neste fluxo.
+   */
+  if (
+    license &&
+    license.provider === "admin" &&
+    license.status === "active" &&
+    !validDeviceHash(
+      license.active_device_hash
+    )
+  ) {
+    const adminBindNow =
+      new Date().toISOString();
+
+    license = {
+      ...license,
+
+      active_device_hash:
+        deviceHash,
+
+      activated_at:
+        license.activated_at ||
+        adminBindNow,
+
+      last_verified_at:
+        adminBindNow,
+
+      updated_at:
+        adminBindNow,
+    };
+
+    await env.LICENSES.put(
+      `license:${emailHash}`,
+      JSON.stringify(
+        license
+      )
+    );
+  }
+
+
+  /*
    * Sandbox: se o app perdeu o purchase_id local,
    * o próprio status tenta localizar uma compra
    * aprovada vinculada ao mesmo e-mail de licença.

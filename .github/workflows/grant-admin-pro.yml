@@ -1,0 +1,139 @@
+name: Grant PKG Pocket Admin Pro
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: E-mail que receberá a licença Pro administrativa
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Grant unbound admin license
+        env:
+          ADMIN_EMAIL: ${{ inputs.email }}
+        run: |
+          set -euo pipefail
+
+          test -n "${CLOUDFLARE_API_TOKEN:-}" || {
+            echo "CLOUDFLARE_API_TOKEN ausente"
+            exit 1
+          }
+
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}" || {
+            echo "CLOUDFLARE_ACCOUNT_ID ausente"
+            exit 1
+          }
+
+          EMAIL="$(
+            printf '%s' "$ADMIN_EMAIL" |
+              tr '[:upper:]' '[:lower:]' |
+              xargs
+          )"
+
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "E-mail inválido"
+              exit 1
+              ;;
+          esac
+
+          EMAIL_HASH="$(
+            printf '%s' "$EMAIL" |
+              sha256sum |
+              awk '{print $1}'
+          )"
+
+          NAMESPACE_ID="$(
+            awk -F'"' '
+              /^[[:space:]]*id[[:space:]]*=/ {
+                print $2
+                exit
+              }
+            ' cloudflare/pro-api/wrangler.toml
+          )"
+
+          test -n "$NAMESPACE_ID" || {
+            echo "Não encontrei o namespace LICENSES"
+            exit 1
+          }
+
+          NOW="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+
+          LICENSE="$(
+            jq -nc \
+              --arg emailHash "$EMAIL_HASH" \
+              --arg now "$NOW" \
+              '{
+                version: 1,
+                product: "pkg-pocket-pro",
+                entitlement: "pro",
+                status: "active",
+                email_hash: $emailHash,
+                active_device_hash: null,
+                purchased_at: $now,
+                activated_at: null,
+                last_verified_at: $now,
+                payment_id: "admin-grant",
+                preference_id: null,
+                provider: "admin",
+                external_reference: ("admin:" + $emailHash),
+                amount_minor: 0,
+                currency: "ADMIN",
+                transfer_available_at: null,
+                updated_at: $now
+              }'
+          )"
+
+          KEY="license:${EMAIL_HASH}"
+
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${NAMESPACE_ID}/values/${KEY}"
+
+          RESPONSE="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              -X PUT \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "$LICENSE" \
+              "$API"
+          )"
+
+          printf '%s' "$RESPONSE" |
+            jq -e '.success == true' >/dev/null
+
+          CHECK="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "$API"
+          )"
+
+          printf '%s' "$CHECK" |
+            jq -e '
+              .provider == "admin" and
+              .status == "active" and
+              .active_device_hash == null
+            ' >/dev/null
+
+          echo "Licença administrativa criada."
+          echo "Ela será vinculada ao primeiro dispositivo que validar esse e-mail no app."
