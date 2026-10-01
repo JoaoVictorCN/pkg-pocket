@@ -885,7 +885,7 @@ class InstallerService : Service() {
 
                             else ->
                                 e.message
-                                    ?.replace(Regex("\s+"), " ")
+                                    ?.replace(Regex("\\s+"), " ")
                                     ?.trim()
                                     ?.take(240)
                                     ?.takeIf { it.isNotBlank() }
