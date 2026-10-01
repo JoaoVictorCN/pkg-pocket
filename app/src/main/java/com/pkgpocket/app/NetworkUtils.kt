@@ -68,11 +68,19 @@ object NetworkUtils {
     /**
      * Detecta automaticamente o endpoint do RPI.
      *
-     * 12800 continua tendo prioridade para manter a detecção
-     * da beta tão rápida quanto antes.
+     * A porta escolhida pelo usuário é testada primeiro.
+     * Se ela não responder, 12800..12810 continuam como fallback.
      */
-    fun findRpiEndpoint(): RpiEndpoint? {
-        for (port in RPI_PORTS) {
+    fun findRpiEndpoint(preferredPort: Int? = null): RpiEndpoint? {
+        val ports = buildList {
+            preferredPort
+                ?.takeIf { it in 1..65535 }
+                ?.let { add(it) }
+
+            addAll(RPI_PORTS)
+        }.distinct()
+
+        for (port in ports) {
             val ip = findRpiOnPort(port)
             if (ip != null) {
                 return RpiEndpoint(ip, port)

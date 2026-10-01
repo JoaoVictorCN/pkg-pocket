@@ -508,7 +508,7 @@ class MainActivity : AppCompatActivity() {
                 showPs4IdentifyingState()
 
                 val endpoint = withContext(Dispatchers.IO) {
-                    NetworkUtils.findRpiEndpoint()
+                    NetworkUtils.findRpiEndpoint(RpiClient.getPort())
                 }
 
                 if (endpoint != null) {

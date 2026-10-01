@@ -22,8 +22,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.pkgpocket.app.databinding.ActivitySettingsBinding
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
@@ -541,37 +543,122 @@ class SettingsActivity : AppCompatActivity() {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
                 pm.isIgnoringBatteryOptimizations(packageName)
 
-        val message = getString(
-            R.string.settings_app_diag_body,
-            BuildConfig.VERSION_NAME,
-            getString(
-                if (notificationsAllowed) {
-                    R.string.settings_allowed
-                } else {
-                    R.string.settings_blocked
-                }
-            ),
-            getString(
-                if (unrestricted) {
-                    R.string.settings_unrestricted
-                } else {
-                    R.string.settings_optimized
-                }
-            ),
-            getString(
-                if (ProManager.isProCached(this)) {
-                    R.string.pro_status_active
-                } else {
-                    R.string.pro_status_free
-                }
-            )
+        val prefs = getSharedPreferences(
+            "pkg_pocket",
+            MODE_PRIVATE
         )
 
-        AlertDialog.Builder(this)
-            .setTitle(R.string.settings_app_diagnostics)
-            .setMessage(message)
-            .setPositiveButton(R.string.close, null)
-            .show()
+        val ps4Ip = prefs
+            .getString("last_ps4_ip", "")
+            .orEmpty()
+            .trim()
+
+        val rpiPort = prefs.getInt(
+            "rpi_port",
+            12800
+        )
+
+        lifecycleScope.launch {
+            val localIp = withContext(Dispatchers.IO) {
+                NetworkUtils.localIpv4()
+            }
+
+            val rpiReachable =
+                if (ps4Ip.isBlank()) {
+                    false
+                } else {
+                    withContext(Dispatchers.IO) {
+                        NetworkUtils.canConnect(
+                            ps4Ip,
+                            rpiPort,
+                            900
+                        )
+                    }
+                }
+
+            val appInfo = getString(
+                R.string.settings_app_diag_body,
+                BuildConfig.VERSION_NAME,
+                getString(
+                    if (notificationsAllowed) {
+                        R.string.settings_allowed
+                    } else {
+                        R.string.settings_blocked
+                    }
+                ),
+                getString(
+                    if (unrestricted) {
+                        R.string.settings_unrestricted
+                    } else {
+                        R.string.settings_optimized
+                    }
+                ),
+                getString(
+                    if (ProManager.isProCached(this@SettingsActivity)) {
+                        R.string.pro_status_active
+                    } else {
+                        R.string.pro_status_free
+                    }
+                )
+            )
+
+            val networkInfo = buildString {
+                appendLine()
+                appendLine()
+                appendLine(
+                    getString(
+                        R.string.settings_diag_network_title
+                    )
+                )
+                appendLine(
+                    getString(
+                        R.string.settings_diag_phone_ip,
+                        localIp ?: getString(R.string.diag_unavailable)
+                    )
+                )
+                appendLine(
+                    getString(
+                        R.string.settings_diag_rpi_port,
+                        rpiPort
+                    )
+                )
+
+                if (ps4Ip.isBlank()) {
+                    append(
+                        getString(
+                            R.string.settings_diag_no_ps4
+                        )
+                    )
+                } else {
+                    appendLine(
+                        getString(
+                            R.string.settings_diag_ps4_ip,
+                            ps4Ip
+                        )
+                    )
+                    append(
+                        getString(
+                            R.string.settings_diag_rpi_endpoint,
+                            ps4Ip,
+                            rpiPort,
+                            getString(
+                                if (rpiReachable) {
+                                    R.string.diag_ok
+                                } else {
+                                    R.string.diag_failed
+                                }
+                            )
+                        )
+                    )
+                }
+            }
+
+            AlertDialog.Builder(this@SettingsActivity)
+                .setTitle(R.string.settings_app_diagnostics)
+                .setMessage(appInfo + networkInfo)
+                .setPositiveButton(R.string.close, null)
+                .show()
+        }
     }
 
     private fun setupPro() {
