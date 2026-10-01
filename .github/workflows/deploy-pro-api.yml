@@ -380,3 +380,152 @@ jobs:
             h.mercado_pago
           );
           NODE
+
+      # PKGPOCKET_OWNER_ADMIN_GRANT
+      - name: Ensure owner Admin Pro license
+        working-directory: .
+        shell: bash
+        env:
+          ADMIN_EMAIL: ${{ secrets.PKGPOCKET_ADMIN_EMAIL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ADMIN_EMAIL:-}" ]; then
+            echo "PKGPOCKET_ADMIN_EMAIL não configurado; ignorando grant."
+            exit 0
+          fi
+
+          EMAIL="$(
+            printf '%s' "$ADMIN_EMAIL" |
+              tr '[:upper:]' '[:lower:]' |
+              xargs
+          )"
+
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "PKGPOCKET_ADMIN_EMAIL inválido"
+              exit 1
+              ;;
+          esac
+
+          EMAIL_HASH="$(
+            printf '%s' "$EMAIL" |
+              sha256sum |
+              awk '{print $1}'
+          )"
+
+          NAMESPACE_ID="$(
+            awk -F'"' '
+              /^[[:space:]]*id[[:space:]]*=/ {
+                print $2
+                exit
+              }
+            ' cloudflare/pro-api/wrangler.toml
+          )"
+
+          test -n "$NAMESPACE_ID" || {
+            echo "Namespace LICENSES não encontrado"
+            exit 1
+          }
+
+          KEY="license:${EMAIL_HASH}"
+
+          API="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${NAMESPACE_ID}/values/${KEY}"
+
+          TMP="$(mktemp)"
+          HTTP="$(
+            curl \
+              --silent \
+              --show-error \
+              -o "$TMP" \
+              -w '%{http_code}' \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "$API"
+          )"
+
+          if [ "$HTTP" = "200" ]; then
+            PROVIDER="$(jq -r '.provider // ""' "$TMP" 2>/dev/null || true)"
+            STATUS="$(jq -r '.status // ""' "$TMP" 2>/dev/null || true)"
+
+            if [ "$STATUS" = "active" ] && [ "$PROVIDER" != "admin" ]; then
+              echo "Este e-mail já possui uma licença Pro ativa normal; nada será sobrescrito."
+              rm -f "$TMP"
+              exit 0
+            fi
+
+            if [ "$STATUS" = "active" ] && [ "$PROVIDER" = "admin" ]; then
+              echo "Licença Admin Pro já existe; preservando vínculo atual."
+              rm -f "$TMP"
+              exit 0
+            fi
+          elif [ "$HTTP" != "404" ]; then
+            echo "Falha ao consultar KV: HTTP $HTTP"
+            cat "$TMP" || true
+            rm -f "$TMP"
+            exit 1
+          fi
+
+          rm -f "$TMP"
+
+          NOW="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+
+          LICENSE="$(
+            jq -nc \
+              --arg emailHash "$EMAIL_HASH" \
+              --arg now "$NOW" \
+              '{
+                version: 1,
+                product: "pkg-pocket-pro",
+                entitlement: "pro",
+                status: "active",
+                email_hash: $emailHash,
+                active_device_hash: null,
+                purchased_at: $now,
+                activated_at: null,
+                last_verified_at: $now,
+                payment_id: "admin-grant",
+                preference_id: null,
+                provider: "admin",
+                external_reference: ("admin:" + $emailHash),
+                amount_minor: 0,
+                currency: "ADMIN",
+                transfer_available_at: null,
+                updated_at: $now
+              }'
+          )"
+
+          RESPONSE="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              -X PUT \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "$LICENSE" \
+              "$API"
+          )"
+
+          printf '%s' "$RESPONSE" |
+            jq -e '.success == true' >/dev/null
+
+          CHECK="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "$API"
+          )"
+
+          printf '%s' "$CHECK" |
+            jq -e '
+              .provider == "admin" and
+              .status == "active" and
+              .active_device_hash == null
+            ' >/dev/null
+
+          echo "Admin Pro criado com sucesso."
+          echo "O primeiro /status do APK vai vincular esta licença ao aparelho."
+
