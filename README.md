@@ -10,7 +10,7 @@ Android app para enviar arquivos PKG que o próprio usuário possui para um PS4 
 - Classificação Game (`gd`), Update (`gp`) e DLC (`ac`/`al`).
 - Ordenação automática: jogo → update → DLC.
 - Detecção do RPI na rede local pela porta 12800.
-- Servidor HTTP interno no Android (porta 8080), com `HEAD`, `GET` e `Range: bytes`/HTTP 206 para arquivos grandes.
+- Servidor HTTP interno no Android (porta 8080, com fallback automático até 8090), com `HEAD`, `GET` e `Range: bytes`/HTTP 206 para arquivos grandes.
 - Fila de instalação via `/api/install`.
 - Progresso via `/api/get_task_progress`.
 - Foreground service + wake lock para reduzir interrupções durante transferências.

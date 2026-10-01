@@ -6,6 +6,7 @@ import java.io.BufferedOutputStream
 import java.io.EOFException
 import java.io.FileInputStream
 import java.net.ServerSocket
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketException
 import java.net.URLDecoder
@@ -31,7 +32,24 @@ class PkgHttpServer(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
-        server = ServerSocket(port).apply { reuseAddress = true }
+
+        val boundSocket = ServerSocket()
+
+        try {
+            /*
+             * reuseAddress precisa ser configurado ANTES do bind.
+             * Isso reduz EADDRINUSE residual após uma transferência anterior.
+             */
+            boundSocket.reuseAddress = true
+            boundSocket.bind(InetSocketAddress(port))
+            server = boundSocket
+        } catch (t: Throwable) {
+            running.set(false)
+            runCatching { boundSocket.close() }
+            server = null
+            throw t
+        }
+
         onLog("Servidor HTTP pronto na porta $port")
 
         acceptThread = Thread {
@@ -43,14 +61,12 @@ class PkgHttpServer(
                             try {
                                 handle(socket)
                             } catch (t: Throwable) {
-                                if (running.get()) {
-                                    if (!isExpectedDisconnect(t)) {
-                                        onLog(
-                                            "Falha HTTP externa • " +
-                                                "${t.javaClass.simpleName}: " +
-                                                "${t.message ?: "sem detalhes"}"
-                                        )
-                                    }
+                                if (running.get() && !isExpectedDisconnect(t)) {
+                                    onLog(
+                                        "Falha HTTP externa • " +
+                                            "${t.javaClass.simpleName}: " +
+                                            "${t.message ?: "sem detalhes"}"
+                                    )
                                 }
 
                                 runCatching { socket.close() }
@@ -58,11 +74,19 @@ class PkgHttpServer(
                         }
                     } catch (t: Throwable) {
                         runCatching { socket.close() }
-                        if (running.get()) onLog("Falha ao despachar conexão: ${t.message}")
+                        if (running.get()) {
+                            onLog(
+                                "Falha ao despachar conexão: " +
+                                    (t.message ?: t.javaClass.simpleName)
+                            )
+                        }
                     }
                 } catch (t: Throwable) {
                     if (!running.get()) break
-                    onLog("Falha no servidor HTTP: ${t.message}")
+                    onLog(
+                        "Falha no servidor HTTP: " +
+                            (t.message ?: t.javaClass.simpleName)
+                    )
                 }
             }
         }.apply {

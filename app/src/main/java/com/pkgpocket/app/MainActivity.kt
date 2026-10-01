@@ -86,84 +86,6 @@ class MainActivity : AppCompatActivity() {
 
     private val pkgCards = mutableMapOf<String, PkgCardViews>()
 
-    private val pickFalloutDiagnostic =
-        registerForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-
-            if (uri == null) {
-                return@registerForActivityResult
-            }
-
-            runCatching {
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-
-            b.status.text =
-                "Verificando integridade do Fallout…"
-
-            b.liveLog.text =
-                "Lendo apenas os blocos críticos do PKG…"
-
-            Toast.makeText(
-                this,
-                "Diagnóstico iniciado. Não será enviado nada ao PS4.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            lifecycleScope.launch {
-
-                val result = withContext(Dispatchers.IO) {
-                    runCatching {
-                        PkgRangeDiagnostic.run(
-                            contentResolver,
-                            uri
-                        )
-                    }.getOrElse { error ->
-                        buildString {
-                            appendLine(
-                                "=== PKG POCKET RANGE DIAGNOSTIC ==="
-                            )
-                            appendLine("ERRO")
-                            appendLine(
-                                error.javaClass.simpleName +
-                                    ": " +
-                                    (
-                                        error.message
-                                            ?: "sem detalhes"
-                                    )
-                            )
-                        }
-                    }
-                }
-
-                getSharedPreferences(
-                    "pkg_pocket",
-                    MODE_PRIVATE
-                ).edit()
-                    .putString(
-                        "last_log",
-                        result
-                    )
-                    .apply()
-
-                b.status.text =
-                    "Diagnóstico do Fallout concluído"
-
-                b.liveLog.text =
-                    "Resultado salvo em Configurações > Log"
-
-                Toast.makeText(
-                    this@MainActivity,
-                    "Teste concluído. Abra Configurações > Log.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-
     private val pickPkgs = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isEmpty()) return@registerForActivityResult
 
@@ -434,23 +356,6 @@ class MainActivity : AppCompatActivity() {
             pickPkgs.launch(arrayOf("application/octet-stream", "application/x-pkg", "*/*"))
         }
 
-        b.selectPkgs.setOnLongClickListener {
-            Toast.makeText(
-                this,
-                "Teste do Fallout: selecione somente o PKG GAME.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            pickFalloutDiagnostic.launch(
-                arrayOf(
-                    "application/octet-stream",
-                    "application/x-pkg",
-                    "*/*"
-                )
-            )
-
-            true
-        }
 
         b.clearSelection.setOnClickListener {
             clearSelection()

@@ -18,6 +18,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.Locale
 import kotlin.math.roundToLong
 
@@ -243,18 +246,54 @@ class InstallerService : Service() {
         }
     }
 
-    private fun restartServer(items: List<PkgItem>) {
+    private fun restartServer(items: List<PkgItem>): Boolean {
         server?.stop()
-        server = PkgHttpServer(
-            resolver = contentResolver,
-            port = 8080,
-            itemsProvider = { items },
-            onLog = ::logOnly,
-            onHttpFailure = ::captureRpiSnapshotAfterHttpFailure
-        ).also {
-            runCatching { it.start() }
-                .onFailure { e -> logOnly(getString(R.string.log_server_error, e.message ?: "?")) }
+        server = null
+
+        var lastError: Throwable? = null
+
+        for (candidatePort in 8080..8090) {
+            val candidate = PkgHttpServer(
+                resolver = contentResolver,
+                port = candidatePort,
+                itemsProvider = { items },
+                onLog = ::logOnly,
+                onHttpFailure = ::captureRpiSnapshotAfterHttpFailure
+            )
+
+            val result = runCatching {
+                candidate.start()
+            }
+
+            if (result.isSuccess) {
+                server = candidate
+
+                if (candidatePort != 8080) {
+                    logOnly(
+                        getString(
+                            R.string.log_server_port_fallback,
+                            candidatePort
+                        )
+                    )
+                }
+
+                return true
+            }
+
+            lastError = result.exceptionOrNull()
+            runCatching { candidate.stop() }
         }
+
+        logOnly(
+            getString(
+                R.string.log_server_error,
+                lastError?.message
+                    ?: lastError?.javaClass?.simpleName
+                    ?: "?"
+            )
+        )
+
+        return false
     }
 
     private fun installAll(ps4Ip: String) {
@@ -271,10 +310,15 @@ class InstallerService : Service() {
         lastOverallPercent = 0
         waitingForRpiRecovery = false
         retryRpiRequested = false
-        restartServer(transferItems)
+        val serverReady = restartServer(transferItems)
 
         installJob = scope.launch {
             acquirePerformanceLocks()
+
+            if (!serverReady) {
+                finishError(getString(R.string.error_http_ports_busy))
+                return@launch
+            }
 
             val localIp = NetworkUtils.localIpv4()
             if (localIp == null) {
@@ -302,7 +346,8 @@ class InstallerService : Service() {
                 finishError(
                     getString(
                         R.string.error_rpi_not_found,
-                        ps4Ip
+                        ps4Ip,
+                        configuredRpiPort
                     )
                 )
                 return@launch
@@ -807,11 +852,62 @@ class InstallerService : Service() {
                 return@launch
             } catch (e: Exception) {
                 if (!cancelRequested) {
+                    val friendly =
+                        when (e) {
+                            is RpiClient.HttpException ->
+                                when (e.statusCode) {
+                                    400 ->
+                                        getString(R.string.error_rpi_http_400)
+                                    404, 405, 501 ->
+                                        getString(
+                                            R.string.error_rpi_http_incompatible,
+                                            e.statusCode
+                                        )
+                                    500 ->
+                                        getString(R.string.error_rpi_http_500)
+                                    503 ->
+                                        getString(R.string.error_rpi_http_503)
+                                    else ->
+                                        getString(
+                                            R.string.error_rpi_http_generic,
+                                            e.statusCode
+                                        )
+                                }
+
+                            is SocketTimeoutException ->
+                                getString(R.string.error_rpi_timeout)
+
+                            is ConnectException ->
+                                getString(R.string.error_rpi_connect)
+
+                            is UnknownHostException ->
+                                getString(R.string.error_rpi_host)
+
+                            else ->
+                                e.message
+                                    ?.replace(Regex("\s+"), " ")
+                                    ?.trim()
+                                    ?.take(240)
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: getString(R.string.unknown_error)
+                        }
+
+                    val technical = RpiClient.technicalDetail(e)
+
+                    if (technical.isNotBlank()) {
+                        logOnly(
+                            getString(
+                                R.string.log_rpi_technical_detail,
+                                technical
+                            )
+                        )
+                    }
+
                     activeItem?.let {
                         publishItemOnly(
                             token = it.token,
                             status = getString(R.string.state_failed),
-                            detail = e.message ?: getString(R.string.unknown_error),
+                            detail = friendly,
                             percent = currentItemPercent.coerceAtLeast(0)
                         )
                     }
@@ -820,7 +916,7 @@ class InstallerService : Service() {
                         getString(
                             R.string.error_in_pkg,
                             currentTitle(),
-                            e.message ?: getString(R.string.unknown_error)
+                            friendly
                         )
                     )
                 }

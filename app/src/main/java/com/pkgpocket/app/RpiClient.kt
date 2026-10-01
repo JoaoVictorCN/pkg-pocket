@@ -1,6 +1,7 @@
 package com.pkgpocket.app
 
 import org.json.JSONObject
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -16,8 +17,34 @@ object RpiClient {
 
     fun getPort(): Int = rpiPort
 
-
     data class InstallResult(val taskId: Int?, val raw: String)
+
+    class HttpException(
+        val statusCode: Int,
+        val responseBody: String
+    ) : Exception("RPI HTTP $statusCode")
+
+    fun technicalDetail(error: Throwable): String =
+        when (error) {
+            is HttpException -> {
+                val body = error.responseBody
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                    .take(1200)
+
+                if (body.isBlank()) {
+                    "HTTP ${error.statusCode} • resposta sem corpo"
+                } else {
+                    "HTTP ${error.statusCode} • $body"
+                }
+            }
+
+            else ->
+                "${error.javaClass.simpleName}: " +
+                    (error.message ?: "sem detalhes")
+                        .replace(Regex("\\s+"), " ")
+                        .take(1200)
+        }
 
     fun install(ps4Ip: String, pkgUrl: String): InstallResult {
         val body = JSONObject()
@@ -67,37 +94,72 @@ object RpiClient {
         post(ps4Ip, "/api/unregister_task", JSONObject().put("task_id", taskId))
 
     private fun post(ip: String, path: String, json: JSONObject): String {
-        val conn = (URL("http://$ip:$rpiPort$path").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 3000
-            readTimeout = 7000
-            doOutput = true
-            useCaches = false
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Accept", "application/json")
-        }
+        var conn: HttpURLConnection? = null
 
-        conn.outputStream.use {
-            it.write(json.toString().toByteArray(Charsets.UTF_8))
-            it.flush()
-        }
+        try {
+            conn = (URL("http://$ip:$rpiPort$path")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 3000
+                readTimeout = 7000
+                doOutput = true
+                useCaches = false
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "application/json")
+            }
 
-        val code = conn.responseCode
-        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-        val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            conn.outputStream.use {
+                it.write(json.toString().toByteArray(Charsets.UTF_8))
+                it.flush()
+            }
 
-        if (code !in 200..299) {
-            error("RPI respondeu HTTP $code: $text")
-        }
-        if (text.isBlank()) {
-            error("RPI respondeu sem corpo")
-        }
+            val code = conn.responseCode
+            val stream =
+                if (code in 200..299) {
+                    conn.inputStream
+                } else {
+                    conn.errorStream
+                }
 
-        return text
+            val text = readLimited(stream, 8192)
+
+            if (code !in 200..299) {
+                throw HttpException(code, text)
+            }
+
+            if (text.isBlank()) {
+                error("RPI respondeu sem corpo.")
+            }
+
+            return text
+        } finally {
+            runCatching { conn?.disconnect() }
+        }
+    }
+
+    private fun readLimited(
+        input: InputStream?,
+        maxChars: Int
+    ): String {
+        if (input == null || maxChars <= 0) return ""
+
+        return input.bufferedReader(Charsets.UTF_8).use { reader ->
+            val out = StringBuilder(minOf(maxChars, 2048))
+            val buf = CharArray(1024)
+
+            while (out.length < maxChars) {
+                val ask = minOf(buf.size, maxChars - out.length)
+                val n = reader.read(buf, 0, ask)
+                if (n <= 0) break
+                out.append(buf, 0, n)
+            }
+
+            out.toString()
+        }
     }
 
     private fun normalizeJson(raw: String): String {
-        return raw.replace(Regex("""0[xX][0-9a-fA-F]+""")) { match ->
+        return raw.replace(Regex("0[xX][0-9a-fA-F]+")) { match ->
             val hex = match.value.substring(2)
             runCatching { hex.toULong(16).toString() }.getOrElse { "0" }
         }

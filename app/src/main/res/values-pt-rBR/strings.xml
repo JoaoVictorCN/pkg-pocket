@@ -231,7 +231,7 @@ Pro: %4$s</string>
     <string name="update_channel_description">Avisos quando uma nova versão do PKG Pocket estiver disponível</string>
     <string name="update_available_title">Atualização do PKG Pocket disponível</string>
     <string name="update_available_text">PKG Pocket %1$s está disponível. Toque para baixar a nova versão.</string>
-\n    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) pronto(s) para instalar • %2$s</string>\n    <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s...</string>\n    <string name="error_rpi_not_found">Remote Package Installer não encontrado em %1$s:12800</string>\n
+\n    <string name="quick_check_ok">Verificação rápida: %1$d PKG(s) pronto(s) para instalar • %2$s</string>\n    <string name="starting_queue">Iniciando fila de %1$d PKG(s) para %2$s...</string>\n    <string name="error_rpi_not_found">Remote Package Installer não encontrado em %1$s:%2$d</string>\n
     <string name="pro_payment_method_title">Forma de pagamento</string>
     <string name="pro_payment_pix">Pix</string>
     <string name="pro_payment_mercadopago">Mercado Pago / cartão</string>
@@ -251,4 +251,78 @@ Pro: %4$s</string>
     <string name="settings_diag_rpi_port">Porta RPI configurada: %1$d</string>
     <string name="settings_diag_rpi_endpoint">RPI %1$s:%2$d: %3$s</string>
     <string name="settings_diag_no_ps4">RPI: PS4 ainda não identificado</string>
+    <string name="error_http_ports_busy">Não foi possível iniciar o servidor local de PKGs. As portas 8080–8090 estão em uso por outro aplicativo. Feche o app ou serviço que está usando essas portas e tente novamente.</string>
+    <string name="log_server_port_fallback">A porta 8080 estava ocupada. O servidor local de PKGs foi iniciado na porta %1$d.</string>
+    <string name="log_rpi_technical_detail">Detalhe técnico do RPI: %1$s</string>
+    <string name="error_rpi_http_400">O RPI rejeitou a requisição (HTTP 400).</string>
+    <string name="error_rpi_http_incompatible">O serviço encontrado não parece ser um RPI compatível (HTTP %1$d).</string>
+    <string name="error_rpi_http_500">O RPI não conseguiu preparar o PKG (HTTP 500).</string>
+    <string name="error_rpi_http_503">O RPI está temporariamente indisponível (HTTP 503).</string>
+    <string name="error_rpi_http_generic">Falha na comunicação com o RPI (HTTP %1$d).</string>
+    <string name="error_rpi_timeout">O RPI demorou demais para responder.</string>
+    <string name="error_rpi_connect">Não foi possível conectar ao RPI.</string>
+    <string name="error_rpi_host">O endereço do PS4 não pôde ser resolvido.</string>
+    <string name="quick_check_ready_message">Todos os %1$d PKG(s) selecionados passaram na verificação estrutural rápida.
+
+Total: %2$s
+Tempo aproximado: ~%3$s
+
+A estimativa usa ~28,5 MB/s e pode variar conforme o Wi-Fi e o desempenho do PS4.</string>
+    <string name="quick_check_ready_with_warnings_title">PKGs prontos com avisos</string>
+    <string name="quick_check_apt_with_warnings">Nenhum erro estrutural foi encontrado. Os PKGs selecionados estão prontos para instalar, com os avisos abaixo. Tempo aproximado: ~%1$s.</string>
+    <string name="quick_check_result">%1$d/%2$d PKGs sem avisos • %3$s</string>
+    <string name="quick_check_note">Esta é uma verificação estrutural rápida. Ela não lê nem calcula hash do PKG inteiro.</string>
+    <string name="quick_issue_unreadable">Não foi possível ler este arquivo.</string>
+    <string name="quick_issue_too_small">O arquivo é pequeno demais para conter um cabeçalho válido de PKG do PS4.</string>
+    <string name="quick_issue_bad_magic">A assinatura de PKG do PS4 não foi encontrada.</string>
+    <string name="quick_issue_bad_entry_count">Quantidade de entradas do PKG inválida.</string>
+    <string name="quick_issue_bad_table">A tabela de entradas do PKG é inválida ou está truncada.</string>
+    <string name="quick_issue_metadata_bounds">Metadados críticos do PKG apontam para fora do arquivo.</string>
+    <string name="quick_issue_missing_title_id">Title ID não encontrado.</string>
+    <string name="quick_issue_missing_content_id">Content ID não encontrado.</string>
+    <string name="rpi_stalled_instruction">O RPI parou de responder. Reabra o Remote Package Installer no PS4, mantenha-o em foco e toque em Continuar fila.</string>
+    <string name="state_rpi_stalled">RPI indisponível • fila pausada</string>
+    <string name="log_rpi_stalled">O RPI não respondeu após %1$d tentativas de status. Fila pausada para recuperação.</string>
+    <string name="log_rpi_reconnected">O RPI voltou a responder. Retomando a fila.</string>
+    <string name="log_rpi_task_recovered_after_restart">Tarefa %1$d recuperada após reiniciar o RPI. Retomando a fila.</string>
+    <string name="log_rpi_http_complete">O RPI não informa mais a tarefa, mas o PKG foi servido por completo ao PS4. Considerando a transferência concluída e continuando a fila.</string>
+    <string name="error_rpi_recovery_failed">O RPI voltou a responder, mas a tarefa atual não foi encontrada e o PKG não foi servido por completo. Tente novamente este PKG.</string>
+    <string name="queue_optimized">%1$d pacote(s) redundante(s) removido(s) da fila.</string>
+    <string name="error_prefix">ERRO: %1$s</string>
+    <string name="log_pkg">PKG: %1$s • %2$s • %3$s • v%4$s • %5$s</string>
+    <string name="log_clipboard_label">Log do PKG Pocket</string>
+    <string name="log_share_subject">Log do PKG Pocket</string>
+    <string name="state_waiting_ps4">Transferência continua • aguardando status do PS4…</string>
+    <string name="overall_idle">0% • Aguardando</string>
+    <string name="overall_preparing">%1$d/%2$d PKGs • %3$d%% • Preparando…</string>
+    <string name="overall_position_percent">%1$d/%2$d PKGs • %3$d%%</string>
+    <string name="overall_transfer_full">%1$d/%2$d PKGs • %3$d%% • %4$s • %5$s</string>
+    <string name="overall_transfer_speed">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+    <string name="overall_transfer_wait">%1$d/%2$d PKGs • %3$d%% • %4$s</string>
+    <string name="transfer_amount">%1$s / %2$s</string>
+    <string name="transfer_detail_full">%1$s • %2$s • %3$s</string>
+    <string name="transfer_detail_speed">%1$s • %2$s</string>
+    <string name="transfer_detail_wait">%1$s • %2$s</string>
+    <string name="top_preparing">%1$d/%2$d • Preparando %3$s…</string>
+    <string name="top_registering">%1$d/%2$d • Registrando tarefa no PS4…</string>
+    <string name="top_sending_initial">%1$d/%2$d • %3$s • Iniciando transferência…</string>
+    <string name="top_waiting_ps4">%1$d/%2$d • Transferência continua • aguardando PS4…</string>
+    <string name="top_progress">%1$d/%2$d • %3$s • %4$d%% • %5$s</string>
+    <string name="top_completed">%1$d/%2$d • Concluído • %3$s</string>
+    <string name="error_no_ipv4">Celular sem endereço IPv4 local.</string>
+    <string name="error_no_pkgs">Nenhum PKG selecionado.</string>
+    <string name="error_server_not_started">O servidor HTTP local não foi iniciado.</string>
+    <string name="error_no_task">O RPI não retornou task_id e nenhuma tarefa foi encontrada.</string>
+    <string name="error_in_pkg">Falha em %1$s: %2$s</string>
+    <string name="log_server_error">Erro no servidor local: %1$s</string>
+    <string name="log_install_request">Solicitação enviada ao RPI: %1$s • %2$s</string>
+    <string name="log_install_response_lost">A resposta de /api/install foi perdida; verificando se o PS4 criou a tarefa…</string>
+    <string name="log_no_task_id">O RPI não retornou task_id; procurando a tarefa pelo Content ID…</string>
+    <string name="log_task_recovered">Tarefa %1$d recuperada pelo Content ID</string>
+    <string name="log_task_started">Tarefa %1$d iniciada para %2$s</string>
+    <string name="log_status_flaky">A consulta de status do RPI falhou (%1$dx); o servidor do PKG continua disponível.</string>
+    <string name="log_completed">Concluído: %1$s • %2$s</string>
+    <string name="installation_completed_summary">Instalação concluída • %1$s • %2$s</string>
+    <string name="queue_completed_summary">Fila concluída • %1$d PKGs • %2$s • %3$s</string>
+    <string name="rpi_found_with_port">RPI encontrado em %1$s:%2$d</string>
 </resources>

@@ -226,7 +226,7 @@ Estimate uses ~28.5 MB/s and may vary with Wi-Fi and PS4 performance.</string>
     <string name="notification_install_failed">Installation failed</string>
     <string name="notification_transfer_cancelled">Transfer cancelled</string>
     <string name="error_no_ipv4">Phone has no local IPv4 address</string>
-    <string name="error_rpi_not_found">RPI not found at %1$s:12800</string>
+    <string name="error_rpi_not_found">RPI not found at %1$s:%2$d</string>
     <string name="error_no_pkgs">No PKG selected</string>
     <string name="error_server_not_started">HTTP server not started</string>
     <string name="error_no_task">RPI did not return a task_id and no task could be found</string>
@@ -435,4 +435,15 @@ Pro: %4$s</string>
     <string name="settings_diag_rpi_port">Configured RPI port: %1$d</string>
     <string name="settings_diag_rpi_endpoint">RPI %1$s:%2$d: %3$s</string>
     <string name="settings_diag_no_ps4">RPI: PS4 not identified yet</string>
+    <string name="error_http_ports_busy">Could not start the local PKG server. Ports 8080–8090 are in use by another app. Close the app or service using them and try again.</string>
+    <string name="log_server_port_fallback">Port 8080 was busy. Local PKG server started on port %1$d.</string>
+    <string name="log_rpi_technical_detail">RPI technical detail: %1$s</string>
+    <string name="error_rpi_http_400">RPI rejected the request (HTTP 400).</string>
+    <string name="error_rpi_http_incompatible">The service found does not look like a compatible RPI (HTTP %1$d).</string>
+    <string name="error_rpi_http_500">RPI could not prepare the PKG (HTTP 500).</string>
+    <string name="error_rpi_http_503">RPI is temporarily unavailable (HTTP 503).</string>
+    <string name="error_rpi_http_generic">RPI communication failed (HTTP %1$d).</string>
+    <string name="error_rpi_timeout">RPI took too long to respond.</string>
+    <string name="error_rpi_connect">Could not connect to RPI.</string>
+    <string name="error_rpi_host">The PS4 address could not be resolved.</string>
 </resources>
