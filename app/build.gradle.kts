@@ -38,8 +38,8 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 83
-        versionName = "1.0.1"
+        versionCode = 84
+        versionName = "1.0.2"
 
 
         manifestPlaceholders["ADMOB_APP_ID"] = admobAppId

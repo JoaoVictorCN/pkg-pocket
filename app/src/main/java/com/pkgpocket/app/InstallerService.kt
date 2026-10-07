@@ -80,6 +80,10 @@ class InstallerService : Service() {
     @Volatile private var waitingForRpiRecovery = false
     @Volatile private var retryRpiRequested = false
 
+    private var analyticsInstallStartedAt = 0L
+    private var analyticsInstallPkgCount = 0
+    private var analyticsInstallTotalBytes = 0L
+
     override fun onCreate() {
         isRunning = true
         super.onCreate()
@@ -302,6 +306,11 @@ class InstallerService : Service() {
         val transferItems = ActiveTransferQueue.get()
             .ifEmpty { PkgRepository.items.toList() }
 
+        analyticsInstallStartedAt = 0L
+        analyticsInstallPkgCount = transferItems.size
+        analyticsInstallTotalBytes =
+            transferItems.sumOf { it.size.coerceAtLeast(0L) }
+
         cancelRequested = false
         currentPs4Ip = ps4Ip
         currentItemToken = null
@@ -316,13 +325,19 @@ class InstallerService : Service() {
             acquirePerformanceLocks()
 
             if (!serverReady) {
-                finishError(getString(R.string.error_http_ports_busy))
+                finishError(
+                    getString(R.string.error_http_ports_busy),
+                    analyticsReason = "http_port_busy"
+                )
                 return@launch
             }
 
             val localIp = NetworkUtils.localIpv4()
             if (localIp == null) {
-                finishError(getString(R.string.error_no_ipv4))
+                finishError(
+                    getString(R.string.error_no_ipv4),
+                    analyticsReason = "no_local_ipv4"
+                )
                 return@launch
             }
 
@@ -348,7 +363,8 @@ class InstallerService : Service() {
                         R.string.error_rpi_not_found,
                         ps4Ip,
                         configuredRpiPort
-                    )
+                    ),
+                    analyticsReason = "rpi_unreachable"
                 )
                 return@launch
             }
@@ -369,7 +385,10 @@ class InstallerService : Service() {
             )
 
             if (ordered.isEmpty()) {
-                finishError(getString(R.string.error_no_pkgs))
+                finishError(
+                    getString(R.string.error_no_pkgs),
+                    analyticsReason = "empty_queue"
+                )
                 return@launch
             }
 
@@ -383,13 +402,23 @@ class InstallerService : Service() {
                         PublicBetaUsage.remainingDlcs(this@InstallerService),
                         PublicBetaUsage.requestedUpdates(ordered),
                         PublicBetaUsage.remainingUpdates(this@InstallerService)
-                    )
+                    ),
+                    analyticsReason = "beta_limit"
                 )
                 return@launch
             }
 
             val queueStartedAt = SystemClock.elapsedRealtime()
             val totalSize = ordered.sumOf { it.size.coerceAtLeast(0L) }
+
+            analyticsInstallStartedAt = queueStartedAt
+            analyticsInstallPkgCount = ordered.size
+            analyticsInstallTotalBytes = totalSize
+
+            AnalyticsTracker.installStarted(
+                this@InstallerService,
+                ordered
+            )
             var completedBytes = 0L
             var activeItem: PkgItem? = null
 
@@ -917,7 +946,9 @@ class InstallerService : Service() {
                             R.string.error_in_pkg,
                             currentTitle(),
                             friendly
-                        )
+                        ),
+                        analyticsReason =
+                            AnalyticsTracker.failureReason(e)
                     )
                 }
                 return@launch
@@ -1317,6 +1348,13 @@ class InstallerService : Service() {
     }
 
     private fun finishSuccess(summary: String) {
+        AnalyticsTracker.installCompleted(
+            context = this,
+            pkgCount = analyticsInstallPkgCount,
+            totalBytes = analyticsInstallTotalBytes,
+            durationMs = analyticsDurationMs()
+        )
+
         persistSessionLog(summary)
         broadcastFinal(summary, 100, success = true)
         PkgRepository.items = emptyList()
@@ -1334,7 +1372,19 @@ class InstallerService : Service() {
         cleanupAndStop(clearQueue = true)
     }
 
-    private fun finishError(message: String) {
+    private fun finishError(
+        message: String,
+        analyticsReason: String = "unknown"
+    ) {
+        AnalyticsTracker.installFailed(
+            context = this,
+            reason = analyticsReason,
+            pkgCount = analyticsInstallPkgCount,
+            totalBytes = analyticsInstallTotalBytes,
+            durationMs = analyticsDurationMs(),
+            progressPercent = lastOverallPercent
+        )
+
         persistSessionLog(message)
         broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -1352,6 +1402,14 @@ class InstallerService : Service() {
     }
 
     private fun finishCancelled(message: String) {
+        AnalyticsTracker.installCancelled(
+            context = this,
+            pkgCount = analyticsInstallPkgCount,
+            totalBytes = analyticsInstallTotalBytes,
+            durationMs = analyticsDurationMs(),
+            progressPercent = lastOverallPercent
+        )
+
         persistSessionLog(message)
         broadcastFinal(message, lastOverallPercent, success = false)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -1366,6 +1424,16 @@ class InstallerService : Service() {
         )
 
         cleanupAndStop(clearQueue = true)
+    }
+
+    private fun analyticsDurationMs(): Long {
+        val startedAt = analyticsInstallStartedAt
+        return if (startedAt > 0L) {
+            (SystemClock.elapsedRealtime() - startedAt)
+                .coerceAtLeast(0L)
+        } else {
+            0L
+        }
     }
 
     private fun broadcastFinal(
@@ -1397,6 +1465,10 @@ class InstallerService : Service() {
         currentItemToken = null
         waitingForRpiRecovery = false
         retryRpiRequested = false
+
+        analyticsInstallStartedAt = 0L
+        analyticsInstallPkgCount = 0
+        analyticsInstallTotalBytes = 0L
 
         if (clearQueue) {
             ActiveTransferQueue.clear()

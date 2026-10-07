@@ -120,6 +120,10 @@ class MainActivity : AppCompatActivity() {
             installSelectedTokens.clear()
             installSelectedTokens.addAll(normalized.map { it.token })
             PkgRepository.items = normalized
+            AnalyticsTracker.pkgSelected(
+                this@MainActivity,
+                normalized
+            )
             persistSelection(normalized)
             exitMultiSelectMode()
             render(normalized)
@@ -427,6 +431,10 @@ class MainActivity : AppCompatActivity() {
                         .apply()
 
                     RpiClient.setPort(port)
+                    AnalyticsTracker.ps4Detected(
+                        this@MainActivity,
+                        port
+                    )
 
                     b.ps4Ip.setText(ip)
                     refreshPs4Info(ip, knownRpiReachable = true)
@@ -3516,6 +3524,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderProState(active: Boolean, message: String?) {
+        AnalyticsTracker.setUserType(this, active)
+
         b.proStatusText.text =
             message ?: getString(
                 if (active) {
