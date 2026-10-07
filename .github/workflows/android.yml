@@ -152,11 +152,37 @@ jobs:
       - name: Restore stable signing key
         if: env.PKGPOCKET_KEYSTORE_B64 != ''
         run: printf '%s' "$PKGPOCKET_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/pkgpocket-signing.jks"
+      - name: Restore Firebase config
+        env:
+          PKGPOCKET_FIREBASE_JSON_B64: ${{ secrets.PKGPOCKET_FIREBASE_JSON_B64 }}
+        run: |
+          set -euo pipefail
+
+          test -n "${PKGPOCKET_FIREBASE_JSON_B64:-}" || {
+            echo "PKGPOCKET_FIREBASE_JSON_B64 ausente"
+            exit 1
+          }
+
+          mkdir -p app/src/release
+
+          printf '%s' "$PKGPOCKET_FIREBASE_JSON_B64" |
+            base64 -d             > app/src/release/google-services.json
+
+          jq -e '
+            .project_info.project_id == "pkg-pocket" and
+            any(
+              .client[];
+              .client_info.android_client_info.package_name == "com.pkgpocket.app"
+            )
+          ' app/src/release/google-services.json >/dev/null
+
+          echo "Firebase config OK."
+
       - name: Build RELEASE APK only
         env:
           PKGPOCKET_KEYSTORE_PATH: ${{ runner.temp }}/pkgpocket-signing.jks
         run: gradle :app:assembleRelease --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.ref == 'refs/heads/release/v1.0' && 'pkg-pocket-1.0.0-apk' || 'pkg-pocket-release-apk' }}
+          name: ${{ github.ref == 'refs/heads/release/v1.0' && 'pkg-pocket-1.0.1-apk' || 'pkg-pocket-release-apk' }}
           path: app/build/outputs/apk/release/app-release.apk

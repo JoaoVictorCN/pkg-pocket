@@ -4,3 +4,5 @@ local.properties
 **/build/
 *.iml
 cloudflare/wrangler.toml
+app/google-services.json
+app/src/release/google-services.json

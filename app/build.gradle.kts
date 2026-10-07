@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 val signingStorePath = System.getenv("PKGPOCKET_KEYSTORE_PATH")
@@ -37,8 +38,8 @@ android {
         applicationId = "com.pkgpocket.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 82
-        versionName = "1.0.0"
+        versionCode = 83
+        versionName = "1.0.1"
 
 
         manifestPlaceholders["ADMOB_APP_ID"] = admobAppId
@@ -99,6 +100,8 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
+    implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.gms:play-services-ads:24.0.0")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
